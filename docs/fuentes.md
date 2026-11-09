@@ -50,6 +50,18 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - Se descarga la serie completa; el análisis usará el último año. La población está en la tabla 31105, indicador «Población».
 - Los valores usan coma decimal y punto de miles; «..» o vacío = dato no disponible (secreto estadístico).
 
+### INE. Cartografía digitalizada de secciones censales, seccionado a 1 de enero de 2025 (toda España)
+
+- **Carpeta:** `datos/originales/ine_seccionado/`
+- **Enlace:** https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout (fichero https://www.ine.es/prodyser/cartografia/seccionado_2025.zip)
+- **Licencia:** Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))
+- **Fecha de descarga:** 2026-11-09
+- **Versión de los datos:** Seccionado a 1 de enero de 2025
+- **Ficheros:**
+  - seccionado_2025.zip: shapefile `España_Seccionado2025_ETRS89H30/SECC_CE_20250101.shp` (ETRS89 / UTM 30N, EPSG:25830); capa.txt: ruta del .shp dentro del ZIP
+- Se usa el seccionado de 2025 y no el de 2024 porque es el que corresponde a los datos del Atlas de renta de 2024: casan todas las secciones de Madrid con datos.
+- Uso: polígonos de las secciones para la renta y la población del INE (capa `secciones_censales` procesada). Los límites de la Comunidad y de los municipios se toman de las secciones del portal de la Comunidad.
+
 ### Censo de locales, sus actividades y terrazas de hostelería y restauración
 
 - **Carpeta:** `datos/originales/madrid_censo_locales/`
@@ -107,26 +119,28 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet, geometría en EPSG:25830 y columnas `lat`/`lon` en EPSG:4326).
 
 - Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, farmacias, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, farmacias del censo).
-- Recorte a la Comunidad de Madrid con la unión de las secciones censales; cada punto lleva `cdgseccion` (10 dígitos, como el INE) y `cod_municipio`.
+- Dos cartografías de secciones censales, cada una con un uso:
+  - **Secciones del portal de la Comunidad** (`secciones_censales/558.zip`, seccionado 2019): límite de la Comunidad para recortar todas las capas y límites municipales (`cod_municipio` de cada punto).
+  - **Cartografía del INE** (`ine_seccionado/`, seccionado a 1 de enero de 2025): polígonos de la capa `secciones_censales` con la renta y la población del Atlas de renta de 2024, y `cdgseccion` de cada punto (sección del INE en la que cae, para cruzarlo con la renta).
 - No se conservan nombres de titulares ni de establecimientos, NIF, teléfonos, faxes ni correos.
 
 | Capa | Origen | Final | Descartes |
 |---|---|---|---|
-| secciones_censales | 4.417 polígonos | 4.417 | — |
+| secciones_censales | 4.518 polígonos | 4.518 | — |
 | centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
 | centros_sanitarios | 15.906 centros | 15.737 | sin coordenadas: 169 |
 | desfibriladores | 13.680 filas | 13.679 | fila duplicada exacta: 1 |
 | farmacias | 2.957 filas | 2.953 | sin coordenadas: 4 |
 | hosteleria_osm | 15.665 elementos | 15.665 | — |
-| hosteleria_madrid_capital | 21.596 locales | 19.157 | local cerrado: 1790; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; sin coordenadas: 89 |
+| hosteleria_madrid_capital | 21.596 locales | 17.143 | local cerrado: 1790; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2036; sin coordenadas: 67 |
 
 **secciones_censales**
 
-- 1 polígono(s) inválido(s) reparado(s)
-- Emparejamiento: «28» + CDGSECCION sin guiones = código de 10 dígitos del INE. 4368 de 4417 polígonos con datos 2024; 49 sin datos (1.1 %).
-- 150 códigos INE 2024 con datos no tienen polígono (secciones creadas después de 2019) en 60 distritos; sus datos no se usan.
-- 111 polígonos marcados como posible división desde 2019 (estimación).
-- Población 2024 total en polígonos: 6.704.745; en todos los códigos INE: 6.995.318
+- Polígonos: cartografía del INE, seccionado a 1 de enero de 2025 (4518 secciones de la provincia de Madrid); 0 inválidos reparados.
+- Emparejamiento: `CUSEC` de la cartografía = código de 10 dígitos del Atlas de renta («2807912062 Madrid sección 12062»). 4518 de 4518 polígonos con datos 2024; 0 sin datos (0.0 %). 0 secciones INE con datos sin polígono.
+- Población 2024 en polígonos: 6.995.318; total de las secciones INE con dato: 6.995.318.
+- Recorte al límite de la Comunidad del portal: se pierde un 0.050 % del área (diferencias de borde entre cartografías).
+- 0 secciones cuyo punto interior cae en otro municipio según el portal.
 
 **centros_sanitarios**
 
@@ -136,25 +150,28 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 
 **desfibriladores**
 
+- 3 puntos tienen una sección del INE de otro municipio que el del portal (diferencias de borde entre las dos cartografías).
 - `horario_acceso` se deja tal cual viene (texto libre, sin normalizar).
 - No se conserva `direccion_ubicacion` (texto libre que a veces nombra empresas o personas) ni la dirección postal.
 
 **hosteleria_osm**
 
+- 1 puntos dentro de la Comunidad no caen en ningún polígono del INE (diferencias de borde); quedan sin `cdgseccion`.
+- 1 puntos tienen una sección del INE de otro municipio que el del portal (diferencias de borde entre las dos cartografías).
 - `tipo` = etiqueta amenity (restaurant, bar, cafe, fast_food, pub). `cocina` = etiqueta cuisine tal cual (puede llevar varios valores separados por «;»).
 - Vías y relaciones (edificios) se representan por su punto central.
 - No se conserva el nombre del local ni etiquetas de contacto.
 
 **hosteleria_madrid_capital**
 
-- Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas): `categoria` distingue restauración (561), catering y comedores colectivos (562) y bares (563). No incluye alojamiento (55) ni discotecas (93).
-- Coordenadas: local 17236, edificio (estimación) 1419, agrupación 502, sin coordenadas 89.
-- `tiene_terraza`: terraza en situación «Abierta» en el fichero de terrazas. 404 id_local del fichero de terrazas no están entre los locales de hostelería abiertos.
+- Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas) sin catering ni comedores colectivos (562), que no compiten con un bar abierto al público. `categoria` distingue restauración (561) y bares (563). No incluye alojamiento (55) ni discotecas (93).
+- 142 locales con catering o comedor colectivo y además otra actividad de hostelería se conservan, sin el epígrafe 562.
+- Coordenadas: local 16007, edificio (estimación) 641, agrupación 495, sin coordenadas 67.
+- `tiene_terraza`: terraza en situación «Abierta» en el fichero de terrazas. 412 id_local del fichero de terrazas no están entre los locales de hostelería abiertos.
 - No se conserva el rótulo (puede ser un nombre de persona).
 
 **Estimaciones** (supuestos explícitos):
 
-- `secciones_censales.posible_division_desde_2019`: se marca una sección de 2019 cuando su distrito tiene códigos INE de 2024 sin polígono (secciones nuevas) y su población cae más de un 25 % entre 2021 y 2024. Supuesto: esa caída se debe a que parte de la sección pasó a otra nueva, así que sus datos de 2024 solo cubren una parte del polígono.
 - `hosteleria_madrid_capital.origen_coordenadas = "edificio (estimación)"`: el local no tiene coordenadas propias y se le asigna la media de los demás locales del mismo edificio (mismo `id_ndp_edificio`, es decir, el mismo número de portal).
 
 <!-- fin:procesados -->

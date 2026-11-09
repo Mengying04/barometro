@@ -6,6 +6,8 @@ Cada fuente va a su carpeta en datos/originales/ y se anota en docs/fuentes.md
   1. ine_adrh/            INE, Atlas de distribución de renta de los hogares,
                           provincia de Madrid (tablas 31097 renta y 31105 indicadores
                           demográficos, que incluye la población). Serie completa.
+  1b. ine_seccionado/    INE, cartografía de secciones censales (seccionado a 1 de enero
+                          del año que corresponde a los datos de renta).
   2. madrid_censo_locales/ Ayuntamiento de Madrid, censo de locales, actividades y
                           terrazas de hostelería y restauración (CSV + PDF de estructura).
   3. osm_hosteleria/      OpenStreetMap vía Overpass: bares, pubs, cafeterías,
@@ -15,7 +17,7 @@ Cada fuente va a su carpeta en datos/originales/ y se anota en docs/fuentes.md
                           autobuses interurbanos, urbanos de Madrid (EMT) y urbanos de
                           otros municipios.
 
-Uso:  python src/descargar_externas.py [ine madrid osm crtm]
+Uso:  python src/descargar_externas.py [ine ine_secc madrid osm crtm]
       (sin argumentos descarga las cuatro)
 Solo usa la biblioteca estándar de Python.
 """
@@ -97,6 +99,50 @@ def fuente_ine(informe: dict) -> dict:
                   "La población está en la tabla 31105, indicador «Población».",
                   "Los valores usan coma decimal y punto de miles; «..» o vacío = "
                   "dato no disponible (secreto estadístico)."],
+    }
+
+
+# ------------------------------------------------------- INE: cartografía de secciones
+# Año del seccionado: el Atlas de renta con datos de 2024 usa las secciones vigentes a
+# 1 de enero de 2025 (comprobado el 2026-11-09: casan las 4.518 secciones de Madrid con
+# datos; con el seccionado de 2024 quedarían 45 sin polígono).
+INE_SECCIONADO = 2025
+
+
+def fuente_ine_seccionado(informe: dict) -> dict:
+    carpeta = DIR_ORIGINALES / "ine_seccionado"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    nombre = f"seccionado_{INE_SECCIONADO}.zip"
+    url = f"https://www.ine.es/prodyser/cartografia/{nombre}"
+    print(f"  · {nombre} ...", end=" ", flush=True)
+    tam = descargar(url, carpeta / nombre, timeout=600)
+    with zipfile.ZipFile(carpeta / nombre) as zf:
+        if zf.testzip():
+            raise RuntimeError(f"{nombre}: ZIP dañado")
+        shp = [n for n in zf.namelist() if n.lower().endswith(".shp")]
+    if len(shp) != 1:
+        raise RuntimeError(f"{nombre}: se esperaba un .shp y hay {shp}")
+    (carpeta / "capa.txt").write_text(shp[0] + "\n", encoding="utf-8")
+    print(f"{tam / 1e6:.1f} MB")
+    informe["descargados"].append(f"ine_seccionado/{nombre} ({tam / 1e6:.1f} MB)")
+    return {
+        "carpeta": "ine_seccionado",
+        "titulo": f"INE. Cartografía digitalizada de secciones censales, seccionado a 1 de "
+                  f"enero de {INE_SECCIONADO} (toda España)",
+        "enlace": "https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632"
+                  "&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout "
+                  f"(fichero {url})",
+        "licencia": "Reutilización libre citando la fuente: «Fuente: Instituto Nacional "
+                    "de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))",
+        "version": f"Seccionado a 1 de enero de {INE_SECCIONADO}",
+        "ficheros": [f"{nombre}: shapefile `{shp[0]}` (ETRS89 / UTM 30N, EPSG:25830); "
+                     "capa.txt: ruta del .shp dentro del ZIP"],
+        "notas": [f"Se usa el seccionado de {INE_SECCIONADO} y no el de {INE_SECCIONADO - 1} "
+                  "porque es el que corresponde a los datos del Atlas de renta de "
+                  f"{INE_SECCIONADO - 1}: casan todas las secciones de Madrid con datos.",
+                  "Uso: polígonos de las secciones para la renta y la población del INE "
+                  "(capa `secciones_censales` procesada). Los límites de la Comunidad y de "
+                  "los municipios se toman de las secciones del portal de la Comunidad."],
     }
 
 
@@ -370,8 +416,8 @@ def fuente_crtm(informe: dict) -> dict:
 
 
 # ------------------------------------------------------------------------- principal
-FUENTES = {"ine": fuente_ine, "madrid": fuente_madrid, "osm": fuente_osm, "crtm": fuente_crtm}
-ORDEN_CARPETAS = ["ine_adrh", "madrid_censo_locales", "osm_hosteleria", "crtm_paradas"]
+FUENTES = {"ine": fuente_ine, "ine_secc": fuente_ine_seccionado, "madrid": fuente_madrid, "osm": fuente_osm, "crtm": fuente_crtm}
+ORDEN_CARPETAS = ["ine_adrh", "ine_seccionado", "madrid_censo_locales", "osm_hosteleria", "crtm_paradas"]
 ESTADO = DIR_ORIGINALES / ".fuentes_externas.json"  # para no perder las ya descargadas
 
 

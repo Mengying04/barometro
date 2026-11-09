@@ -1,0 +1,14 @@
+# BARómetro — dependencias de los scripts de src/ (probado con Python 3.14).
+# src/descargar_datos.py y src/descargar_externas.py solo usan la biblioteca estándar.
+# Instalación:  python -m pip install -r requirements.txt
+
+# src/procesar.py (importadas directamente)
+geopandas==1.2.0
+pandas==3.1.1
+numpy==2.5.4
+shapely==2.2.0
+
+# src/procesar.py (usadas por geopandas: lectura de shapefiles, reproyección y GeoParquet)
+pyogrio==0.13.0
+pyproj==3.8.0
+pyarrow==26.0.1

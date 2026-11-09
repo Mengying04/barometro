@@ -29,13 +29,15 @@ import pandas as pd
 import shapely
 
 from descargar_datos import actualizar_bloque
+from descargar_externas import INE_SECCIONADO
 
 RAIZ = Path(__file__).resolve().parent.parent
 ORIG = RAIZ / "datos" / "originales"
 PROC = RAIZ / "datos" / "procesados"
 CRS = 25830
 ANYO_INE = "2024"          # último año del Atlas de renta descargado
-ANYO_INE_REF = "2021"      # último año en que casi todos los códigos INE casan con 2019
+# Los datos de renta de 2024 están referidos al seccionado del INE a 1 de enero de 2025
+# (ver descargar_externas.INE_SECCIONADO).
 
 # Columnas que nunca deben salir (por si una lista blanca se modifica sin cuidado)
 PROHIBIDAS = re.compile(r"nif|tel[eé]f|fax|mail|titular(?!idad)|rotulo|r[oó]tulo|^name$|^nombre$"
@@ -88,15 +90,29 @@ def descartar(capa: str, motivo: str, n: int) -> None:
         informe[capa]["descartes"][motivo] = informe[capa]["descartes"].get(motivo, 0) + n
 
 
-def recortar(gdf: gpd.GeoDataFrame, secciones: gpd.GeoDataFrame,
+def recortar(gdf: gpd.GeoDataFrame, limites: gpd.GeoDataFrame, secc_ine: gpd.GeoDataFrame,
              capa: str) -> gpd.GeoDataFrame:
-    """Deja solo los puntos dentro de la Comunidad y les añade sección y municipio."""
-    j = gpd.sjoin(gdf, secciones[["cdgseccion", "cod_municipio", "geometry"]],
-                  how="left", predicate="intersects")
-    j = j[~j.index.duplicated(keep="first")]          # puntos en el borde de dos secciones
-    fuera = j["cdgseccion"].isna()
+    """Deja solo los puntos dentro de la Comunidad (secciones del portal), les añade el
+    municipio según el portal y la sección censal del INE en la que caen."""
+    j = gpd.sjoin(gdf, limites[["cod_municipio", "geometry"]], how="left",
+                  predicate="intersects")
+    j = j[~j.index.duplicated(keep="first")].drop(columns="index_right")
+    fuera = j["cod_municipio"].isna()
     descartar(capa, "fuera de la Comunidad de Madrid", int(fuera.sum()))
-    return j[~fuera].drop(columns="index_right")
+    j = j[~fuera]
+    k = gpd.sjoin(j, secc_ine[["cdgseccion", "geometry"]], how="left", predicate="intersects")
+    k = k[~k.index.duplicated(keep="first")].drop(columns="index_right")
+    sin = int(k["cdgseccion"].isna().sum())
+    otro_mun = int((k["cdgseccion"].notna()
+                    & (k["cdgseccion"].str[:5] != k["cod_municipio"])).sum())
+    notas = informe.setdefault(capa, {}).setdefault("notas", [])
+    if sin:
+        notas.append(f"{sin} puntos dentro de la Comunidad no caen en ningún polígono del "
+                     "INE (diferencias de borde); quedan sin `cdgseccion`.")
+    if otro_mun:
+        notas.append(f"{otro_mun} puntos tienen una sección del INE de otro municipio que el "
+                     "del portal (diferencias de borde entre las dos cartografías).")
+    return k
 
 
 def escribir_parquet(gdf: gpd.GeoDataFrame, destino: Path, intentos: int = 3) -> None:
@@ -139,81 +155,92 @@ def guardar(gdf: gpd.GeoDataFrame, capa: str, columnas: list[str], n_origen: int
 
 
 # --------------------------------------------------------------------- 5. secciones
-def secciones_censales() -> gpd.GeoDataFrame:
-    capa = "secciones_censales"
+def limites_portal() -> gpd.GeoDataFrame:
+    """Secciones del portal de la Comunidad (seccionado 2019): solo para los límites de la
+    Comunidad y de los municipios."""
     s = gpd.read_file(f"zip://{ORIG / 'secciones_censales' / '558.zip'}!Seccionado_2019.shp")
+    if s.crs.to_epsg() != CRS:
+        s = s.to_crs(CRS)
+    s["geometry"] = shapely.make_valid(s.geometry.values)
+    # CDGSECCION («079-12-062») está completo; CDTSECCION falta en 106 polígonos.
+    s["cod_municipio"] = "28" + s["CDGSECCION"].str[:3]
+    return s[["cod_municipio", "geometry"]]
+
+
+def leer_ine(tabla: str, indicadores: dict[str, str]) -> pd.DataFrame:
+    """Atlas de renta: «2807912062 Madrid sección 12062» → código de 10 dígitos."""
+    d = leer_csv(ORIG / "ine_adrh" / f"{tabla}.csv")
+    d = d[d["Secciones"].notna() & (d["Periodo"] == ANYO_INE)]
+    col = d.columns[3]
+    d = d[d[col].isin(indicadores)]
+    d["cdgseccion"] = d["Secciones"].str.split(" ").str[0]
+    d["valor"] = num_es(d["Total"])
+    d["campo"] = d[col].map(indicadores)
+    return d.pivot_table(index="cdgseccion", columns="campo", values="valor", aggfunc="first")
+
+
+def secciones_censales(limites: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    capa = "secciones_censales"
+    carpeta = ORIG / "ine_seccionado"
+    shp = (carpeta / "capa.txt").read_text(encoding="utf-8").strip()
+    s = gpd.read_file(f"zip://{carpeta / f'seccionado_{INE_SECCIONADO}.zip'}!{shp}",
+                      where="CPRO='28'")
     n = len(s)
     if s.crs.to_epsg() != CRS:
         s = s.to_crs(CRS)
     invalidas = int((~s.is_valid).sum())
     s["geometry"] = shapely.make_valid(s.geometry.values)
-    informe.setdefault(capa, {})["notas"] = [f"{invalidas} polígono(s) inválido(s) reparado(s)"]
-
-    # CDGSECCION («079-12-062») está completo; CDTSECCION falta en 106 polígonos.
-    s["cod8"] = s["CDGSECCION"].str.replace("-", "", regex=False)
-    s["cdgseccion"] = "28" + s["cod8"]
-    s["cod_municipio"] = "28" + s["cod8"].str[:3]
-    s["cod_distrito"] = "28" + s["cod8"].str[:5]
+    s = s.rename(columns={"CUSEC": "cdgseccion", "CUMUN": "cod_municipio",
+                          "NMUN": "municipio_nombre", "CUDIS": "cod_distrito"})
     assert s["cdgseccion"].is_unique and s["cdgseccion"].str.len().eq(10).all()
 
-    csv = leer_csv(ORIG / "secciones_censales" / "secciones_censales.csv")
-    csv = csv[["seccion_codigo", "municipio_nombre"]].rename(columns={"seccion_codigo": "cod8"})
-    s = s.merge(csv, on="cod8", how="left")
+    # Recorte al límite de la Comunidad según el portal (diferencias de borde mínimas)
+    area_antes = s.area.sum()
+    limite = shapely.union_all(limites.geometry.values)
+    s = gpd.clip(s, limite)
+    s = s[~s.is_empty & s.geom_type.isin(["Polygon", "MultiPolygon"])]
+    descartar(capa, "fuera de la Comunidad de Madrid", n - len(s))
+    recorte = 100 * (1 - s.area.sum() / area_antes)
 
-    # INE: «2807912062 Madrid sección 12062» → código de 10 dígitos
-    def ine(tabla: str, indicadores: dict[str, str]) -> pd.DataFrame:
-        d = leer_csv(ORIG / "ine_adrh" / f"{tabla}.csv")
-        d = d[d["Secciones"].notna() & d["Periodo"].isin([ANYO_INE, ANYO_INE_REF])]
-        col = d.columns[3]
-        d = d[d[col].isin(indicadores)]
-        d["cdgseccion"] = d["Secciones"].str.split(" ").str[0]
-        d["valor"] = num_es(d["Total"])
-        d["campo"] = d[col].map(indicadores) + "_" + d["Periodo"]
-        return d.pivot_table(index="cdgseccion", columns="campo", values="valor",
-                             aggfunc="first")
+    # Municipio del portal en el que cae cada sección (comprobación)
+    rp = gpd.GeoDataFrame(s[["cdgseccion", "cod_municipio"]],
+                          geometry=s.representative_point(), crs=CRS)
+    m = gpd.sjoin(rp, limites, how="left", predicate="intersects")
+    m = m[~m.index.duplicated()]
+    distinto = int((m["cod_municipio_left"] != m["cod_municipio_right"]).sum())
 
-    renta = ine("31097", {"Renta neta media por persona": "renta_neta_persona",
-                          "Renta neta media por hogar": "renta_neta_hogar"})
-    pobl = ine("31105", {"Población": "poblacion"})
+    renta = leer_ine("31097", {"Renta neta media por persona": "renta_neta_persona",
+                               "Renta neta media por hogar": "renta_neta_hogar"})
+    pobl = leer_ine("31105", {"Población": "poblacion"})
     datos = renta.join(pobl, how="outer")
-    codigos_ine = set(datos.index[datos.get(f"poblacion_{ANYO_INE}").notna()])
     s = s.merge(datos, left_on="cdgseccion", right_index=True, how="left")
-
-    s["tiene_datos_ine"] = s[[f"renta_neta_persona_{ANYO_INE}", f"renta_neta_hogar_{ANYO_INE}",
-                              f"poblacion_{ANYO_INE}"]].notna().any(axis=1)
-
-    # Secciones posiblemente divididas después de 2019: el distrito tiene códigos INE de
-    # 2024 sin polígono en 2019 y la población del código cae más de un 25 % desde 2021.
-    nuevos = codigos_ine - set(s["cdgseccion"])
-    distritos_nuevos = {c[:7] for c in nuevos}
-    ratio = s[f"poblacion_{ANYO_INE}"] / s[f"poblacion_{ANYO_INE_REF}"]
-    s["posible_division_desde_2019"] = s["cod_distrito"].isin(distritos_nuevos) & (ratio < 0.75)
-
-    s["area_km2"] = (s.area / 1e6).round(4)
-    s = s.rename(columns={f"renta_neta_persona_{ANYO_INE}": "renta_neta_persona",
-                          f"renta_neta_hogar_{ANYO_INE}": "renta_neta_hogar",
-                          f"poblacion_{ANYO_INE}": "poblacion"})
+    s["tiene_datos_ine"] = s[["renta_neta_persona", "renta_neta_hogar", "poblacion"]] \
+        .notna().any(axis=1)
     s["poblacion"] = s["poblacion"].round().astype("Int64")
     s["anyo_ine"] = int(ANYO_INE)
+    s["seccionado"] = INE_SECCIONADO
+    s["area_km2"] = (s.area / 1e6).round(4)
 
+    con_dato = datos["poblacion"].dropna()
+    sin_poligono = sorted(set(con_dato.index) - set(s["cdgseccion"]))
     sin = int((~s["tiene_datos_ine"]).sum())
-    informe[capa]["notas"] += [
-        f"Emparejamiento: «28» + CDGSECCION sin guiones = código de 10 dígitos del INE. "
-        f"{len(s) - sin} de {len(s)} polígonos con datos {ANYO_INE}; "
-        f"{sin} sin datos ({100 * sin / len(s):.1f} %).",
-        f"{len(nuevos)} códigos INE {ANYO_INE} con datos no tienen polígono (secciones "
-        f"creadas después de 2019) en {len(distritos_nuevos)} distritos; sus datos no se usan.",
-        f"{int(s['posible_division_desde_2019'].sum())} polígonos marcados como posible "
-        f"división desde 2019 (estimación).",
-        f"Población {ANYO_INE} total en polígonos: {int(s['poblacion'].sum()):,}; "
-        f"en todos los códigos INE: {int(datos[f'poblacion_{ANYO_INE}'].sum()):,}"
-        .replace(",", "."),
+    informe.setdefault(capa, {})["notas"] = informe.setdefault(capa, {}).get("notas", []) + [
+        f"Polígonos: cartografía del INE, seccionado a 1 de enero de {INE_SECCIONADO} "
+        f"({n} secciones de la provincia de Madrid); {invalidas} inválidos reparados.",
+        f"Emparejamiento: `CUSEC` de la cartografía = código de 10 dígitos del Atlas de renta "
+        f"(«2807912062 Madrid sección 12062»). {len(s) - sin} de {len(s)} polígonos con "
+        f"datos {ANYO_INE}; {sin} sin datos ({100 * sin / len(s):.1f} %). "
+        f"{len(sin_poligono)} secciones INE con datos sin polígono.",
+        f"Población {ANYO_INE} en polígonos: {int(s['poblacion'].sum()):,}; total de las "
+        f"secciones INE con dato: {int(con_dato.sum()):,}.".replace(",", "."),
+        f"Recorte al límite de la Comunidad del portal: se pierde un {recorte:.3f} % del área "
+        f"(diferencias de borde entre cartografías).",
+        f"{distinto} secciones cuyo punto interior cae en otro municipio según el portal.",
     ]
     guardar(s, capa, ["cdgseccion", "cod_municipio", "municipio_nombre", "cod_distrito",
                       "renta_neta_persona", "renta_neta_hogar", "poblacion", "anyo_ine",
-                      "tiene_datos_ine", "posible_division_desde_2019", "area_km2"], n,
-            "polígonos")
-    return s[["cdgseccion", "cod_municipio", "geometry"]]
+                      "seccionado", "tiene_datos_ine", "area_km2"], n, "polígonos")
+    return s[["cdgseccion", "geometry"]]
 
 
 # --------------------------------------------------------------------- 1. educativos
@@ -230,7 +257,7 @@ def tipo_educativo(t: str) -> str:
     return "otros"
 
 
-def centros_educativos(secc: gpd.GeoDataFrame) -> None:
+def centros_educativos(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "centros_educativos"
     d = leer_csv(ORIG / capa / f"{capa}.csv")
     n = len(d)
@@ -243,13 +270,13 @@ def centros_educativos(secc: gpd.GeoDataFrame) -> None:
                           "TITULARIDAD": "titularidad", "MUNICIPIO": "municipio_nombre",
                           "DISTRITO": "distrito"})
     g = a_puntos(d, num(d["UTM_X"]), num(d["UTM_Y"]), capa=capa)
-    g = recortar(g, secc, capa)
+    g = recortar(g, lim, secc, capa)
     guardar(g, capa, ["codigo", "tipo_centro", "tipo_original", "titularidad",
                       "municipio_nombre", "distrito", "cod_municipio", "cdgseccion"], n)
 
 
 # ---------------------------------------------------------------------- 2. sanitarios
-def centros_sanitarios(secc: gpd.GeoDataFrame) -> None:
+def centros_sanitarios(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "centros_sanitarios"
     d = leer_csv(ORIG / "centros_servicios_establecimientos_sanitarios"
                  / "centros_servicios_establecimientos_sanitarios.csv")
@@ -268,7 +295,7 @@ def centros_sanitarios(secc: gpd.GeoDataFrame) -> None:
         servicios=("oferta_asistecial", lambda s: " | ".join(sorted(set(s.dropna())))),
         n_servicios=("oferta_asistecial", "nunique"),
     ).reset_index()
-    informe.setdefault(capa, {})["notas"] = [
+    informe.setdefault(capa, {})["notas"] = informe.setdefault(capa, {}).get("notas", []) + [
         f"{n} filas (una por servicio) agrupadas en {n_centros} centros por "
         f"`centro_nro_registro`; `servicios` separa los servicios con « | ».",
         f"{incoh} centros con tipo o coordenadas distintos entre sus filas "
@@ -276,14 +303,14 @@ def centros_sanitarios(secc: gpd.GeoDataFrame) -> None:
         "No se conserva la dirección postal ni el NIF; el original no trae nombre del centro.",
     ]
     g = a_puntos(agg, agg["x"], agg["y"], capa=capa)
-    g = recortar(g, secc, capa)
+    g = recortar(g, lim, secc, capa)
     guardar(g, capa, ["centro_nro_registro", "centro_tipo", "dependencia_funcional",
                       "servicios", "n_servicios", "municipio_nombre", "codigo_postal",
                       "cod_municipio", "cdgseccion"], n_centros, "centros")
 
 
 # ------------------------------------------------------------------- 3. desfibriladores
-def desfibriladores(secc: gpd.GeoDataFrame) -> None:
+def desfibriladores(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "desfibriladores"
     d = leer_csv(ORIG / "desfibriladores_externos_fuera_ambito_sanitario"
                  / "desfibriladores_externos_fuera_ambito_sanitario.csv")
@@ -293,9 +320,9 @@ def desfibriladores(secc: gpd.GeoDataFrame) -> None:
     d = d[~dup]
     g = a_puntos(d, num(d["direccion_coordenada_x"]), num(d["direccion_coordenada_y"]),
                  capa=capa)
-    g = recortar(g, secc, capa)
+    g = recortar(g, lim, secc, capa)
     rep = int(g["codigo_dea"].duplicated(keep=False).sum())
-    informe.setdefault(capa, {})["notas"] = [
+    informe.setdefault(capa, {})["notas"] = informe.setdefault(capa, {}).get("notas", []) + [
         "`horario_acceso` se deja tal cual viene (texto libre, sin normalizar).",
         "No se conserva `direccion_ubicacion` (texto libre que a veces nombra empresas o "
         "personas) ni la dirección postal.",
@@ -306,19 +333,19 @@ def desfibriladores(secc: gpd.GeoDataFrame) -> None:
 
 
 # ---------------------------------------------------------------------- 4. farmacias
-def farmacias(secc: gpd.GeoDataFrame) -> None:
+def farmacias(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "farmacias"
     d = leer_csv(ORIG / "oficinas_farmacia" / "oficinas_farmacia.csv")
     n = len(d)
     d = d.rename(columns={"MUNICIPIO_NOMBRE": "municipio_nombre"})
     g = a_puntos(d, num(d["LOCALIZACION_COORDENADA_X"]), num(d["LOCALIZACION_COORDENADA_Y"]),
                  capa=capa)
-    g = recortar(g, secc, capa)
+    g = recortar(g, lim, secc, capa)
     guardar(g, capa, ["municipio_nombre", "cod_municipio", "cdgseccion"], n)
 
 
 # -------------------------------------------------------------------- 6. hostelería OSM
-def hosteleria_osm(secc: gpd.GeoDataFrame) -> None:
+def hosteleria_osm(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "hosteleria_osm"
     elementos = json.loads((ORIG / "osm_hosteleria" / "osm_hosteleria.json")
                            .read_text(encoding="utf-8"))["elements"]
@@ -331,8 +358,8 @@ def hosteleria_osm(secc: gpd.GeoDataFrame) -> None:
                       "cocina": t.get("cuisine"), "lon": c.get("lon"), "lat": c.get("lat")})
     d = pd.DataFrame(filas)
     g = a_puntos(d.drop(columns=["lat", "lon"]), d["lon"], d["lat"], crs=4326, capa=capa)
-    g = recortar(g, secc, capa)
-    informe.setdefault(capa, {})["notas"] = [
+    g = recortar(g, lim, secc, capa)
+    informe.setdefault(capa, {})["notas"] = informe.setdefault(capa, {}).get("notas", []) + [
         "`tipo` = etiqueta amenity (restaurant, bar, cafe, fast_food, pub). `cocina` = "
         "etiqueta cuisine tal cual (puede llevar varios valores separados por «;»).",
         "Vías y relaciones (edificios) se representan por su punto central.",
@@ -343,11 +370,10 @@ def hosteleria_osm(secc: gpd.GeoDataFrame) -> None:
 
 
 # ------------------------------------------------------- 7. hostelería Madrid capital
-CATEGORIA_CNAE = {"561": "restauración", "562": "catering y comedores colectivos",
-                  "563": "bares y establecimientos de bebidas"}
+CATEGORIA_CNAE = {"561": "restauración", "563": "bares y establecimientos de bebidas"}
 
 
-def hosteleria_madrid(secc: gpd.GeoDataFrame) -> None:
+def hosteleria_madrid(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "hosteleria_madrid_capital"
     carpeta = ORIG / "madrid_censo_locales"
     a = leer_csv(carpeta / "actividades.csv", usecols=[
@@ -362,6 +388,16 @@ def hosteleria_madrid(secc: gpd.GeoDataFrame) -> None:
             .value_counts().items():
         descartar(capa, f"local {v.strip().lower()}", int(k))
     h = h[abiertos]
+
+    # Fuera catering y comedores colectivos (CNAE 562): no compiten con un bar abierto al
+    # público. Los locales que además tienen otra actividad de la división 56 se quedan,
+    # sin el epígrafe 562.
+    es_562 = h["id_epigrafe"].fillna("").str.startswith("562")
+    con_publico = set(h.loc[~es_562, "id_local"])
+    solo_562 = set(h.loc[es_562, "id_local"]) - con_publico
+    mixtos = set(h.loc[es_562, "id_local"]) & con_publico
+    descartar(capa, "solo catering o comedor colectivo (CNAE 562)", len(solo_562))
+    h = h[~es_562]
 
     loc = h.groupby("id_local").agg(
         distrito=("desc_distrito_local", "first"), barrio=("desc_barrio_local", "first"),
@@ -413,10 +449,13 @@ def hosteleria_madrid(secc: gpd.GeoDataFrame) -> None:
     loc["terraza_suspendida"] = loc["id_local"].isin(susp) & ~loc["tiene_terraza"]
 
     ter_fuera = len(set(t["id_local"]) - set(loc["id_local"]))
-    informe.setdefault(capa, {})["notas"] = [
-        "Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas): "
-        "`categoria` distingue restauración (561), catering y comedores colectivos (562) y "
-        "bares (563). No incluye alojamiento (55) ni discotecas (93).",
+    informe.setdefault(capa, {})["notas"] = informe.setdefault(capa, {}).get("notas", []) + [
+        "Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas) sin "
+        "catering ni comedores colectivos (562), que no compiten con un bar abierto al "
+        "público. `categoria` distingue restauración (561) y bares (563). No incluye "
+        "alojamiento (55) ni discotecas (93).",
+        f"{len(mixtos)} locales con catering o comedor colectivo y además otra actividad de "
+        "hostelería se conservan, sin el epígrafe 562.",
         "Coordenadas: " + ", ".join(f"{k} {v}" for k, v in
                                     loc["origen_coordenadas"].fillna("sin coordenadas")
                                     .value_counts().items()) + ".",
@@ -426,7 +465,7 @@ def hosteleria_madrid(secc: gpd.GeoDataFrame) -> None:
         "No se conserva el rótulo (puede ser un nombre de persona).",
     ]
     g = a_puntos(loc, x, y, capa=capa)
-    g = recortar(g, secc, capa)
+    g = recortar(g, lim, secc, capa)
     guardar(g, capa, ["id_local", "categoria", "epigrafes", "desc_epigrafes", "n_epigrafes",
                       "tiene_terraza", "terraza_periodo", "terraza_suspendida",
                       "origen_coordenadas", "distrito", "barrio", "cod_municipio",
@@ -445,8 +484,14 @@ def escribir_fuentes() -> None:
               "traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m "
               "de desfase. Los demás se contrastaron por distancia al vecino más cercano "
               "(desfibriladores, OSM, farmacias del censo).",
-              "- Recorte a la Comunidad de Madrid con la unión de las secciones censales; "
-              "cada punto lleva `cdgseccion` (10 dígitos, como el INE) y `cod_municipio`.",
+              "- Dos cartografías de secciones censales, cada una con un uso:",
+              "  - **Secciones del portal de la Comunidad** (`secciones_censales/558.zip`, "
+              "seccionado 2019): límite de la Comunidad para recortar todas las capas y "
+              "límites municipales (`cod_municipio` de cada punto).",
+              f"  - **Cartografía del INE** (`ine_seccionado/`, seccionado a 1 de enero de "
+              f"{INE_SECCIONADO}): polígonos de la capa `secciones_censales` con la renta y "
+              f"la población del Atlas de renta de {ANYO_INE}, y `cdgseccion` de cada punto "
+              "(sección del INE en la que cae, para cruzarlo con la renta).",
               "- No se conservan nombres de titulares ni de establecimientos, NIF, teléfonos, "
               "faxes ni correos.",
               "",
@@ -463,11 +508,6 @@ def escribir_fuentes() -> None:
     lineas += [
         "**Estimaciones** (supuestos explícitos):",
         "",
-        "- `secciones_censales.posible_division_desde_2019`: se marca una sección de 2019 "
-        "cuando su distrito tiene códigos INE de 2024 sin polígono (secciones nuevas) y su "
-        "población cae más de un 25 % entre 2021 y 2024. Supuesto: esa caída se debe a que "
-        "parte de la sección pasó a otra nueva, así que sus datos de 2024 solo cubren una "
-        "parte del polígono.",
         "- `hosteleria_madrid_capital.origen_coordenadas = \"edificio (estimación)\"`: el "
         "local no tiene coordenadas propias y se le asigna la media de los demás locales del "
         "mismo edificio (mismo `id_ndp_edificio`, es decir, el mismo número de portal).",
@@ -478,10 +518,11 @@ def escribir_fuentes() -> None:
 
 def main() -> int:
     print("Procesando…")
-    secc = secciones_censales()
+    lim = limites_portal()
+    secc = secciones_censales(lim)
     for f in (centros_educativos, centros_sanitarios, desfibriladores, farmacias,
               hosteleria_osm, hosteleria_madrid):
-        f(secc)
+        f(lim, secc)
     escribir_fuentes()
     (PROC / "informe_procesado.json").write_text(
         json.dumps(informe, ensure_ascii=False, indent=2), encoding="utf-8")
