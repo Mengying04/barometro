@@ -82,22 +82,21 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 ### Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos
 
 - **Carpeta:** `datos/originales/crtm_paradas/`
-- **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ (fichas «Datos abiertos: Elementos de la Red de …»; capas servidas desde https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services)
+- **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)
 - **Licencia:** [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. Obligaciones: mostrar **«Powered by CRTM»** con enlace a [crtm.es](http://www.crtm.es/) en webs y apps; **garantizar que la información mostrada esté siempre actualizada** (volver a ejecutar este script); citar al CRTM como fuente indicando si son datos en bruto o explotados; conservar los metadatos de fecha de actualización; no sugerir que el CRTM patrocina o apoya el producto
 - **Fecha de descarga:** 2026-11-09
-- **Versión de los datos:** Última edición de las capas: 2026-06-04, 2026-06-05
+- **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027
 - **Ficheros:**
-  - metro_estaciones.geojson (Metro: estaciones): 293
-  - metro_ligero_estaciones.geojson (Metro Ligero / Tranvía: estaciones): 57
-  - cercanias_estaciones.geojson (Cercanías: estaciones): 111
-  - interurbanos_estaciones.geojson (Autobuses interurbanos: estaciones (paradas)): 8.686
-  - interurbanos_postes.geojson (Autobuses interurbanos: postes): 8.975
-  - emt_estaciones.geojson (Autobuses urbanos de Madrid (EMT): estaciones (paradas)): 4.966
-  - emt_postes.geojson (Autobuses urbanos de Madrid (EMT): postes): 4.965
-  - urbanos_estaciones.geojson (Autobuses urbanos de otros municipios: estaciones (paradas)): 3.474
-  - urbanos_postes.geojson (Autobuses urbanos de otros municipios: postes): 3.485
-- Coordenadas en WGS84 (EPSG:4326). «Estación» de autobús = parada lógica; «poste» = punto físico de parada (puede haber varios por estación).
-- Comprobado el 2026-11-09 en el catálogo de datos.crtm.es (https://datos.crtm.es/data.json): estas capas son las versiones vigentes de las fichas de red (modificadas el 2026-06-04/05).
-- El portal publica también feeds GTFS más recientes (29/10/2026) para EMT, autobuses interurbanos, autobuses urbanos («datos parciales»), Cercanías y Metro Ligero; el GTFS de Metro es de 30/05/2025, anterior a su capa. **Pendiente:** se descargan desde www.arcgis.com, bloqueada por el cortafuegos del entorno el 2026-11-09.
+  - metro_estaciones.geojson (Metro: estaciones (capa de red)): 293 estaciones
+  - gtfs_metro_ligero.zip (Metro Ligero / Tranvía; original `google_transit_M10.zip`): 96 registros en stops.txt (location_type 0: 57, location_type 1: 14, location_type 2: 25), 4 líneas, calendario 20261028–20271028
+  - gtfs_cercanias.zip (Cercanías (producido por Renfe); original `google_transit_M5.zip`): 95 registros en stops.txt (location_type 0: 95), 38 líneas, calendario 20261030–20261128
+  - gtfs_interurbanos.zip (Autobuses interurbanos; original `google_transit_M89.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 354 líneas, calendario 20261027–20271128
+  - gtfs_emt.zip (Autobuses urbanos de Madrid (EMT); original `google_transit_M6.zip`): 4.935 registros en stops.txt (location_type 0: 4.935), 238 líneas, calendario 20261030–20261231
+  - gtfs_urbanos.zip (Autobuses urbanos de otros municipios (el CRTM avisa: «datos parciales»); original `google_transit_M9.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 117 líneas, calendario 20261027–20271128
+  - metadatos_capas.json, metadatos_gtfs.json: metadatos originales (fechas de actualización, que la licencia obliga a conservar)
+- Metro se toma de la capa de red porque su GTFS publicado (30/05/2025) es anterior a la capa (junio de 2026). Coordenadas de la capa en WGS84 (EPSG:4326).
+- Los GTFS se guardan completos, sin descomprimir. Las paradas están en `stops.txt` (`stop_lat`/`stop_lon`, WGS84). `location_type`: 0 = parada o andén, 1 = estación, 2 = acceso; vacío equivale a 0.
+- gtfs_interurbanos.zip y gtfs_urbanos.zip comparten el mismo `stops.txt` (paradas de las dos redes juntas); lo que cambia son las líneas y los horarios. Para saber qué paradas usa cada red hay que cruzar `stop_times.txt` y `trips.txt`.
+- El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a descargarlo con frecuencia.
 
 <!-- fin:externas -->

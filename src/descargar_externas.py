@@ -10,10 +10,10 @@ Cada fuente va a su carpeta en datos/originales/ y se anota en docs/fuentes.md
                           terrazas de hostelería y restauración (CSV + PDF de estructura).
   3. osm_hosteleria/      OpenStreetMap vía Overpass: bares, pubs, cafeterías,
                           restaurantes y comida rápida de la Comunidad de Madrid.
-  4. crtm_paradas/        Consorcio Regional de Transportes: estaciones de Metro, Metro
-                          Ligero y Cercanías; estaciones y postes (paradas) de autobuses
-                          interurbanos, urbanos de Madrid (EMT) y urbanos de otros
-                          municipios. GeoJSON en WGS84.
+  4. crtm_paradas/        Consorcio Regional de Transportes: estaciones de Metro (capa de
+                          red, GeoJSON WGS84) y feeds GTFS de Metro Ligero, Cercanías,
+                          autobuses interurbanos, urbanos de Madrid (EMT) y urbanos de
+                          otros municipios.
 
 Uso:  python src/descargar_externas.py [ine madrid osm crtm]
       (sin argumentos descarga las cuatro)
@@ -22,8 +22,11 @@ Solo usa la biblioteca estándar de Python.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import sys
+import zipfile
 import urllib.parse
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -202,18 +205,30 @@ def fuente_osm(informe: dict) -> dict:
 
 # -------------------------------------------------------------------------------- CRTM
 CRTM_BASE = "https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services"
+ARCGIS_ITEMS = "https://www.arcgis.com/sharing/rest/content/items"
+
+# Metro: la capa (junio 2026) es más reciente que su GTFS (mayo 2025), así que se usa la capa.
 CRTM_CAPAS = [  # (servicio, capa, fichero, descripción)
-    ("M4_Red", 0, "metro_estaciones", "Metro: estaciones"),
-    ("M10_Red", 0, "metro_ligero_estaciones", "Metro Ligero / Tranvía: estaciones"),
-    ("M5_Red", 0, "cercanias_estaciones", "Cercanías: estaciones"),
-    ("M8_Red", 0, "interurbanos_estaciones", "Autobuses interurbanos: estaciones (paradas)"),
-    ("M8_Red", 1, "interurbanos_postes", "Autobuses interurbanos: postes"),
-    ("M6_Red", 0, "emt_estaciones", "Autobuses urbanos de Madrid (EMT): estaciones (paradas)"),
-    ("M6_Red", 1, "emt_postes", "Autobuses urbanos de Madrid (EMT): postes"),
-    ("M9_Red", 0, "urbanos_estaciones",
-     "Autobuses urbanos de otros municipios: estaciones (paradas)"),
-    ("M9_Red", 1, "urbanos_postes", "Autobuses urbanos de otros municipios: postes"),
+    ("M4_Red", 0, "metro_estaciones", "Metro: estaciones (capa de red)"),
 ]
+# Resto de modos: feeds GTFS del portal datos.crtm.es (ficheros de ArcGIS Online).
+CRTM_GTFS = [  # (id del item, fichero, descripción, ficha en datos.crtm.es)
+    ("aaed26cc0ff64b0c947ac0bc3e033196", "gtfs_metro_ligero.zip", "Metro Ligero / Tranvía",
+     "gtfs-red-de-metro-ligero"),
+    ("1a25440bf66f499bae2657ec7fb40144", "gtfs_cercanias.zip", "Cercanías (producido por Renfe)",
+     "gtfs-red-de-cercanías"),
+    ("885399f83408473c8d815e40c5e702b7", "gtfs_interurbanos.zip", "Autobuses interurbanos",
+     "gtfs-red-de-autobuses-interurbanos"),
+    ("868df0e58fca47e79b942902dffd7da0", "gtfs_emt.zip", "Autobuses urbanos de Madrid (EMT)",
+     "gtfs-red-de-emt"),
+    ("357e63c2904f43aeb5d8a267a64346d8", "gtfs_urbanos.zip",
+     "Autobuses urbanos de otros municipios (el CRTM avisa: «datos parciales»)",
+     "gtfs-red-de-autobuses-urbanos"),
+]
+# Ficheros de versiones anteriores de este script que ya no se usan
+CRTM_OBSOLETOS = ["metro_ligero_estaciones", "cercanias_estaciones", "interurbanos_estaciones",
+                  "interurbanos_postes", "emt_estaciones", "emt_postes", "urbanos_estaciones",
+                  "urbanos_postes"]
 
 
 def _descargar_capa(url_capa: str, destino: Path) -> tuple[int, dict]:
@@ -238,28 +253,95 @@ def _descargar_capa(url_capa: str, destino: Path) -> tuple[int, dict]:
     return len(features), meta
 
 
+def _resumen_gtfs(ruta: Path) -> dict:
+    """Comprueba el ZIP y extrae datos básicos (paradas, vigencia, versión)."""
+    with zipfile.ZipFile(ruta) as zf:
+        roto = zf.testzip()
+        if roto:
+            raise RuntimeError(f"{ruta.name}: fichero dañado dentro del ZIP ({roto})")
+        nombres = {Path(n).name: n for n in zf.namelist() if not n.endswith("/")}
+        faltan = {"stops.txt", "routes.txt", "trips.txt", "stop_times.txt"} - set(nombres)
+        if faltan:
+            raise RuntimeError(f"{ruta.name}: no es un GTFS completo, faltan {sorted(faltan)}")
+
+        def leer(nombre):
+            with zf.open(nombres[nombre]) as f:
+                return list(csv.DictReader(io.TextIOWrapper(f, "utf-8-sig")))
+
+        paradas = leer("stops.txt")
+        tipos: dict[str, int] = {}
+        for x in paradas:
+            t = (x.get("location_type") or "0").strip() or "0"
+            tipos[t] = tipos.get(t, 0) + 1
+        sin_coord = sum(1 for x in paradas if not x.get("stop_lat") or not x.get("stop_lon"))
+        vigencia = "?"
+        if "calendar.txt" in nombres:
+            cal = leer("calendar.txt")
+            if cal:
+                vigencia = (f"{min(c['start_date'] for c in cal)}–"
+                            f"{max(c['end_date'] for c in cal)}")
+        version = None
+        if "feed_info.txt" in nombres:
+            fi = leer("feed_info.txt")
+            version = fi[0].get("feed_version") if fi else None
+        return {"paradas": len(paradas), "tipos": tipos, "sin_coord": sin_coord,
+                "lineas": len(leer("routes.txt")), "vigencia": vigencia, "version": version}
+
+
 def fuente_crtm(informe: dict) -> dict:
     carpeta = DIR_ORIGINALES / "crtm_paradas"
     carpeta.mkdir(parents=True, exist_ok=True)
-    ficheros, metas, ediciones = [], {}, set()
+    ficheros, metas, versiones = [], {}, []
+
     for servicio, capa, nombre, desc in CRTM_CAPAS:
         url = f"{CRTM_BASE}/{servicio}/FeatureServer/{capa}"
         print(f"  · {nombre} ...", end=" ", flush=True)
         n, meta = _descargar_capa(url, carpeta / f"{nombre}.geojson")
         metas[nombre] = {"url": url, **meta}
-        ed = (meta.get("editingInfo") or {}).get("lastEditDate")
-        ediciones.add(_fecha_ms(ed))
-        ficheros.append(f"{nombre}.geojson ({desc}): {_fmt(n)}")
+        ed = _fecha_ms((meta.get("editingInfo") or {}).get("lastEditDate"))
+        versiones.append(f"{nombre}: capa editada el {ed}")
+        ficheros.append(f"{nombre}.geojson ({desc}): {_fmt(n)} estaciones")
         informe["descargados"].append(f"crtm_paradas/{nombre}.geojson ({n} elementos)")
         print(n)
     _guardar_json(metas, carpeta / "metadatos_capas.json")
+
+    items = {}
+    for item_id, nombre, desc, ficha in CRTM_GTFS:
+        print(f"  · {nombre} ...", end=" ", flush=True)
+        item = _json(f"{ARCGIS_ITEMS}/{item_id}?f=json")
+        items[nombre] = item
+        destino = carpeta / nombre
+        tam = descargar(f"{ARCGIS_ITEMS}/{item_id}/data", destino, timeout=600)
+        if item.get("size") and item["size"] != tam:
+            raise RuntimeError(f"{nombre}: {tam} B descargados ≠ {item['size']} B del item")
+        r = _resumen_gtfs(destino)
+        if r["sin_coord"]:
+            informe["avisos"].append(f"crtm_paradas/{nombre}: {r['sin_coord']} paradas sin "
+                                     "coordenadas")
+        tipos = ", ".join(f"location_type {k}: {_fmt(v)}" for k, v in sorted(r["tipos"].items()))
+        ficheros.append(f"{nombre} ({desc}; original `{item.get('name')}`): "
+                        f"{_fmt(r['paradas'])} registros en stops.txt ({tipos}), "
+                        f"{_fmt(r['lineas'])} líneas, calendario {r['vigencia']}")
+        versiones.append(f"{nombre}: publicado el {_fecha_ms(item.get('modified'))}"
+                         + (f", feed_version {r['version']}" if r["version"] else ""))
+        informe["descargados"].append(f"crtm_paradas/{nombre} ({tam / 1e6:.1f} MB, "
+                                      f"{r['paradas']} paradas)")
+        print(f"{tam / 1e6:.1f} MB, {r['paradas']} paradas")
+    _guardar_json(items, carpeta / "metadatos_gtfs.json")
+
+    for viejo in CRTM_OBSOLETOS:
+        (carpeta / f"{viejo}.geojson").unlink(missing_ok=True)
+
     return {
         "carpeta": "crtm_paradas",
         "titulo": "Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas "
                   "de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos",
-        "enlace": "Portal de datos abiertos del CRTM, https://datos.crtm.es/ (fichas "
-                  "«Datos abiertos: Elementos de la Red de …»; capas servidas desde "
-                  f"{CRTM_BASE})",
+        "enlace": "Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha "
+                  "«Datos abiertos: Elementos de la Red de Metro» (capa "
+                  f"{CRTM_BASE}/M4_Red/FeatureServer/0); resto: fichas GTFS "
+                  + ", ".join(f"https://datos.crtm.es/datasets/crtm::{f}"
+                              for _, _, _, f in CRTM_GTFS)
+                  + f" (ficheros servidos desde {ARCGIS_ITEMS}/<id>/data)",
         "licencia": "[Licencia de datos abiertos y estáticos del CRTM]"
                     "(https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. "
                     "Obligaciones: mostrar **«Powered by CRTM»** con enlace a "
@@ -268,18 +350,22 @@ def fuente_crtm(informe: dict) -> dict:
                     "script); citar al CRTM como fuente indicando si son datos en bruto o "
                     "explotados; conservar los metadatos de fecha de actualización; no "
                     "sugerir que el CRTM patrocina o apoya el producto",
-        "version": f"Última edición de las capas: {', '.join(sorted(ediciones))}",
-        "ficheros": ficheros,
-        "notas": ["Coordenadas en WGS84 (EPSG:4326). «Estación» de autobús = parada lógica; "
-                  "«poste» = punto físico de parada (puede haber varios por estación).",
-                  "Comprobado el 2026-11-09 en el catálogo de datos.crtm.es "
-                  "(https://datos.crtm.es/data.json): estas capas son las versiones vigentes "
-                  "de las fichas de red (modificadas el 2026-06-04/05).",
-                  "El portal publica también feeds GTFS más recientes (29/10/2026) para EMT, "
-                  "autobuses interurbanos, autobuses urbanos («datos parciales»), Cercanías y "
-                  "Metro Ligero; el GTFS de Metro es de 30/05/2025, anterior a su capa. "
-                  "**Pendiente:** se descargan desde www.arcgis.com, bloqueada por el "
-                  "cortafuegos del entorno el 2026-11-09."],
+        "version": "; ".join(versiones),
+        "ficheros": ficheros + ["metadatos_capas.json, metadatos_gtfs.json: metadatos "
+                                "originales (fechas de actualización, que la licencia obliga "
+                                "a conservar)"],
+        "notas": [
+            "Metro se toma de la capa de red porque su GTFS publicado (30/05/2025) es "
+            "anterior a la capa (junio de 2026). Coordenadas de la capa en WGS84 (EPSG:4326).",
+            "Los GTFS se guardan completos, sin descomprimir. Las paradas están en "
+            "`stops.txt` (`stop_lat`/`stop_lon`, WGS84). `location_type`: 0 = parada o andén, "
+            "1 = estación, 2 = acceso; vacío equivale a 0.",
+            "gtfs_interurbanos.zip y gtfs_urbanos.zip comparten el mismo `stops.txt` (paradas "
+            "de las dos redes juntas); lo que cambia son las líneas y los horarios. Para saber "
+            "qué paradas usa cada red hay que cruzar `stop_times.txt` y `trips.txt`.",
+            "El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a "
+            "descargarlo con frecuencia.",
+        ],
     }
 
 
