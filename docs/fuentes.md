@@ -100,3 +100,61 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a descargarlo con frecuencia.
 
 <!-- fin:externas -->
+
+<!-- inicio:procesados -->
+## Datos procesados
+
+Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet, geometría en EPSG:25830 y columnas `lat`/`lon` en EPSG:4326).
+
+- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, farmacias, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, farmacias del censo).
+- Recorte a la Comunidad de Madrid con la unión de las secciones censales; cada punto lleva `cdgseccion` (10 dígitos, como el INE) y `cod_municipio`.
+- No se conservan nombres de titulares ni de establecimientos, NIF, teléfonos, faxes ni correos.
+
+| Capa | Origen | Final | Descartes |
+|---|---|---|---|
+| secciones_censales | 4.417 polígonos | 4.417 | — |
+| centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
+| centros_sanitarios | 15.906 centros | 15.737 | sin coordenadas: 169 |
+| desfibriladores | 13.680 filas | 13.679 | fila duplicada exacta: 1 |
+| farmacias | 2.957 filas | 2.953 | sin coordenadas: 4 |
+| hosteleria_osm | 15.665 elementos | 15.665 | — |
+| hosteleria_madrid_capital | 21.596 locales | 19.157 | local cerrado: 1790; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; sin coordenadas: 89 |
+
+**secciones_censales**
+
+- 1 polígono(s) inválido(s) reparado(s)
+- Emparejamiento: «28» + CDGSECCION sin guiones = código de 10 dígitos del INE. 4368 de 4417 polígonos con datos 2024; 49 sin datos (1.1 %).
+- 150 códigos INE 2024 con datos no tienen polígono (secciones creadas después de 2019) en 60 distritos; sus datos no se usan.
+- 111 polígonos marcados como posible división desde 2019 (estimación).
+- Población 2024 total en polígonos: 6.704.745; en todos los códigos INE: 6.995.318
+
+**centros_sanitarios**
+
+- 46155 filas (una por servicio) agrupadas en 15906 centros por `centro_nro_registro`; `servicios` separa los servicios con « | ».
+- 0 centros con tipo o coordenadas distintos entre sus filas (se toma el primero).
+- No se conserva la dirección postal ni el NIF; el original no trae nombre del centro.
+
+**desfibriladores**
+
+- `horario_acceso` se deja tal cual viene (texto libre, sin normalizar).
+- No se conserva `direccion_ubicacion` (texto libre que a veces nombra empresas o personas) ni la dirección postal.
+
+**hosteleria_osm**
+
+- `tipo` = etiqueta amenity (restaurant, bar, cafe, fast_food, pub). `cocina` = etiqueta cuisine tal cual (puede llevar varios valores separados por «;»).
+- Vías y relaciones (edificios) se representan por su punto central.
+- No se conserva el nombre del local ni etiquetas de contacto.
+
+**hosteleria_madrid_capital**
+
+- Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas): `categoria` distingue restauración (561), catering y comedores colectivos (562) y bares (563). No incluye alojamiento (55) ni discotecas (93).
+- Coordenadas: local 17236, edificio (estimación) 1419, agrupación 502, sin coordenadas 89.
+- `tiene_terraza`: terraza en situación «Abierta» en el fichero de terrazas. 404 id_local del fichero de terrazas no están entre los locales de hostelería abiertos.
+- No se conserva el rótulo (puede ser un nombre de persona).
+
+**Estimaciones** (supuestos explícitos):
+
+- `secciones_censales.posible_division_desde_2019`: se marca una sección de 2019 cuando su distrito tiene códigos INE de 2024 sin polígono (secciones nuevas) y su población cae más de un 25 % entre 2021 y 2024. Supuesto: esa caída se debe a que parte de la sección pasó a otra nueva, así que sus datos de 2024 solo cubren una parte del polígono.
+- `hosteleria_madrid_capital.origen_coordenadas = "edificio (estimación)"`: el local no tiene coordenadas propias y se le asigna la media de los demás locales del mismo edificio (mismo `id_ndp_edificio`, es decir, el mismo número de portal).
+
+<!-- fin:procesados -->
