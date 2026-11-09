@@ -57,23 +57,26 @@ class Bloqueado(Exception):
     """El cortafuegos del entorno ha bloqueado la petición."""
 
 
-def _peticion(url: str):
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    return urllib.request.urlopen(req, timeout=TIMEOUT)
+def _peticion(url: str, datos: bytes | None = None, timeout: int = TIMEOUT):
+    req = urllib.request.Request(url, data=datos, headers={"User-Agent": USER_AGENT})
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
-def _abrir(url: str):
-    """Abre una URL con reintentos. Lanza Bloqueado si el cortafuegos responde 403."""
+def _abrir(url: str, datos: bytes | None = None, timeout: int = TIMEOUT):
+    """Abre una URL (GET, o POST si se pasan `datos`) con reintentos.
+
+    Lanza Bloqueado si el cortafuegos responde 403."""
     ultimo_error: Exception | None = None
     for intento in range(1, REINTENTOS + 1):
         try:
-            return _peticion(url)
+            return _peticion(url, datos, timeout)
         except urllib.error.HTTPError as e:
             cuerpo = e.read(2000).decode("utf-8", "replace")
             if e.code == 403 and (
                 "Approval required" in cuerpo
                 or "Blocked by" in cuerpo
                 or "network policy" in cuerpo
+                or "org policy" in cuerpo
             ):
                 raise Bloqueado(urllib.parse.urlsplit(url).hostname) from e
             ultimo_error = e
@@ -94,10 +97,11 @@ def api(accion: str, **params) -> dict:
     return datos["result"]
 
 
-def descargar(url: str, destino: Path) -> int:
+def descargar(url: str, destino: Path, datos: bytes | None = None,
+              timeout: int = TIMEOUT) -> int:
     """Descarga en streaming a un fichero temporal y lo renombra al terminar."""
     tmp = destino.with_suffix(destino.suffix + ".part")
-    with _abrir(url) as r, open(tmp, "wb") as f:
+    with _abrir(url, datos, timeout) as r, open(tmp, "wb") as f:
         total = 0
         while bloque := r.read(1 << 20):
             f.write(bloque)
@@ -211,10 +215,29 @@ def procesar(conjunto: str, informe: dict) -> dict:
     return fila
 
 
+def actualizar_bloque(clave: str, lineas: list[str]) -> None:
+    """Reescribe en docs/fuentes.md solo el bloque delimitado por los comentarios
+    <!-- inicio:clave --> y <!-- fin:clave -->; si no existe, lo añade al final.
+
+    Así cada script de descarga mantiene su propia sección sin borrar las demás."""
+    inicio, fin = f"<!-- inicio:{clave} -->", f"<!-- fin:{clave} -->"
+    bloque = "\n".join([inicio, *lineas, fin])
+    texto = (FICHERO_FUENTES.read_text(encoding="utf-8") if FICHERO_FUENTES.exists()
+             else "# Fuentes de datos\n")
+    if inicio in texto and fin in texto:
+        antes, resto = texto.split(inicio, 1)
+        despues = resto.split(fin, 1)[1]
+        texto = antes + bloque + despues
+    else:
+        texto = texto.rstrip("\n") + "\n\n" + bloque + "\n"
+    FICHERO_FUENTES.parent.mkdir(parents=True, exist_ok=True)
+    FICHERO_FUENTES.write_text(texto, encoding="utf-8")
+
+
 def escribir_fuentes(filas: list[dict], informe: dict) -> None:
     hoy = date.today().isoformat()
     lineas = [
-        "# Fuentes de datos",
+        "## Portal de Datos Abiertos de la Comunidad de Madrid",
         "",
         "Conjuntos descargados del [Portal de Datos Abiertos de la Comunidad de Madrid]"
         f"({PORTAL}) con `src/descargar_datos.py`.",
@@ -241,13 +264,20 @@ def escribir_fuentes(filas: list[dict], informe: dict) -> None:
         "Cuando un conjunto tiene varios CSV, la columna de filas los muestra en el orden "
         "de la ficha separados por «+».",
         "",
+        "Los recuentos corresponden a la fecha de descarga. Varios conjuntos se reemplazan "
+        "completos de forma periódica (según el campo «Frecuencia de actualización de datos» "
+        "de la ficha: alojamientos_turisticos cada semana, los lunes hacia las 06:11; "
+        "centros_servicios_establecimientos_sanitarios cada día hacia las 06:06), y el CSV "
+        "y el datastore se actualizan a la vez. Por eso un recuento consultado otro día "
+        "puede no coincidir: es una versión distinta de los datos, no un corte de la "
+        "descarga.",
+        "",
     ]
     if informe["cortados"]:
-        lineas += ["## Discrepancias entre el CSV y la API de datos (datastore_search)", ""]
+        lineas += ["### Discrepancias entre el CSV y la API de datos (datastore_search)", ""]
         lineas += [f"- {x}" for x in informe["cortados"]]
         lineas.append("")
-    FICHERO_FUENTES.parent.mkdir(parents=True, exist_ok=True)
-    FICHERO_FUENTES.write_text("\n".join(lineas), encoding="utf-8")
+    actualizar_bloque("portal", lineas)
 
 
 def main() -> int:
