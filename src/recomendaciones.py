@@ -511,10 +511,17 @@ def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict) -> list[st
 
 
 # ========================================================================== principal
-def recomendar(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
-    """Recomendaciones para un bar o restaurante en el punto (ORIENTACIÓN)."""
-    perfil = perfil_horario(lat, lon, radio)
-    inf = informe_local(lat, lon, radio, perfil=perfil)
+def recomendar(lat: float, lon: float, radio: float = S.RADIO_M,
+               perfil: dict | None = None, inf: dict | None = None) -> dict:
+    """Recomendaciones para un bar o restaurante en el punto (ORIENTACIÓN).
+
+    `perfil` e `inf` son los resultados de perfil_horario() e informe_local() para el
+    mismo punto y radio; si se pasan (por ejemplo, desde la aplicación web), no se
+    vuelven a calcular."""
+    if perfil is None:
+        perfil = perfil_horario(lat, lon, radio)
+    if inf is None:
+        inf = informe_local(lat, lon, radio, perfil=perfil)
     x, y = _A_UTM.transform(lon, lat)
     punto = shapely.Point(x, y)
     hora = a_que_hora(perfil, punto, radio)

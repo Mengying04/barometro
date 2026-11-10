@@ -252,3 +252,26 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
 <!-- fin:perfil -->
+
+<!-- inicio:aplicacion -->
+## Servicios que usa la aplicación web (app/app.py)
+
+No se descargan: la aplicación los consulta en el momento.
+
+### CartoCiudad: geocodificador de direcciones (Instituto Geográfico Nacional)
+
+- **Enlace:** https://www.cartociudad.es/web/portal/directorio-de-servicios/geoprocesamiento (servicio REST Geocoder: `https://www.cartociudad.es/geocoder/api/geocoder/candidates` y `.../find`)
+- **Licencia:** CC BY 4.0. Según las preguntas frecuentes oficiales (https://www.cartociudad.es/web/portal/faq, consultadas el 2026-11-10): «Se permite el uso libre y gratuito de los datos para cualquier propósito legítimo, incluido el comercial y la publicación», y «el acceso y uso de los servicios web de CartoCiudad son gratuitos en cualquier caso, siempre que se mencionen la autoría y propiedad del siguiente modo: «CC BY 4.0 www.scne.es/productos.html#CartoCiudad»». El aviso legal (https://www.cartociudad.es/web/portal/aviso-legal) pide un uso lícito y citar el origen. La aplicación muestra esa mención junto al buscador.
+- **Fecha de descarga:** no se descarga (consulta en el momento); condiciones revisadas el 2026-11-10
+- **Versión de los datos:** la vigente en el servicio en el momento de la consulta
+- Uso: convertir la dirección que escribe el usuario en coordenadas (`candidates` y, para calles sin coordenadas, `find`), solo en la provincia de Madrid (`provincia_filter=Madrid`).
+- Privacidad: la dirección se envía a CartoCiudad para geolocalizarla; la aplicación no la guarda. No se muestran resultados de tipo «topónimo» ni «punto de interés» (pueden ser nombres de comercios o de personas).
+
+### OpenStreetMap: teselas del mapa base
+
+- **Enlace:** https://www.openstreetmap.org/copyright (teselas `https://tile.openstreetmap.org/{z}/{x}/{y}.png`)
+- **Licencia:** datos con Open Database License (ODbL) 1.0; atribución obligatoria «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright, que el mapa muestra en su esquina. Política de uso de las teselas (https://operations.osmfoundation.org/policies/tiles/, consultada el 2026-11-10): se cumple usando la URL HTTPS `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, mostrando la atribución visible en el mapa, sin descarga masiva ni precarga, y dejando que sea el navegador de quien usa la aplicación quien pida las teselas (con su User-Agent, su Referer y su caché). Disponibilidad sin garantía («best-effort»); para un uso intensivo habría que usar otro proveedor. Se añade el enlace recomendado para informar de errores del mapa (https://www.openstreetmap.org/fixthemap).
+- **Fecha de descarga:** no se descarga (el navegador las pide al ver el mapa)
+- **Versión de los datos:** la vigente en el servidor de teselas
+
+<!-- fin:aplicacion -->

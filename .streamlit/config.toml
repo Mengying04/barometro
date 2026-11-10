@@ -1,0 +1,21 @@
+# Configuración de Streamlit para app/app.py (se lee al arrancar desde la raíz del repo).
+
+[browser]
+# No enviar estadísticas de uso a Streamlit.
+gatherUsageStats = false
+
+[server]
+# Sin abrir navegador al arrancar (entorno sin pantalla).
+headless = true
+
+[logger]
+# Solo avisos y errores en la terminal: nunca se registran direcciones ni puntos.
+level = "warning"
+
+[client]
+# Menú reducido para quien usa la aplicación.
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#9c3d1b"
