@@ -555,3 +555,96 @@ REPARTO_VECINOS = {
                             h22=4.0, h23=2.5),
 }
 # La población de cada sección se supone repartida de forma uniforme por su superficie.
+
+
+# #########################################################################################
+# INFORME DEL LOCAL (src/informe_local.py). Mismo radio que el perfil por horas (RADIO_M).
+# #########################################################################################
+
+# ----------------------------------------------------------------------- 1. competencia
+# Tipos de local que se cuentan. En Madrid capital se usa el censo de locales del
+# Ayuntamiento (epígrafes de la división CNAE 56); en el resto, OpenStreetMap.
+TIPOS_COMPETENCIA = {
+    "bar": "Bares",
+    "restaurante": "Restaurantes",
+    "cafeteria": "Cafeterías",
+    "comida_rapida": "Comida rápida",
+}
+# Epígrafe del censo de Madrid → tipo. ESTIMACIÓN en dos casos dudosos: el «bar
+# restaurante» se cuenta como bar (es el bar español con menú, no un restaurante a la
+# carta) y la chocolatería, salón de té o heladería como cafetería.
+EPIGRAFE_COMPETENCIA = {
+    "561001": "restaurante",    # restaurante
+    "561003": "restaurante",    # autoservicio de restauración
+    "561002": "comida_rapida",  # restaurantes de comida rápida
+    "561008": "comida_rapida",  # establecimiento de restauración móvil
+    "561006": "cafeteria",      # cafetería
+    "561007": "cafeteria",      # chocolatería, salón de té y heladería
+    "563006": "cafeteria",      # ciber-café
+    "561004": "bar",            # bar restaurante
+    "561005": "bar",            # bar con cocina
+    "563005": "bar",            # bar sin cocina
+    "563001": "bar",            # bodega con consumo
+    "563002": "bar",            # bar especial sin actuaciones
+    "563003": "bar",            # bar especial con actuaciones
+    "563004": "bar",            # taberna
+    "563007": "bar",            # café espectáculo
+}
+# Un local con varios epígrafes cuenta una sola vez, con el tipo más específico.
+PRIORIDAD_COMPETENCIA = ["comida_rapida", "restaurante", "cafeteria", "bar"]
+# Etiqueta amenity de OpenStreetMap → tipo («pub» se cuenta como bar: en España casi
+# todos los bares de copas y muchos bares de barrio están etiquetados así).
+AMENITY_COMPETENCIA = {"restaurant": "restaurante", "bar": "bar", "pub": "bar",
+                       "cafe": "cafeteria", "fast_food": "comida_rapida"}
+# Densidad «media del municipio»: número medio de locales a menos de RADIO_M de donde
+# vive la gente del municipio (media de las secciones censales ponderada por población).
+# Así se compara con un punto típico habitado y no con la superficie total del término
+# municipal, que incluye campo y polígonos. ESTIMACIÓN de referencia.
+# Aviso de cobertura de OpenStreetMap: si en el municipio OSM tiene menos de este
+# porcentaje de los locales por habitante que el censo oficial de Madrid capital, se
+# avisa de que probablemente faltan locales. ESTIMACIÓN: los pueblos tienen algo menos
+# de bares por habitante que la capital, por eso no se pide el 100 %.
+COBERTURA_OSM_AVISO = 0.6
+# Cuántos tipos de cocina se muestran como máximo.
+COCINAS_MAX = 10
+
+# --------------------------------------------------------------- 2. mercado potencial
+# Gasto en restauración de los residentes del radio (gasten donde gasten):
+#     población × gasto medio por persona en restauración (Comunidad de Madrid)
+#     × (renta de la zona / renta media de la Comunidad) ^ elasticidad
+# La elasticidad dice cuánto sube el gasto en restauración si sube la renta: 1 =
+# proporcional. En las encuestas de presupuestos familiares el gasto en comer y beber
+# fuera crece aproximadamente en proporción a la renta del hogar (algo más en unos años,
+# algo menos en otros). ESTIMACIÓN: se usa un rango de 0,8 a 1,2.
+ELASTICIDAD_RESTAURACION = (0.8, 1.2)
+# Margen adicional por la población (dato de 2024, repartida por igual en la superficie
+# de cada sección). ESTIMACIÓN: ±10 %.
+MARGEN_POBLACION = 0.10
+
+# ------------------------------------------------------------------ 3. gama de precios
+# Gama según la renta neta media por persona de la zona frente a la media de la
+# Comunidad. ESTIMACIÓN: ±15 % alrededor de la media es «media».
+GAMA_UMBRALES = (0.85, 1.15)   # por debajo: económica; por encima: alta
+# Grupos del IPC (portal, Comunidad de Madrid) que se comparan. El portal no publica una
+# subclase solo de restaurantes: el grupo «Restaurantes y servicios de alojamiento»
+# incluye hoteles, así que se muestra también «Hoteles» para ver su efecto.
+IPC_GRUPOS = {
+    "restaurantes_alojamiento": "Restaurantes y servicios de alojamiento",
+    "hoteles": "Hoteles",
+    "alimentos": "Alimentos y bebidas no alcohólicas",
+    "bebidas_alcoholicas": "Bebidas alcohólicas",
+    "general": "Índice general",
+}
+
+# --------------------------------------------------------------------------- 4. turismo
+# El código postal del punto se aproxima con el código postal más repetido entre los
+# centros sanitarios más cercanos (su dirección lo trae). No hay límites de códigos
+# postales en abierto. ESTIMACIÓN.
+CP_VECINOS = 5          # centros sanitarios que se miran
+CP_DISTANCIA_MAX_M = 1000
+
+# -------------------------------------------------------------------------- 5. festivos
+# Si el portal aún no publica los festivos del año siguiente, se muestran los del año en
+# curso como orientación de cuándo suelen caer (ESTIMACIÓN: muchas fiestas locales
+# cambian de fecha cada año).
+FESTIVOS_MESES = 12

@@ -40,6 +40,8 @@ CONJUNTOS = [
     "gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006",
     "ipc_base_2025",
     "demografia_empresarial_cnae25",
+    # Serie trimestral 2009-2025 (CNAE-2009): da la evolución del sector antes de 2026.
+    "demografia_empresarial_cnae09",
     # Alumnos por municipio (y distrito en Madrid), enseñanza y titularidad: se reparten
     # entre los centros para estimar el peso de cada colegio (src/procesar_perfil.py).
     "spacm_estadisticas_alumnos",
