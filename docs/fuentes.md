@@ -23,6 +23,9 @@ Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se r
 | Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España | [ipc_base_2025](https://datos.comunidad.madrid/dataset/ipc_base_2025) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 160.709 |
 | Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2025) | [demografia_empresarial_cnae25](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae25) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 573 |
 | Estadísticas de alumnos de centros educativos de la Comunidad de Madrid | [spacm_estadisticas_alumnos](https://datos.comunidad.madrid/dataset/spacm_estadisticas_alumnos) | Creative Commons Attribution | 2026-07-22 | CSV, JSON | 11.479 + 19.664 + 22.693 + 12.031 + 8.963 + 1.781 + 3.154 + 5.311 + 17.885 + 5.311 + 31.679 + 991 + 7.611 + 6.054 + 5.700 + 399 + 10.705 + 16.567 + 4.631 + 9.377 |
+| Estudiantes matriculados en estudios de Grado presenciales por universidad | [1925489](https://datos.comunidad.madrid/dataset/1925489) | Creative Commons Attribution | 2026-11-06 | CSV, JSON | 198 |
+| Estudiantes matriculados en estudios de máster presenciales por universidad | [1925502](https://datos.comunidad.madrid/dataset/1925502) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 220 |
+| Viajeros subidos y bajados en trenes de cercanias por estaciones | [1923861](https://datos.comunidad.madrid/dataset/1923861) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 540 |
 
 Cuando un conjunto tiene varios CSV, la columna de filas los muestra en el orden de la ficha separados por «+».
 
@@ -93,13 +96,26 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - Nodos con `lat`/`lon`; vías y relaciones con su punto central (`center`).
 - Una base de datos derivada que se publique debe mantener la licencia ODbL.
 
-### Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos
+### OpenStreetMap: recintos universitarios (amenity=university) de la Comunidad de Madrid (API Overpass)
+
+- **Carpeta:** `datos/originales/osm_universidades/`
+- **Enlace:** https://www.openstreetmap.org/copyright
+- **Licencia:** Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright
+- **Fecha de descarga:** 2026-11-10
+- **Versión de los datos:** Datos OSM a 2026-11-10T10:36:21Z
+- **Ficheros:**
+  - osm_universidades.json: 164 elementos (node 42, relation 12, way 110), con geometría completa (`out geom`)
+  - consulta.overpassql: consulta usada
+- Se usan para ubicar los campus y repartir entre ellos los estudiantes de cada universidad (src/procesar_perfil.py). Unos elementos son campus enteros y otros, facultades o edificios sueltos; no se conserva más que el nombre del centro, el operador y la geometría.
+- Una base de datos derivada que se publique debe mantener la licencia ODbL.
+
+### Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y demanda diaria de viajeros por modo
 
 - **Carpeta:** `datos/originales/crtm_paradas/`
-- **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro, https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)
+- **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro, https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos; demanda: https://datos.crtm.es/datasets/crtm::crtm-evolucion-demanda-diaria (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)
 - **Licencia:** [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. Obligaciones: mostrar **«Powered by CRTM»** con enlace a [crtm.es](http://www.crtm.es/) en webs y apps; **garantizar que la información mostrada esté siempre actualizada** (volver a ejecutar este script); citar al CRTM como fuente indicando si son datos en bruto o explotados; conservar los metadatos de fecha de actualización; no sugerir que el CRTM patrocina o apoya el producto
 - **Fecha de descarga:** 2026-11-10
-- **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027
+- **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027; crtm_demanda_diaria.xlsx: publicado el 2026-10-28
 - **Ficheros:**
   - metro_estaciones.geojson (Metro: estaciones (capa de red)): 293 estaciones
   - gtfs_metro.zip (Metro (solo para frecuencias; publicado en mayo de 2025); original `google_transit_M4.zip`): 1.050 registros en stops.txt (location_type 0: 290, location_type 1: 240, location_type 2: 520), 13 líneas, calendario 20250527–20260527
@@ -108,11 +124,13 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
   - gtfs_interurbanos.zip (Autobuses interurbanos; original `google_transit_M89.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 354 líneas, calendario 20261027–20271128
   - gtfs_emt.zip (Autobuses urbanos de Madrid (EMT); original `google_transit_M6.zip`): 4.935 registros en stops.txt (location_type 0: 4.935), 238 líneas, calendario 20261030–20261231
   - gtfs_urbanos.zip (Autobuses urbanos de otros municipios (el CRTM avisa: «datos parciales»); original `google_transit_M9.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 117 líneas, calendario 20261027–20271128
+  - crtm_demanda_diaria.xlsx (Evolución de la demanda diaria y mensual por modo (Observatorio de la Demanda del Transporte Público); original `CRTM_Evolucion_demanda_diaria.xlsx`): hojas «diaria» y «mensual» con viajeros de Metro de Madrid, EMT, concesiones por carretera y Renfe Cercanías (datos provisionales)
   - metadatos_capas.json, metadatos_gtfs.json: metadatos originales (fechas de actualización, que la licencia obliga a conservar)
 - Las estaciones de Metro se toman de la capa de red porque su GTFS publicado (30/05/2025) es anterior a la capa (junio de 2026). Coordenadas de la capa en WGS84 (EPSG:4326). El GTFS de Metro se descarga igualmente, solo para calcular cuántos trenes pasan por hora (src/procesar_perfil.py): los horarios de 2025 se toman como aproximación de los actuales.
 - Los GTFS se guardan completos, sin descomprimir. Las paradas están en `stops.txt` (`stop_lat`/`stop_lon`, WGS84). `location_type`: 0 = parada o andén, 1 = estación, 2 = acceso; vacío equivale a 0.
 - gtfs_interurbanos.zip y gtfs_urbanos.zip comparten el mismo `stops.txt` (paradas de las dos redes juntas); lo que cambia son las líneas y los horarios. Para saber qué paradas usa cada red hay que cruzar `stop_times.txt` y `trips.txt`.
 - El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a descargarlo con frecuencia.
+- La demanda diaria sirve para calibrar cuántas personas suben o bajan por cada tren o autobús que para (src/procesar_perfil.py). Es por modo, no por estación.
 
 <!-- fin:externas -->
 
@@ -192,13 +210,24 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - 3202 centros con alumnos de la estadística; 539 con peso típico por tipo (idiomas, música, adultos…); 110 sin alumnos (equipos de orientación, oficinas).
 - 11 centros de Madrid capital sin distrito reconocible.
 
-**desfibriladores_horario** (13.679 filas → 3.323)
+**campus_universitarios** (164 elementos OSM → 98)
+
+- Descartados por no es un centro de estudios (residencia, museo, oficinas, instituto…): 13
+- Ubicación: elementos `amenity=university` de OpenStreetMap (polígonos; los puntos se tratan como un círculo de 1 ha).
+- Asignación a universidad: 78 por su nombre u operador, 25 por estar dentro del recinto de una universidad; el resto son «otros» centros de estudios superiores con 300 estudiantes al día (**supuesto**).
+- Estudiantes: Grado + máster presenciales por universidad, año 2026 de las tablas 1925489 y 1925502 del portal (datos provisionales): 323.345 de 331.029 colocados en algún campus.
+- Reparto entre campus de la misma universidad (unidos si están a menos de 300 m): proporcional a la raíz cuadrada de la superficie (**estimación**, ver src/supuestos.py).
+- Campus por universidad: CEU 2 (11.361); Comillas 3 (13.067); ESIC 2 (2.762); Nebrija 5 (14.218); UAH 3 (19.695); UAM 3 (26.296); UAX 1 (16.197); UC3M 3 (20.537); UCJC 3 (14.244); UCM 8 (57.745); UEM 2 (24.988); UFV 1 (14.947); UNIE 1 (4.760); UPM 5 (35.377); URJC 6 (44.622); Villanueva 2 (2.529).
+- Universidades de la estadística sin ningún campus en OSM (sus estudiantes no se colocan): CUNEF, UDIT.
+
+**desfibriladores_horario** (13.679 filas → 3.258)
 
 - Descartados por en un vehículo (autobús): 2202
+- Descartados por «Centro educativo» junto a un campus universitario (a menos de 150 m): 172
 - Descartados por tipo sin uso en el perfil (Otros, transporte, aeropuertos, colegio ya listado): 6725
-- Descartados por fusionados con otro del mismo sitio: 1429
+- Descartados por fusionados con otro del mismo sitio: 1322
 - Interpretación de `horario_acceso` (todas las filas): vacio 4407, rango 3235, 24h 3208, vehiculo 2202, no_interpretable 366, expresion 180, eventos 81. rango = horas leídas del texto; expresion = «horario de oficina», «comercial», «lectivo»…; 24h y vacío usan el horario típico del tipo de establecimiento.
-- 516 desfibriladores de «Centro educativo» sin ningún centro del listado a menos de 120 m (universidades y otros centros que no están en el listado): se cuentan como centro educativo con 1000 usuarios al día (**supuesto**), fusionando los que están a menos de 150 m.
+- 344 desfibriladores de «Centro educativo» sin ningún centro del listado a menos de 120 m ni campus universitario a menos de 150 m (academias, centros de estudios que no están en ninguna lista): se cuentan como «universitarios» con 1000 usuarios al día y horario universitario (**supuesto**), fusionando los que están a menos de 150 m.
 - Los del mismo tipo a menos de 50 m se fusionan en un solo sitio (`n_dea` = cuántos había).
 - `cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).
 
@@ -208,11 +237,16 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Día típico: entre los martes, miércoles y jueves (y entre los sábados) de las 4 primeras semanas de vigencia a partir de hoy, el de número de viajes mediano (evita festivos y días especiales).
 - Metro: GTFS de mayo de 2025 (el más reciente publicado; su calendario terminó el 27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se supone que las frecuencias actuales son parecidas.
 - Interurbanos y urbanos comparten `stops.txt`: cada red cuenta solo sus vehículos.
-- metro: laborable 2026-05-13, sábado 2026-05-09 (viajes-plantilla de frequencies.txt expandidos); 272 paradas con servicio; 113.756 pasos en laborable
-- metro_ligero: laborable 2026-11-19, sábado 2026-11-21; 57 paradas con servicio; 12.507 pasos en laborable
+- Geometría: la parada; en Metro y Metro Ligero, el conjunto de accesos de la estación (`location_type` 2 del GTFS), para medir la distancia a la salida más cercana a la calle.
+- metro: laborable 2026-05-13, sábado 2026-05-09 (viajes-plantilla de frequencies.txt expandidos); 254 con la posición de sus accesos; 272 paradas con servicio; 113.756 pasos en laborable
+- metro_ligero: laborable 2026-11-19, sábado 2026-11-21; 13 con la posición de sus accesos; 57 paradas con servicio; 12.507 pasos en laborable
 - cercanias: laborable 2026-11-12, sábado 2026-11-21; 93 paradas con servicio; 20.201 pasos en laborable
 - emt: laborable 2026-11-19, sábado 2026-11-21; 4935 paradas con servicio; 982.548 pasos en laborable
 - interurbanos: laborable 2026-11-26, sábado 2026-11-21; 5826 viajes de relleno descartados (todas las paradas a la misma hora); 6226 paradas con servicio; 691.865 pasos en laborable
 - urbanos: laborable 2026-11-26, sábado 2026-11-21; 1654 viajes de relleno descartados (todas las paradas a la misma hora); 2818 paradas con servicio; 200.362 pasos en laborable
+- Calibración con la demanda diaria del CRTM (2026-08-30 a 2026-10-25; mediana de martes a jueves y de sábados, sin festivos): personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las paradas de la red.
+- Laborable: Conc. por carretera 1.140.012 viajeros / 892.227 pasos → 2.6 personas por paso; EMT 1.768.702 viajeros / 982.548 pasos → 3.6 personas por paso; Metro de Madrid 2.520.976 viajeros / 113.756 pasos → 44.3 personas por paso; Renfe Cercanías 735.479 viajeros / 20.201 pasos → 72.8 personas por paso
+- Sábado: Conc. por carretera 562.112 viajeros / 641.943 pasos → 1.8 personas por paso; EMT 1.037.032 viajeros / 656.740 pasos → 3.2 personas por paso; Metro de Madrid 1.744.264 viajeros / 93.200 pasos → 37.4 personas por paso; Renfe Cercanías 441.096 viajeros / 15.615 pasos → 56.5 personas por paso
+- Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
 <!-- fin:perfil -->

@@ -43,6 +43,12 @@ CONJUNTOS = [
     # Alumnos por municipio (y distrito en Madrid), enseñanza y titularidad: se reparten
     # entre los centros para estimar el peso de cada colegio (src/procesar_perfil.py).
     "spacm_estadisticas_alumnos",
+    # Estudiantes de Grado y de máster presenciales por universidad: se reparten entre los
+    # campus de OpenStreetMap (src/procesar_perfil.py).
+    "1925489",
+    "1925502",
+    # Viajeros subidos y bajados por estación de Cercanías: calibran las personas por tren.
+    "1923861",
 ]
 
 FORMATOS = {"CSV", "JSON", "SHP", "ZIP"}

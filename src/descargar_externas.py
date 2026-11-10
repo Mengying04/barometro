@@ -12,13 +12,16 @@ Cada fuente va a su carpeta en datos/originales/ y se anota en docs/fuentes.md
                           terrazas de hostelería y restauración (CSV + PDF de estructura).
   3. osm_hosteleria/      OpenStreetMap vía Overpass: bares, pubs, cafeterías,
                           restaurantes y comida rápida de la Comunidad de Madrid.
+  3b. osm_universidades/ OpenStreetMap vía Overpass: recintos universitarios
+                          (amenity=university) de la Comunidad de Madrid, con geometría.
   4. crtm_paradas/        Consorcio Regional de Transportes: estaciones de Metro (capa de
                           red, GeoJSON WGS84) y feeds GTFS de Metro Ligero, Cercanías,
                           autobuses interurbanos, urbanos de Madrid (EMT) y urbanos de
-                          otros municipios.
+                          otros municipios; y demanda diaria de viajeros por modo
+                          (Excel del Observatorio de la Demanda).
 
-Uso:  python src/descargar_externas.py [ine ine_secc madrid osm crtm]
-      (sin argumentos descarga las cuatro)
+Uso:  python src/descargar_externas.py [ine ine_secc madrid osm osm_uni crtm]
+      (sin argumentos descarga todas)
 Solo usa la biblioteca estándar de Python.
 """
 
@@ -249,6 +252,55 @@ def fuente_osm(informe: dict) -> dict:
     }
 
 
+# ------------------------------------------------------- OpenStreetMap: universidades
+# `out geom` (y no `out geom tags`) para que las relaciones traigan sus miembros.
+OSM_CONSULTA_UNI = f"""[out:json][timeout:300];
+area({3600000000 + OSM_COMUNIDAD})->.cm;
+nwr["amenity"="university"](area.cm);
+out geom;"""
+
+
+def fuente_osm_universidades(informe: dict) -> dict:
+    carpeta = DIR_ORIGINALES / "osm_universidades"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    (carpeta / "consulta.overpassql").write_text(OSM_CONSULTA_UNI + "\n", encoding="utf-8")
+    destino = carpeta / "osm_universidades.json"
+    datos = urllib.parse.urlencode({"data": OSM_CONSULTA_UNI}).encode()
+    tam = descargar(OVERPASS, destino, datos=datos, timeout=360)
+    res = json.loads(destino.read_text(encoding="utf-8"))
+    if res.get("remark"):
+        raise RuntimeError(f"Overpass devolvió un aviso (datos incompletos): {res['remark']}")
+    elementos = res["elements"]
+    por_tipo: dict[str, int] = {}
+    for e in elementos:
+        por_tipo[e["type"]] = por_tipo.get(e["type"], 0) + 1
+    sin_geom = sum(1 for e in elementos if e["type"] == "relation"
+                   and not any(m.get("geometry") for m in e.get("members", [])))
+    if sin_geom:
+        informe["avisos"].append(f"osm_universidades: {sin_geom} relaciones sin geometría")
+    fecha_osm = res.get("osm3s", {}).get("timestamp_osm_base", "?")
+    informe["descargados"].append(f"osm_universidades/osm_universidades.json "
+                                  f"({tam / 1e6:.1f} MB, {len(elementos)} elementos)")
+    return {
+        "carpeta": "osm_universidades",
+        "titulo": "OpenStreetMap: recintos universitarios (amenity=university) de la "
+                  "Comunidad de Madrid (API Overpass)",
+        "enlace": "https://www.openstreetmap.org/copyright",
+        "licencia": "Open Database License (ODbL) 1.0. Citar: «© colaboradores de "
+                    "OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright",
+        "version": f"Datos OSM a {fecha_osm}",
+        "ficheros": [f"osm_universidades.json: {_fmt(len(elementos))} elementos ("
+                     + ", ".join(f"{k} {v}" for k, v in sorted(por_tipo.items()))
+                     + "), con geometría completa (`out geom`)",
+                     "consulta.overpassql: consulta usada"],
+        "notas": ["Se usan para ubicar los campus y repartir entre ellos los estudiantes de "
+                  "cada universidad (src/procesar_perfil.py). Unos elementos son campus "
+                  "enteros y otros, facultades o edificios sueltos; no se conserva más que "
+                  "el nombre del centro, el operador y la geometría.",
+                  "Una base de datos derivada que se publique debe mantener la licencia ODbL."],
+    }
+
+
 # -------------------------------------------------------------------------------- CRTM
 CRTM_BASE = "https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services"
 ARCGIS_ITEMS = "https://www.arcgis.com/sharing/rest/content/items"
@@ -275,6 +327,10 @@ CRTM_GTFS = [  # (id del item, fichero, descripción, ficha en datos.crtm.es)
      "Autobuses urbanos de otros municipios (el CRTM avisa: «datos parciales»)",
      "gtfs-red-de-autobuses-urbanos"),
 ]
+# Demanda diaria y mensual de viajeros por modo (Observatorio de la Demanda del CRTM).
+CRTM_DEMANDA = ("a7210254c4514a19a51b1617cfd61f75", "crtm_demanda_diaria.xlsx",
+                "Evolución de la demanda diaria y mensual por modo (Observatorio de la "
+                "Demanda del Transporte Público)", "crtm-evolucion-demanda-diaria")
 # Ficheros de versiones anteriores de este script que ya no se usan
 CRTM_OBSOLETOS = ["metro_ligero_estaciones", "cercanias_estaciones", "interurbanos_estaciones",
                   "interurbanos_postes", "emt_estaciones", "emt_postes", "urbanos_estaciones",
@@ -377,6 +433,20 @@ def fuente_crtm(informe: dict) -> dict:
         informe["descargados"].append(f"crtm_paradas/{nombre} ({tam / 1e6:.1f} MB, "
                                       f"{r['paradas']} paradas)")
         print(f"{tam / 1e6:.1f} MB, {r['paradas']} paradas")
+    item_id, nombre, desc, ficha = CRTM_DEMANDA
+    print(f"  · {nombre} ...", end=" ", flush=True)
+    item = _json(f"{ARCGIS_ITEMS}/{item_id}?f=json")
+    items[nombre] = item
+    tam = descargar(f"{ARCGIS_ITEMS}/{item_id}/data", carpeta / nombre, timeout=300)
+    with zipfile.ZipFile(carpeta / nombre) as zf:  # un .xlsx es un ZIP: comprobación
+        if zf.testzip():
+            raise RuntimeError(f"{nombre}: fichero dañado")
+    ficheros.append(f"{nombre} ({desc}; original `{item.get('name')}`): hojas «diaria» "
+                    "y «mensual» con viajeros de Metro de Madrid, EMT, concesiones por "
+                    "carretera y Renfe Cercanías (datos provisionales)")
+    versiones.append(f"{nombre}: publicado el {_fecha_ms(item.get('modified'))}")
+    informe["descargados"].append(f"crtm_paradas/{nombre} ({tam / 1e6:.2f} MB)")
+    print(f"{tam / 1e6:.2f} MB")
     _guardar_json(items, carpeta / "metadatos_gtfs.json")
 
     for viejo in CRTM_OBSOLETOS:
@@ -385,12 +455,14 @@ def fuente_crtm(informe: dict) -> dict:
     return {
         "carpeta": "crtm_paradas",
         "titulo": "Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas "
-                  "de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos",
+                  "de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y "
+                  "demanda diaria de viajeros por modo",
         "enlace": "Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha "
                   "«Datos abiertos: Elementos de la Red de Metro» (capa "
                   f"{CRTM_BASE}/M4_Red/FeatureServer/0); resto: fichas GTFS "
                   + ", ".join(f"https://datos.crtm.es/datasets/crtm::{f}"
                               for _, _, _, f in CRTM_GTFS)
+                  + f"; demanda: https://datos.crtm.es/datasets/crtm::{CRTM_DEMANDA[3]}"
                   + f" (ficheros servidos desde {ARCGIS_ITEMS}/<id>/data)",
         "licencia": "[Licencia de datos abiertos y estáticos del CRTM]"
                     "(https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. "
@@ -418,13 +490,17 @@ def fuente_crtm(informe: dict) -> dict:
             "qué paradas usa cada red hay que cruzar `stop_times.txt` y `trips.txt`.",
             "El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a "
             "descargarlo con frecuencia.",
+            "La demanda diaria sirve para calibrar cuántas personas suben o bajan por cada "
+            "tren o autobús que para (src/procesar_perfil.py). Es por modo, no por estación.",
         ],
     }
 
 
 # ------------------------------------------------------------------------- principal
-FUENTES = {"ine": fuente_ine, "ine_secc": fuente_ine_seccionado, "madrid": fuente_madrid, "osm": fuente_osm, "crtm": fuente_crtm}
-ORDEN_CARPETAS = ["ine_adrh", "ine_seccionado", "madrid_censo_locales", "osm_hosteleria", "crtm_paradas"]
+FUENTES = {"ine": fuente_ine, "ine_secc": fuente_ine_seccionado, "madrid": fuente_madrid,
+           "osm": fuente_osm, "osm_uni": fuente_osm_universidades, "crtm": fuente_crtm}
+ORDEN_CARPETAS = ["ine_adrh", "ine_seccionado", "madrid_censo_locales", "osm_hosteleria",
+                  "osm_universidades", "crtm_paradas"]
 ESTADO = DIR_ORIGINALES / ".fuentes_externas.json"  # para no perder las ya descargadas
 
 

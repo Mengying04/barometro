@@ -4,7 +4,7 @@
     r = perfil_horario(40.4046, -3.6106)
     r["horas"]      # 48 filas (laborable y fin de semana × 24 horas) × tipos de cliente
     r["franjas"]    # lo mismo agrupado en franjas del día
-    r["confianza"]  # nivel de confianza de cada tipo de cliente
+    r["confianza"]  # confianza de cada tipo de cliente, para el horario y la cantidad
 
 Desde la terminal:  python src/perfil_horario.py 40.4046 -3.6106
 
@@ -52,6 +52,7 @@ def capas() -> dict[str, gpd.GeoDataFrame]:
         "paradas": gpd.read_parquet(PROC / "salidas_paradas.parquet"),
         "secciones": gpd.read_parquet(PROC / "secciones_censales.parquet",
                                       columns=["cdgseccion", "poblacion", "geometry"]),
+        "campus": gpd.read_parquet(PROC / "campus_universitarios.parquet"),
     }
 
 
@@ -172,12 +173,43 @@ def desde_dea(c: dict, punto, radio) -> tuple[dict, dict]:
 
 
 def viajeros(c: dict, punto, radio) -> tuple[dict, int]:
+    """Pasos de vehículos × personas por paso (calibradas con la demanda real) × peso de
+    la parada, que cae más deprisa con la distancia que el de los demás sitios."""
     p = cerca(c["paradas"], punto, radio)
+    p["peso"] = p["distancia_m"].map(lambda d: S.peso_parada(d, radio)).astype(float)
     lab = p[[f"lab_{h:02d}" for h in range(24)]].to_numpy()
     sab = p[[f"sab_{h:02d}" for h in range(24)]].to_numpy()
-    porpaso = p["red"].astype(object).map(S.VIAJEROS_POR_PASO).astype(float)
-    f = (p["peso"].astype(float) * porpaso).to_numpy()[:, None]
-    return {"laborable": (lab * f).sum(axis=0), "fin_de_semana": (sab * f).sum(axis=0)}, len(p)
+    fl = (p["peso"] * p["pp_lab"].astype(float)).to_numpy()[:, None]
+    fs = (p["peso"] * p["pp_sab"].astype(float)).to_numpy()[:, None]
+    return {"laborable": (lab * fl).sum(axis=0), "fin_de_semana": (sab * fs).sum(axis=0)}, len(p)
+
+
+def fraccion_ponderada(geoms: np.ndarray, punto, radio) -> np.ndarray:
+    """Para cada polígono: fracción de su superficie dentro del radio, sumando por
+    anillos de ANCHO_ANILLO_M y multiplicando cada anillo por su peso por distancia."""
+    area = shapely.area(geoms)
+    total = np.zeros(len(geoms))
+    r0 = 0.0
+    while r0 < radio:
+        r1 = min(r0 + S.ANCHO_ANILLO_M, radio)
+        anillo = punto.buffer(r1, quad_segs=32)
+        if r0 > 0:
+            anillo = anillo.difference(punto.buffer(r0, quad_segs=32))
+        dentro = shapely.area(shapely.intersection(geoms, anillo))
+        total += dentro / area * S.peso_distancia((r0 + r1) / 2, radio)
+        r0 = r1
+    return total
+
+
+def universitarios(c: dict, punto, radio) -> tuple[dict, int, float]:
+    """Estudiantes de los campus que tocan el radio, repartidos por igual en la
+    superficie de cada campus (como los vecinos) y con el horario universitario."""
+    cp = c["campus"]
+    cp = cp.iloc[cp.sindex.query(punto.buffer(radio), predicate="intersects")]
+    est = float((cp["estudiantes"].to_numpy(dtype=float)
+                 * fraccion_ponderada(cp.geometry.to_numpy(), punto, radio)).sum())
+    v = est * S.UNIVERSIDAD_ASISTENCIA * vec(S.PERFIL_EDUCATIVO["universidad"])
+    return {"laborable": v, "fin_de_semana": v * S.EDUCATIVO_FIN_DE_SEMANA}, len(cp), est
 
 
 def vecinos(c: dict, punto, radio) -> tuple[dict, float]:
@@ -185,18 +217,8 @@ def vecinos(c: dict, punto, radio) -> tuple[dict, float]:
     queda dentro de cada anillo de 50 m y ponderada por la distancia del anillo."""
     secc = c["secciones"]
     secc = secc.iloc[secc.sindex.query(punto.buffer(radio), predicate="intersects")]
-    area = secc.area.to_numpy()
     pobl = secc["poblacion"].fillna(0).to_numpy(dtype=float)
-    total = 0.0
-    r0 = 0.0
-    while r0 < radio:
-        r1 = min(r0 + S.ANCHO_ANILLO_M, radio)
-        anillo = punto.buffer(r1, quad_segs=32)
-        if r0 > 0:
-            anillo = anillo.difference(punto.buffer(r0, quad_segs=32))
-        dentro = shapely.area(shapely.intersection(secc.geometry.to_numpy(), anillo))
-        total += float((pobl * dentro / area).sum()) * S.peso_distancia((r0 + r1) / 2, radio)
-        r0 = r1
+    total = float((pobl * fraccion_ponderada(secc.geometry.to_numpy(), punto, radio)).sum())
     out = {}
     for d in DIAS:
         rep = vec(S.REPARTO_VECINOS[d])
@@ -212,7 +234,8 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
       horas:     DataFrame con índice (dia, hora) y una columna por tipo de cliente +
                  «total»; valores = personas que pasan cerca en esa hora (estimación).
       franjas:   lo mismo sumado por franjas del día.
-      confianza: nivel de confianza de cada tipo de cliente y por qué.
+      confianza: confianza de cada tipo de cliente para el horario y para la cantidad,
+                 y por qué.
       elementos: cuántos elementos de cada fuente hay dentro del radio.
       punto, radio_m.
     """
@@ -222,12 +245,14 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
     res = {t: {d: np.zeros(24) for d in DIAS} for t in TIPOS}
 
     pn, n_edu = padres_ninos(c, punto, radio)
+    un, n_campus, est_campus = universitarios(c, punto, radio)
     pa, n_san = pacientes(c, punto, radio)
     dea, n_dea = desde_dea(c, punto, radio)
     vi, n_par = viajeros(c, punto, radio)
     ve, pob = vecinos(c, punto, radio)
     for d in DIAS:
         res["padres_ninos"][d] += pn[d]
+        res["universitarios"][d] += un[d]
         res["pacientes"][d] += pa[d]
         res["viajeros"][d] += vi[d]
         res["vecinos"][d] += ve[d]
@@ -249,8 +274,11 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
     franjas = franjas.groupby(["dia", "franja"], observed=False)[TIPOS + ["total"]].sum()
 
     confianza = pd.DataFrame(
-        [{"tipo": t, "nombre": S.TIPOS_CLIENTE[t], "confianza": S.CONFIANZA[t][0],
-          "motivo": S.CONFIANZA[t][1]} for t in TIPOS]).set_index("tipo")
+        [{"tipo": t, "nombre": S.TIPOS_CLIENTE[t],
+          "confianza_horario": S.CONFIANZA[t]["horario"][0],
+          "confianza_cantidad": S.CONFIANZA[t]["cantidad"][0],
+          "motivo_horario": S.CONFIANZA[t]["horario"][1],
+          "motivo_cantidad": S.CONFIANZA[t]["cantidad"][1]} for t in TIPOS]).set_index("tipo")
 
     return {
         "punto": {"lat": lat, "lon": lon},
@@ -260,6 +288,9 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
         "confianza": confianza,
         "elementos": {
             "centros educativos": n_edu,
+            "campus universitarios": n_campus,
+            "estudiantes matriculados ponderados por superficie y distancia":
+                round(est_campus),
             "centros sanitarios con público": n_san,
             "sitios del registro de desfibriladores": sum(n_dea.values()),
             **{f"  de ellos {S.TIPOS_CLIENTE[t].lower()}": v for t, v in n_dea.items() if v},
@@ -309,7 +340,7 @@ def main(argv: list[str]) -> int:
         print(f"\n=== {d.replace('_', ' ')}: horas con más movimiento")
         print(horas_punta(r, d).to_string(index=False))
     print("\n=== Confianza")
-    print(r["confianza"][["nombre", "confianza", "motivo"]].to_string())
+    print(r["confianza"][["nombre", "confianza_horario", "confianza_cantidad"]].to_string())
     return 0
 
 

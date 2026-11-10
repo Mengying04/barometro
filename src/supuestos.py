@@ -64,6 +64,7 @@ FRANJAS = {
 # --------------------------------------------------------------------- tipos de cliente
 TIPOS_CLIENTE = {
     "padres_ninos": "Padres y niños",
+    "universitarios": "Universitarios",
     "pacientes": "Pacientes",
     "trabajadores": "Trabajadores",
     "deporte_eventos": "Deporte y eventos",
@@ -71,18 +72,48 @@ TIPOS_CLIENTE = {
     "vecinos": "Vecinos",
 }
 
-# Confianza de cada tipo según la calidad del dato de partida.
+# Confianza de cada tipo de cliente, por separado para el HORARIO (a qué horas pasa la
+# gente) y para la CANTIDAD (cuánta gente pasa), según la calidad del dato de partida.
+# Niveles: alta (dato real y directo), media (dato real con un reparto o un supuesto
+# razonable), orientativa (supuesto de orden de magnitud).
 CONFIANZA = {
-    "viajeros": ("alta", "horarios reales del transporte público (GTFS del CRTM)"),
-    "padres_ninos": ("media", "ubicación real de los centros; alumnos repartidos desde "
-                              "totales por municipio y horario típico"),
-    "pacientes": ("media", "ubicación real de los centros sanitarios y horario típico"),
-    "trabajadores": ("media", "ubicación real de centros de trabajo grandes (registro de "
-                              "desfibriladores) y horario típico"),
-    "deporte_eventos": ("media", "ubicación real de instalaciones y recintos (registro de "
-                                 "desfibriladores) y horario típico"),
-    "vecinos": ("orientativa", "población por sección censal repartida por superficie y "
-                               "costumbres generales de salida a la calle"),
+    "viajeros": {
+        "horario": ("alta", "horarios reales del transporte público (GTFS del CRTM)"),
+        "cantidad": ("media", "viajeros diarios reales de cada red (CRTM) y de las "
+                              "estaciones grandes de Cercanías, repartidos por igual entre "
+                              "los vehículos; sin datos por estación de Metro ni de autobús"),
+    },
+    "padres_ninos": {
+        "horario": ("media", "horarios típicos de entrada y salida de cada etapa"),
+        "cantidad": ("media", "alumnos reales por municipio o distrito repartidos a partes "
+                              "iguales entre los centros"),
+    },
+    "universitarios": {
+        "horario": ("media", "horario típico de mañana y tarde de una universidad"),
+        "cantidad": ("media", "estudiantes reales por universidad repartidos entre sus "
+                              "campus según la superficie (estimación)"),
+    },
+    "pacientes": {
+        "horario": ("media", "horarios típicos de cada tipo de centro sanitario"),
+        "cantidad": ("orientativa", "pacientes al día típicos por tipo de centro (supuesto)"),
+    },
+    "trabajadores": {
+        "horario": ("media", "horario de acceso del registro cuando se puede leer; si no, "
+                             "horario típico"),
+        "cantidad": ("orientativa", "el registro solo dice el tamaño mínimo (más de 250 "
+                                    "trabajadores…); plantilla supuesta"),
+    },
+    "deporte_eventos": {
+        "horario": ("media", "horario de acceso del registro cuando se puede leer; si no, "
+                             "horario típico"),
+        "cantidad": ("orientativa", "usuarios o aforo mínimos del registro y probabilidad "
+                                    "de evento supuesta"),
+    },
+    "vecinos": {
+        "horario": ("orientativa", "costumbres generales de salida a la calle"),
+        "cantidad": ("media", "población real del INE por sección censal, repartida por "
+                              "superficie; pasos por vecino supuestos"),
+    },
 }
 
 # Fin de semana: para el transporte se usa el horario de un sábado típico (el domingo
@@ -155,10 +186,15 @@ PESO_TIPICO_EDUCATIVO = [
 PESO_TIPICO_EDUCATIVO_OTROS = (100, "tarde")  # cualquier otro tipo no previsto
 
 # Desfibrilador de tipo «Centro educativo» que no tiene ningún centro del listado a menos
-# de esta distancia: se trata como un centro que falta (universidades, academias…).
+# de esta distancia: se trata como un centro de estudios que falta (academias, centros
+# universitarios que no están en OpenStreetMap…), con horario de tipo universitario.
+# Si está a menos de DEA_EDUCATIVO_CAMPUS_M de un campus universitario, no se cuenta
+# (sus estudiantes ya salen del campus).
 DEA_EDUCATIVO_DISTANCIA_M = 120
-DEA_EDUCATIVO_PESO = 1000      # usuarios al día (campus o centro grande). ESTIMACIÓN.
+DEA_EDUCATIVO_CAMPUS_M = 150
+DEA_EDUCATIVO_PESO = 1000      # usuarios al día (centro grande). ESTIMACIÓN.
 DEA_EDUCATIVO_PERFIL = "universidad"
+DEA_EDUCATIVO_CLIENTE = "universitarios"
 
 # Acompañantes adultos por alumno (padres, abuelos, cuidadores) que van y vienen a la
 # puerta. ESTIMACIÓN: casi todos los niños pequeños van acompañados; algunos hermanos
@@ -203,6 +239,46 @@ PERFIL_EDUCATIVO = {
 }
 # En fin de semana no hay clase. ESTIMACIÓN: se ignoran actividades de sábado.
 EDUCATIVO_FIN_DE_SEMANA = 0.0
+
+# ================================================================== UNIVERSIDADES
+# Estudiantes: Grado + máster presenciales por universidad del último curso publicado
+# en el portal de la Comunidad (conjuntos 1925489 y 1925502). No hay datos por campus.
+# Ubicación: recintos `amenity=university` de OpenStreetMap.
+#
+# Asignación de cada elemento de OSM a una universidad: por palabras de su nombre y su
+# operador (UNIVERSIDADES_PALABRAS); si no las tiene, por estar dentro del recinto de una
+# universidad ya asignada. Los elementos de una misma universidad a menos de
+# CAMPUS_UNION_M se unen en un solo campus (facultades sueltas de un mismo campus).
+CAMPUS_UNION_M = 300
+
+# Reparto de los estudiantes de una universidad entre sus campus. ESTIMACIÓN: en
+# proporción a la raíz cuadrada de la superficie del campus (en hectáreas, con un
+# mínimo de 1 ha para edificios sueltos o puntos). La raíz cuadrada amortigua el tamaño:
+# los campus grandes tienen mucho espacio verde, deportivo o de aparcamiento, así que sus
+# alumnos no crecen en proporción a la superficie. Ejemplo: un campus de 36 ha recibe
+# 6 partes y uno de 391 ha, unas 20 (no 11 veces más).
+CAMPUS_SUPERFICIE_MINIMA_HA = 1.0
+
+# Elementos de OSM con amenity=university que no son centros de estudio (residencias,
+# museos, oficinas, un instituto de secundaria mal etiquetado…). No se cuentan.
+CAMPUS_EXCLUIR = ("COLEGIO MAYOR", "COLEGIO MENOR", " HALL", "MUSEO", "OFFICES",
+                  "INSTITUTO DE EDUCACION SECUNDARIA", "RESIDENCIA")
+
+# Centros universitarios o de estudios superiores de OSM que no son de ninguna de las
+# universidades de la estadística (UNED, escuelas de negocios, universidades extranjeras,
+# centros adscritos…): estudiantes al día típicos. ESTIMACIÓN.
+CAMPUS_SIN_DATOS_ESTUDIANTES = 300
+
+# Fracción de los matriculados que va al campus un día lectivo cualquiera (clases que no
+# son diarias, prácticas, ausencias). ESTIMACIÓN.
+UNIVERSIDAD_ASISTENCIA = 0.7
+
+# Horario: el perfil «universidad» de PERFIL_EDUCATIVO (turno de mañana y de tarde). En
+# fin de semana no hay clase (EDUCATIVO_FIN_DE_SEMANA).
+
+# Los estudiantes se suponen repartidos por igual en la superficie del campus; se
+# calcula como con los vecinos (superficie dentro de cada anillo de 50 m). Los puntos se
+# tratan como un círculo de CAMPUS_SUPERFICIE_MINIMA_HA.
 
 # ===================================================================== CENTROS SANITARIOS
 # Pacientes y acompañantes al día por tipo de centro (columna centro_tipo del registro
@@ -393,21 +469,64 @@ PLANTILLA_FIN_DE_SEMANA = 0.5
 # caso se usa el horario típico del tipo de establecimiento. ESTIMACIÓN.
 
 # =================================================================== TRANSPORTE PÚBLICO
-# Personas que suben o bajan en una parada por cada vehículo que pasa (media del día).
-# ESTIMACIÓN de orden de magnitud: viajeros anuales de cada red (memorias del CRTM y de
-# los operadores, del orden de 600-700 millones en Metro, 400-450 millones en EMT, unos
-# 200 millones en interurbanos y en Cercanías) divididos entre el número de paradas y
-# los pasos de vehículos por parada y día. Ejemplo para Metro: ~700 M / 365 / ~300
-# estaciones ≈ 6.000 entradas al día por estación; con ~300 trenes al día y las salidas
-# del mismo orden que las entradas, ~40 personas por tren y estación.
+# Personas que suben o bajan en una parada por cada vehículo que pasa.
+#
+# CALIBRACIÓN (src/procesar_perfil.py): con la demanda diaria real de cada red publicada
+# por el CRTM (Observatorio de la Demanda; Metro, EMT, concesiones por carretera y
+# Cercanías) se calcula, para un laborable y un sábado típicos:
+#     personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS
+# El 2 es porque cada viaje sube en una parada y baja en otra. Supuestos: todas las
+# paradas de una red reciben la misma gente por vehículo (no hay datos por estación de
+# Metro ni de autobús); los transbordos dentro de Metro no salen a la calle y no cuentan;
+# «concesiones por carretera» engloba interurbanos y urbanos de otros municipios.
+# En las estaciones de Cercanías con dato propio (viajeros subidos y bajados por
+# estación, portal de la Comunidad) se usa el de la estación.
+#
+# Valores de respaldo (los de la versión anterior), solo para las redes sin demanda
+# publicada (Metro Ligero) o si falta el fichero de demanda. ESTIMACIÓN de orden de
+# magnitud a partir de los viajeros anuales de cada red.
 VIAJEROS_POR_PASO = {
     "metro": 40,
-    "cercanias": 60,      # menos trenes que Metro, más viajeros por tren
+    "cercanias": 60,
     "metro_ligero": 10,
     "emt": 5,
     "interurbanos": 4,
     "urbanos": 3,
 }
+# Columna del Excel de demanda que corresponde a cada red del GTFS.
+DEMANDA_COLUMNA = {
+    "metro": "Metro de Madrid",
+    "emt": "EMT",
+    "interurbanos": "Conc. por carretera",
+    "urbanos": "Conc. por carretera",
+    "cercanias": "Renfe Cercanías",
+}
+# Días de la demanda que se usan: las últimas DEMANDA_SEMANAS semanas publicadas; el
+# laborable típico es la mediana de martes a jueves y el sábado, la de los sábados.
+# Se descartan los días con menos del 80 % de la mediana (festivos, huelgas).
+DEMANDA_SEMANAS = 8
+DEMANDA_DESCARTE = 0.8
+
+# Peso de una parada según la distancia. Quien sale del metro o baja del autobús va en
+# cualquier dirección: a la puerta de la parada pasan todos, pero a 250 m solo los que
+# van justo hacia el local. Por eso las paradas pesan menos con la distancia que el resto
+# de cosas (que usan peso_distancia). ESTIMACIÓN: peso 1 hasta 50 m y a partir de ahí se
+# reduce a la mitad cada 75 m (0,5 a 125 m; 0,25 a 200 m; 0,1 a 300 m). Las calles
+# concentran el paso, así que se cae menos deprisa que si la gente se repartiera por
+# igual en todas direcciones.
+PARADA_DISTANCIA_PLENA_M = 50
+PARADA_SEMIDISTANCIA_M = 75
+
+
+def peso_parada(d_m: float, radio: float = RADIO_M) -> float:
+    """Peso de una parada a d_m metros (0 fuera del radio). ESTIMACIÓN."""
+    if d_m > radio:
+        return 0.0
+    return 0.5 ** (max(0.0, d_m - PARADA_DISTANCIA_PLENA_M) / PARADA_SEMIDISTANCIA_M)
+
+
+# Metro y Metro Ligero: la distancia se mide al acceso más cercano de la estación (por
+# donde sale la gente a la calle), no al andén. Accesos del GTFS (location_type 2).
 
 # Para elegir un día típico de cada GTFS se miran los martes, miércoles y jueves (y los
 # sábados) de las primeras semanas de vigencia y se toma el de número de viajes mediano,

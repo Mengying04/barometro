@@ -5,20 +5,25 @@ Genera en datos/procesados/:
      ESTIMADOS por enseñanza. La estadística del portal da alumnos por municipio (por
      distrito en Madrid capital), enseñanza y titularidad; se reparten a partes iguales
      entre los centros de ese territorio que imparten esa enseñanza con esa titularidad.
+  1b. campus_universitarios.parquet: campus de OpenStreetMap con los estudiantes de
+     cada universidad (estadística del portal) repartidos entre sus campus.
   2. desfibriladores_horario.parquet: desfibriladores útiles para el perfil (centros de
      trabajo grandes, instalaciones deportivas, recintos…), con su horario de acceso
      normalizado y fusionados cuando son del mismo sitio.
   3. salidas_paradas.parquet: número de vehículos que pasan por cada parada en cada hora
-     de un laborable típico y de un sábado típico, a partir de los GTFS del CRTM.
+     de un laborable típico y de un sábado típico, a partir de los GTFS del CRTM, y
+     personas que suben o bajan por vehículo calibradas con la demanda real.
 
 Todos los supuestos están en src/supuestos.py.
 
-Uso:  python src/procesar_perfil.py [educativos dea gtfs]   (sin argumentos, los tres)
+Uso:  python src/procesar_perfil.py [educativos universidades dea gtfs]
+      (sin argumentos, todos; «dea» necesita antes «universidades»)
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 import unicodedata
@@ -29,6 +34,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
 
 import supuestos as S
 from descargar_datos import actualizar_bloque
@@ -161,6 +167,174 @@ def educativos() -> None:
             len(c), "centros")
 
 
+# ================================================================= 1b. UNIVERSIDADES
+# Cada universidad de la estadística: (patrón de su nombre en la estadística, patrón de
+# nombre u operador en OpenStreetMap). Texto sin tildes y en mayúsculas.
+UNIVERSIDADES = {
+    "UCM": (r"COMPLUTENSE", r"COMPLUTENSE|\bUCM\b|CIUDAD UNIVERSITARIA"),
+    "UPM": (r"POLITECNICA DE MADRID", r"UNIVERSIDAD POLITECNICA|\bUPM\b|MONTEGANCEDO"),
+    "UAM": (r"AUTONOMA DE MADRID", r"AUTONOMA DE MADRID|\bUAM\b|CANTOBLANCO"),
+    "UAH": (r"DE ALCALA", r"ALCALA|\bUAH\b"),
+    "UC3M": (r"CARLOS III", r"CARLOS III|UC3M"),
+    "URJC": (r"REY JUAN CARLOS", r"REY JUAN CARLOS|\bURJC\b"),
+    "Comillas": (r"COMILLAS", r"COMILLAS|ICADE|\bICAI\b"),
+    "CEU": (r"\bCEU\b", r"\bCEU\b"),
+    "UEM": (r"EUROPEA DE MADRID", r"UNIVERSIDAD EUROPEA"),
+    "UFV": (r"FRANCISCO DE VITORIA", r"FRANCISCO DE VITORIA"),
+    "Nebrija": (r"NEBRIJA", r"NEBRIJA"),
+    "UCJC": (r"CAMILO JOSE CELA", r"CAMILO JOSE CELA|\bUCJC\b"),
+    "UAX": (r"ALFONSO X", r"ALFONSO X"),
+    "Villanueva": (r"VILLANUEVA", r"VILLANUEVA"),
+    "ESIC": (r"\bESIC\b", r"\bESIC\b"),
+    "CUNEF": (r"CUNEF", r"CUNEF"),
+    "UDIT": (r"UDIT", r"\bUDIT\b"),
+    "UNIE": (r"INTERNACIONAL DE LA EMPRESA", r"\bUNIE\b|INTERNACIONAL DE LA EMPRESA"),
+}
+OSM_TEXTO = ("name", "official_name", "alt_name", "short_name", "operator")
+
+
+def _geom_osm(e: dict):
+    """Geometría de un elemento de Overpass (`out geom`) en EPSG:4326."""
+    from shapely.geometry import LineString, Point, Polygon, box
+    from shapely.ops import polygonize, unary_union
+    if e["type"] == "node":
+        return Point(e["lon"], e["lat"])
+    if e["type"] == "way":
+        c = [(p["lon"], p["lat"]) for p in e.get("geometry", [])]
+        if len(c) >= 4 and c[0] == c[-1]:
+            return Polygon(c)
+        return LineString(c) if len(c) >= 2 else None
+    lineas = [LineString([(p["lon"], p["lat"]) for p in m["geometry"]])
+              for m in e.get("members", []) if m.get("type") == "way"
+              and m.get("role") in ("outer", "") and len(m.get("geometry", [])) >= 2]
+    if lineas:
+        polys = list(polygonize(unary_union(lineas)))
+        if polys:
+            return unary_union(polys)
+    b = e.get("bounds")
+    return box(b["minlon"], b["minlat"], b["maxlon"], b["maxlat"]) if b else None
+
+
+def estudiantes_por_universidad() -> tuple[pd.Series, str]:
+    """Grado + máster presenciales del último año de las dos tablas del portal."""
+    total, anyos = {}, set()
+    for conjunto, nombre in [("1925489", "estudiantes-matriculados-en-estudios-de-grado-"
+                                         "presenciales-por-universidad.csv"),
+                             ("1925502", "estudiantes-matriculados-en-estudios-de-master-"
+                                         "presenciales-por-universidad.csv")]:
+        d = leer_csv(ORIG / conjunto / nombre)
+        anyo = d["Año"].max()
+        anyos.add(anyo)
+        d = d[(d["Año"] == anyo) & d["Concepto"].str.contains(" presenciales en la ",
+                                                               regex=False)]
+        for concepto, valor in zip(d["Concepto"], d["Valor"]):
+            uni = sin_tildes(concepto.split(" en la universidad", 1)[1])
+            clave = next((k for k, (pe, _) in UNIVERSIDADES.items()
+                          if re.search(pe, uni)), None)
+            if clave is None:
+                raise RuntimeError(f"Universidad de la estadística sin patrón: {concepto}")
+            total[clave] = total.get(clave, 0) + float(pd.to_numeric(valor, errors="coerce")
+                                                       or 0)
+    return pd.Series(total), "/".join(sorted(anyos))
+
+
+def universidades() -> None:
+    capa = "campus_universitarios"
+    res = json.loads((ORIG / "osm_universidades" / "osm_universidades.json")
+                     .read_text(encoding="utf-8"))
+    filas = []
+    for e in res["elements"]:
+        tags = e.get("tags", {})
+        filas.append({"osm_id": f"{e['type']}/{e['id']}",
+                      "texto": sin_tildes(" | ".join(tags.get(k, "") for k in OSM_TEXTO)),
+                      "geometry": _geom_osm(e)})
+    g = gpd.GeoDataFrame(filas, crs=4326).dropna(subset=["geometry"]).to_crs(CRS)
+    n = len(g)
+    g["geometry"] = g.geometry.make_valid()
+    # Puntos y líneas → círculo de la superficie mínima
+    r_min = math.sqrt(S.CAMPUS_SUPERFICIE_MINIMA_HA * 1e4 / math.pi)
+    no_area = ~g.geom_type.isin(["Polygon", "MultiPolygon", "GeometryCollection"])
+    g.loc[no_area, "geometry"] = g.loc[no_area].geometry.centroid.buffer(r_min)
+    g["geometry"] = g.geometry.map(lambda x: shapely.union_all(
+        [p for p in getattr(x, "geoms", [x]) if p.geom_type in ("Polygon", "MultiPolygon")]))
+
+    excluir = g["texto"].map(lambda t: any(p in f" {t}" for p in S.CAMPUS_EXCLUIR))
+    informe.setdefault(capa, {}).setdefault("descartes", {})[
+        "no es un centro de estudios (residencia, museo, oficinas, instituto…)"] = \
+        int(excluir.sum())
+    g = g[~excluir].reset_index(drop=True)
+    g["universidad"] = g["texto"].map(lambda t: next(
+        (k for k, (_, po) in UNIVERSIDADES.items() if re.search(po, t)), None))
+    por_texto = int(g["universidad"].notna().sum())
+    # Sin nombre reconocible: la universidad del recinto que lo contiene
+    sin = g[g["universidad"].isna()]
+    con = g[g["universidad"].notna()]
+    dentro = gpd.sjoin(sin.assign(geometry=sin.representative_point()),
+                       con[["universidad", "geometry"]], predicate="within")
+    dentro = dentro[~dentro.index.duplicated()]
+    g.loc[dentro.index, "universidad"] = dentro["universidad_right"]
+    por_recinto = len(dentro)
+    g["universidad"] = g["universidad"].fillna("otros")
+
+    # Unión en campus: elementos de la misma universidad a menos de CAMPUS_UNION_M
+    campus = []
+    for uni, sub in g.groupby("universidad"):
+        if uni == "otros":   # centros distintos: cada uno es su propio campus
+            grupos = [sub.loc[[i]] for i in sub.index]
+        else:
+            zonas = shapely.union_all(sub.buffer(S.CAMPUS_UNION_M / 2).to_numpy())
+            zonas = list(getattr(zonas, "geoms", [zonas]))
+            rp = sub.representative_point()
+            grupos = [sub[rp.within(z)] for z in zonas]
+        for x in grupos:
+            if x.empty:
+                continue
+            geom = shapely.union_all(x.geometry.to_numpy())
+            campus.append({"universidad": uni, "n_elementos_osm": len(x),
+                           "osm_ids": " ".join(x["osm_id"]), "geometry": geom})
+    c = gpd.GeoDataFrame(campus, crs=CRS)
+    c["superficie_ha"] = (c.area / 1e4).round(2)
+    c["peso_reparto"] = np.sqrt(np.maximum(c["superficie_ha"], S.CAMPUS_SUPERFICIE_MINIMA_HA))
+
+    est, curso = estudiantes_por_universidad()
+    suma = c[c["universidad"] != "otros"].groupby("universidad")["peso_reparto"].transform("sum")
+    c["estudiantes"] = np.where(
+        c["universidad"] == "otros", float(S.CAMPUS_SIN_DATOS_ESTUDIANTES),
+        c["universidad"].map(est).fillna(0) * c["peso_reparto"] / suma)
+    c["estudiantes"] = c["estudiantes"].round()
+    c["origen_estudiantes"] = np.where(
+        c["universidad"] == "otros", "peso típico (supuesto)",
+        "estadística del portal repartida por superficie (estimación)")
+    c["nombre_universidad"] = c["universidad"].map(
+        lambda u: "otro centro de estudios superiores" if u == "otros" else u)
+    sin_campus = sorted(set(est.index) - set(c["universidad"]))
+    asignados = c.loc[c["universidad"] != "otros", "estudiantes"].sum()
+    resumen = c[c["universidad"] != "otros"].groupby("universidad").agg(
+        campus=("estudiantes", "size"), estudiantes=("estudiantes", "sum"))
+    informe[capa]["notas"] = [
+        "Ubicación: elementos `amenity=university` de OpenStreetMap (polígonos; los "
+        f"puntos se tratan como un círculo de {S.CAMPUS_SUPERFICIE_MINIMA_HA:g} ha).",
+        f"Asignación a universidad: {por_texto} por su nombre u operador, {por_recinto} por "
+        "estar dentro del recinto de una universidad; el resto son «otros» centros de "
+        f"estudios superiores con {S.CAMPUS_SIN_DATOS_ESTUDIANTES} estudiantes al día "
+        "(**supuesto**).",
+        f"Estudiantes: Grado + máster presenciales por universidad, año {curso} de las "
+        "tablas 1925489 y 1925502 del portal (datos provisionales): "
+        + f"{asignados:,.0f} de {est.sum():,.0f}".replace(",", ".")
+        + " colocados en algún campus.",
+        f"Reparto entre campus de la misma universidad (unidos si están a menos de "
+        f"{S.CAMPUS_UNION_M} m): proporcional a la raíz cuadrada de la superficie "
+        "(**estimación**, ver src/supuestos.py).",
+        "Campus por universidad: " + "; ".join(
+            f"{u} {int(r.campus)} ({r.estudiantes:,.0f})".replace(",", ".")
+            for u, r in resumen.iterrows()) + ".",
+    ] + ([f"Universidades de la estadística sin ningún campus en OSM (sus estudiantes no "
+          f"se colocan): {', '.join(sin_campus)}."] if sin_campus else [])
+    guardar(c, capa, ["universidad", "nombre_universidad", "estudiantes", "origen_estudiantes",
+                      "superficie_ha", "peso_reparto", "n_elementos_osm", "osm_ids"], n,
+            "elementos OSM")
+
+
 # ============================================================ 2. HORARIO DE LOS DEA
 _DIAS_LV = re.compile(r"\bL\s*[-/A]\s*V\b|\bL\s+A\s+V\b|LUNES\s+A\s+VIERNES|DE\s+L\s+A\s+V\b"
                       r"|\bL\s*-\s*J\b|LUNES\s+A\s+JUEVES|\bL\s*A\s*J\b")
@@ -290,16 +464,25 @@ def dea() -> None:
     cerca = gpd.sjoin_nearest(edu[["geometry"]], ce[["geometry"]], how="left",
                               max_distance=S.DEA_EDUCATIVO_DISTANCIA_M, distance_col="dist")
     huerfanos = cerca[cerca["dist"].isna()].index.unique()
+    # Los que están junto a un campus universitario no se cuentan: sus estudiantes ya
+    # salen del campus (capa campus_universitarios).
+    campus = gpd.read_parquet(PROC / "campus_universitarios.parquet")
+    junto = gpd.sjoin_nearest(d.loc[huerfanos, ["geometry"]], campus[["geometry"]],
+                              how="inner", max_distance=S.DEA_EDUCATIVO_CAMPUS_M)
+    en_campus = junto.index.unique()
+    huerfanos = huerfanos.difference(en_campus)
 
     d["cliente"] = d["tipo_establecimiento"].map(lambda t: S.DEA_TIPOS.get(t, (None,))[0])
     d["personas_dia"] = d["tipo_establecimiento"].map(
         lambda t: S.DEA_TIPOS.get(t, (None, 0))[1]).astype(float)
     d["perfil"] = d["tipo_establecimiento"].map(lambda t: S.DEA_TIPOS.get(t, (0, 0, None))[2])
     d.loc[huerfanos, ["cliente", "personas_dia", "perfil"]] = \
-        ["padres_ninos", float(S.DEA_EDUCATIVO_PESO), S.DEA_EDUCATIVO_PERFIL]
+        [S.DEA_EDUCATIVO_CLIENTE, float(S.DEA_EDUCATIVO_PESO), S.DEA_EDUCATIVO_PERFIL]
 
     descartes = {
         "en un vehículo (autobús)": d["horario_tipo"].eq("vehiculo"),
+        f"«Centro educativo» junto a un campus universitario (a menos de "
+        f"{S.DEA_EDUCATIVO_CAMPUS_M} m)": d.index.isin(en_campus),
         "tipo sin uso en el perfil (Otros, transporte, aeropuertos, colegio ya listado)":
             d["cliente"].isna(),
     }
@@ -310,8 +493,9 @@ def dea() -> None:
         usar &= ~m
     d = d[usar]
     antes = len(d)
-    d = pd.concat([fusionar(d[d["cliente"] != "padres_ninos"], S.DEA_FUSION_M),
-                   fusionar(d[d["cliente"] == "padres_ninos"], 3 * S.DEA_FUSION_M)])
+    edu = d["cliente"] == S.DEA_EDUCATIVO_CLIENTE
+    d = pd.concat([fusionar(d[~edu], S.DEA_FUSION_M),
+                   fusionar(d[edu], 3 * S.DEA_FUSION_M)])
     d = gpd.GeoDataFrame(d, crs=CRS)
     informe[capa]["descartes"]["fusionados con otro del mismo sitio"] = antes - len(d)
     informe[capa]["notas"] = [
@@ -320,10 +504,11 @@ def dea() -> None:
         "rango = horas leídas del texto; expresion = «horario de oficina», «comercial», "
         "«lectivo»…; 24h y vacío usan el horario típico del tipo de establecimiento.",
         f"{len(huerfanos)} desfibriladores de «Centro educativo» sin ningún centro del "
-        f"listado a menos de {S.DEA_EDUCATIVO_DISTANCIA_M} m (universidades y otros "
-        "centros que no están en el listado): se cuentan como centro educativo con "
-        f"{S.DEA_EDUCATIVO_PESO} usuarios al día (**supuesto**), fusionando los que están "
-        f"a menos de {3 * S.DEA_FUSION_M} m.",
+        f"listado a menos de {S.DEA_EDUCATIVO_DISTANCIA_M} m ni campus universitario a "
+        f"menos de {S.DEA_EDUCATIVO_CAMPUS_M} m (academias, centros de estudios que no "
+        "están en ninguna lista): se cuentan como «universitarios» con "
+        f"{S.DEA_EDUCATIVO_PESO} usuarios al día y horario universitario (**supuesto**), "
+        f"fusionando los que están a menos de {3 * S.DEA_FUSION_M} m.",
         f"Los del mismo tipo a menos de {S.DEA_FUSION_M} m se fusionan en un solo sitio "
         "(`n_dea` = cuántos había).",
         "`cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).",
@@ -432,6 +617,131 @@ def salidas_por_hora(g: Gtfs, servicios: set[str], trips: pd.DataFrame,
     return tabla.reindex(columns=range(24), fill_value=0)
 
 
+def geometria_accesos(stops: pd.DataFrame) -> pd.DataFrame:
+    """Geometría de cada parada en EPSG:4326: sus accesos a la calle si la estación los
+    tiene en el GTFS (Metro, Metro Ligero) y, si no, el punto de la parada."""
+    from shapely.geometry import MultiPoint, Point
+    s = stops.copy()
+    for c in ("stop_lat", "stop_lon"):
+        s[c] = pd.to_numeric(s[c], errors="coerce")
+    lt = s.get("location_type", pd.Series("0", index=s.index)).fillna("0").str.strip()
+    padre = s.get("parent_station", pd.Series(pd.NA, index=s.index))
+    acc = s[(lt == "2") & padre.notna() & s["stop_lat"].notna()]
+    accesos = {k: list(zip(v["stop_lon"], v["stop_lat"]))
+               for k, v in acc.groupby(padre[acc.index])}
+    filas = []
+    for i, f in s[lt.isin(["0", ""])].iterrows():
+        if pd.isna(f["stop_lat"]) or pd.isna(f["stop_lon"]):
+            geom, con = None, False
+        else:
+            # La estación de un andén: su parent_station o, en Metro, «par_X» → «est_X»
+            est = padre[i] if pd.notna(padre[i]) else str(f["stop_id"]).replace("par_", "est_", 1)
+            if est in accesos:
+                geom, con = MultiPoint(accesos[est]), True
+            else:
+                geom, con = Point(f["stop_lon"], f["stop_lat"]), False
+        filas.append({"stop_id": f["stop_id"], "stop_name": f.get("stop_name"),
+                      "geometry": geom, "con_accesos": con})
+    return pd.DataFrame(filas)
+
+
+def demanda_tipica() -> tuple[dict, str]:
+    """Viajeros de un laborable típico y de un sábado típico por columna del Excel."""
+    d = pd.read_excel(ORIG / "crtm_paradas" / "crtm_demanda_diaria.xlsx",
+                      sheet_name="diaria", header=1)
+    d = d.rename(columns={d.columns[1]: "fecha"})
+    d["fecha"] = pd.to_datetime(d["fecha"], errors="coerce")
+    d = d.dropna(subset=["fecha"])
+    fin = d["fecha"].max()
+    d = d[d["fecha"] > fin - pd.Timedelta(weeks=S.DEMANDA_SEMANAS)]
+    out = {}
+    for tipo, dias in {"lab": [1, 2, 3], "sab": [5]}.items():
+        x = d[d["fecha"].dt.weekday.isin(dias)]
+        tot = x["Total"].astype(float)
+        x = x[tot >= S.DEMANDA_DESCARTE * tot.median()]
+        out[tipo] = {c: float(x[c].astype(float).median()) for c in
+                     set(S.DEMANDA_COLUMNA.values())}
+    periodo = f"{(fin - pd.Timedelta(weeks=S.DEMANDA_SEMANAS)).date()} a {fin.date()}"
+    return out, periodo
+
+
+def _norm_estacion(s: str) -> str:
+    s = sin_tildes(s)
+    for x in ("MADRID-", " C.", " CERCANIAS", " P.V.", "-CLARA CAMPOAMOR"):
+        s = s.replace(x, "")
+    return re.sub(r"\s+", " ", s).strip(" .-")
+
+
+def calibrar(gdf: gpd.GeoDataFrame) -> list[str]:
+    """Añade pp_lab y pp_sab: personas que suben o bajan por cada vehículo que para."""
+    hl, hs = [f"lab_{h:02d}" for h in range(24)], [f"sab_{h:02d}" for h in range(24)]
+    gdf["pp_lab"] = gdf["red"].map(S.VIAJEROS_POR_PASO).astype(float)
+    gdf["pp_sab"] = gdf["pp_lab"]
+    gdf["origen_pp"] = "supuesto (sin demanda publicada)"
+    try:
+        dem, periodo = demanda_tipica()
+    except (OSError, ValueError, KeyError) as e:
+        return [f"**Sin calibrar** (no se pudo leer la demanda del CRTM: {e}); se usan los "
+                "valores de respaldo de src/supuestos.py."]
+    notas = [f"Calibración con la demanda diaria del CRTM ({periodo}; mediana de martes a "
+             "jueves y de sábados, sin festivos): personas por paso = 2 × viajeros del día / "
+             "pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las "
+             "paradas de la red."]
+    col_red = gdf["red"].map(S.DEMANDA_COLUMNA)
+    for tipo, cols in (("lab", hl), ("sab", hs)):
+        pasos = gdf.assign(pasos=gdf[cols].sum(axis=1)).groupby(col_red)["pasos"].sum()
+        factor = {c: 2 * dem[tipo][c] / pasos[c] for c in pasos.index}
+        con = col_red.notna()
+        gdf.loc[con, f"pp_{tipo}"] = col_red[con].map(factor)
+        notas.append(("Laborable" if tipo == "lab" else "Sábado") + ": " + "; ".join(
+            f"{c} {dem[tipo][c]:,.0f} viajeros / {pasos[c]:,.0f} pasos → "
+            f"{factor[c]:.1f} personas por paso".replace(",", ".") for c in pasos.index))
+    gdf.loc[col_red.notna(), "origen_pp"] = "demanda de la red (CRTM)"
+
+    # Estaciones de Cercanías con dato propio: se corrige la media de la red con la
+    # proporción entre la estación y la red (mismo año del dato por estación).
+    try:
+        e = leer_csv(ORIG / "1923861" / "viajeros-subidos-y-bajados-en-trenes-de-cercanias-"
+                                        "por-estaciones.csv")
+    except OSError:
+        return notas
+    e["v"] = pd.to_numeric(e["Valor"], errors="coerce")
+    e = e[e["v"].notna()]
+    anyo = e["Año"].max()
+    e = e[e["Año"] == anyo]
+    e["est"] = e["Concepto"].str.split(" en la estación de ", n=1).str[1].map(_norm_estacion)
+    mens = pd.read_excel(ORIG / "crtm_paradas" / "crtm_demanda_diaria.xlsx",
+                         sheet_name="mensual", header=1)
+    mens = mens.rename(columns={mens.columns[1]: "anyo"})
+    red_anual = 2 * mens.loc[mens["anyo"] == float(anyo), "Renfe Cercanías"].astype(float).sum()
+    cer = gdf["red"] == "cercanias"
+    pasos_dia = (5 * gdf.loc[cer, hl].sum(axis=1) + 2 * gdf.loc[cer, hs].sum(axis=1)) / 7
+    pp_red = red_anual / 365 / pasos_dia.sum() if red_anual else np.nan
+    nombres = gdf.loc[cer, "parada"].map(_norm_estacion)
+    usadas, ambiguas = [], []
+    for est, v in zip(e["est"], e["v"]):
+        m = nombres[nombres == est]
+        if m.empty:
+            m = nombres[nombres.map(lambda x: est in x.split("-"))]
+        if len(m) != 1:
+            ambiguas.append(est)
+            continue
+        i = m.index[0]
+        if pasos_dia[i] <= 0 or not np.isfinite(pp_red):
+            continue
+        ratio = (v / 365 / pasos_dia[i]) / pp_red
+        gdf.loc[i, ["pp_lab", "pp_sab"]] *= ratio
+        gdf.loc[i, "origen_pp"] = f"estación de Cercanías ({anyo})"
+        usadas.append(f"{est} ×{ratio:.2f}")
+    notas.append(f"Cercanías: {len(usadas)} estaciones con viajeros subidos y bajados propios "
+                 f"(portal, conjunto 1923861, año {anyo}); su valor es el de la red "
+                 "multiplicado por la proporción entre la estación y la media de la red: "
+                 + ", ".join(usadas) + "."
+                 + (f" Sin emparejar (sin dato o nombre ambiguo): {', '.join(ambiguas)}."
+                    if ambiguas else ""))
+    return notas
+
+
 def gtfs() -> None:
     capa = "salidas_paradas"
     carpeta = ORIG / "crtm_paradas"
@@ -468,8 +778,9 @@ def gtfs() -> None:
                                    headway=freq["headway_secs"].astype(int))
         dias = elegir_dias(cal, cd, trips)
         dias_usados[red] = {k: v[1].isoformat() for k, v in dias.items()}
-        paradas = g.leer("stops.txt", usecols=lambda c: c in {
-            "stop_id", "stop_name", "stop_lat", "stop_lon"})
+        todas = g.leer("stops.txt", usecols=lambda c: c in {
+            "stop_id", "stop_name", "stop_lat", "stop_lon", "location_type", "parent_station"})
+        paradas = geometria_accesos(todas)
         tablas = {}
         for tipo, (_, dia) in dias.items():
             tablas[tipo] = salidas_por_hora(g, servicios_activos(cal, cd, dia), trips, st,
@@ -478,8 +789,8 @@ def gtfs() -> None:
         sab = tablas["sabado"].add_prefix("sab_h")
         t = lab.join(sab, how="outer").fillna(0).astype(int).reset_index()
         t = t.merge(paradas, on="stop_id", how="left")
-        sin = int(t["stop_lat"].isna().sum())
-        t = t.dropna(subset=["stop_lat", "stop_lon"])
+        sin = int(t["geometry"].isna().sum())
+        t = t.dropna(subset=["geometry"])
         t["red"] = red
         resultados.append(t)
         notas.append(f"{red}: laborable {dias_usados[red]['laborable']}, sábado "
@@ -488,20 +799,20 @@ def gtfs() -> None:
                      + (f"; {len(relleno)} viajes de relleno descartados (todas las paradas "
                         "a la misma hora)" if relleno else "")
                      + (f"; {sin} paradas sin coordenadas" if sin else "")
+                     + (f"; {int(t['con_accesos'].sum())} con la posición de sus accesos"
+                        if t["con_accesos"].any() else "")
                      + f"; {len(t)} paradas con servicio; "
                      f"{int(t.filter(like='lab_h').sum().sum()):,} pasos en laborable"
                      .replace(",", "."))
     t = pd.concat(resultados, ignore_index=True)
     n = len(t)
-    for c in ("stop_lat", "stop_lon"):
-        t[c] = pd.to_numeric(t[c])
     t = t.rename(columns={**{f"lab_h{h}": f"lab_{h:02d}" for h in range(24)},
                           **{f"sab_h{h}": f"sab_{h:02d}" for h in range(24)}})
     hl, hs = [f"lab_{h:02d}" for h in range(24)], [f"sab_{h:02d}" for h in range(24)]
     t["total_lab"], t["total_sab"] = t[hl].sum(axis=1), t[hs].sum(axis=1)
-    gdf = gpd.GeoDataFrame(t, geometry=gpd.points_from_xy(t["stop_lon"], t["stop_lat"]),
-                           crs=4326).to_crs(CRS)
+    gdf = gpd.GeoDataFrame(t, geometry="geometry", crs=4326).to_crs(CRS)
     gdf = gdf.rename(columns={"stop_name": "parada"})
+    notas_cal = calibrar(gdf)
     informe.setdefault(capa, {})["notas"] = [
         "Pasos de vehículos (cada vez que un tren o autobús para en la parada) por hora, "
         "en un laborable típico (`lab_00`…`lab_23`) y un sábado típico (`sab_00`…`sab_23`). "
@@ -513,9 +824,12 @@ def gtfs() -> None:
         "27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se supone "
         "que las frecuencias actuales son parecidas.",
         "Interurbanos y urbanos comparten `stops.txt`: cada red cuenta solo sus vehículos.",
-    ] + notas
-    guardar(gdf, capa, ["red", "stop_id", "parada", *hl, *hs, "total_lab", "total_sab"], n,
-            "paradas")
+        "Geometría: la parada; en Metro y Metro Ligero, el conjunto de accesos de la "
+        "estación (`location_type` 2 del GTFS), para medir la distancia a la salida más "
+        "cercana a la calle.",
+    ] + notas + notas_cal
+    guardar(gdf, capa, ["red", "stop_id", "parada", *hl, *hs, "total_lab", "total_sab",
+                        "pp_lab", "pp_sab", "origen_pp", "con_accesos"], n, "paradas")
     (PROC / "salidas_paradas_dias.json").write_text(
         json.dumps(dias_usados, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -535,7 +849,7 @@ def escribir_fuentes() -> None:
     actualizar_bloque("perfil", lineas)
 
 
-PASOS = {"educativos": educativos, "dea": dea, "gtfs": gtfs}
+PASOS = {"educativos": educativos, "universidades": universidades, "dea": dea, "gtfs": gtfs}
 
 
 def main(argv: list[str]) -> int:
@@ -549,7 +863,8 @@ def main(argv: list[str]) -> int:
         print(p)
         PASOS[p]()
     # Conserva en el informe las capas que no se han regenerado ahora
-    capas = {"educativos": "centros_educativos_alumnos", "dea": "desfibriladores_horario",
+    capas = {"educativos": "centros_educativos_alumnos",
+             "universidades": "campus_universitarios", "dea": "desfibriladores_horario",
              "gtfs": "salidas_paradas"}
     for p, capa in capas.items():
         if p not in elegidos and capa in guardado:
