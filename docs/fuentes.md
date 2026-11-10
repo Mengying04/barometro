@@ -182,6 +182,7 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 - 1 puntos tienen una sección del INE de otro municipio que el del portal (diferencias de borde entre las dos cartografías).
 - `tipo` = etiqueta amenity (restaurant, bar, cafe, fast_food, pub). `cocina` = etiqueta cuisine tal cual (puede llevar varios valores separados por «;»).
 - Vías y relaciones (edificios) se representan por su punto central.
+- `horario_osm` = etiqueta opening_hours tal cual (la tienen pocos locales); `comida_osm` = etiqueta food (casi nunca está).
 - No se conserva el nombre del local ni etiquetas de contacto.
 
 **hosteleria_madrid_capital**

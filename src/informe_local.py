@@ -118,15 +118,41 @@ def tipo_censo(epigrafes: str) -> str | None:
     return next((t for t in S.PRIORIDAD_COMPETENCIA if t in tipos), None)
 
 
+def sirve_comidas_censo(epigrafes: str) -> bool:
+    return any(e.strip() in S.EPIGRAFES_SIRVEN_COMIDAS for e in str(epigrafes).split("|"))
+
+
+def sirve_comidas_osm(tipo: str, cocina, comida) -> bool:
+    """Criterio más parecido al del censo (ver supuestos.EPIGRAFES_SIRVEN_COMIDAS)."""
+    if tipo in S.OSM_SIRVE_COMIDAS_AMENITY:
+        return True
+    if tipo not in ("bar", "pub", "cafe"):
+        return False
+    if str(comida).strip().lower() == "yes":
+        return True
+    cocinas = {c.strip().lower() for c in str(cocina).split(";")} if pd.notna(cocina) else set()
+    return bool(cocinas - S.OSM_COCINAS_NO_COMIDA - {""})
+
+
 @lru_cache(maxsize=1)
 def locales() -> dict[str, gpd.GeoDataFrame]:
     c = capas()
     censo = c["censo"].copy()
     censo["tipo_local"] = censo["epigrafes"].map(tipo_censo)
+    censo["sirve_comidas"] = censo["epigrafes"].map(sirve_comidas_censo)
     osm = c["osm"].copy()
     osm["tipo_local"] = osm["tipo"].map(S.AMENITY_COMPETENCIA)
+    osm["sirve_comidas"] = [sirve_comidas_osm(a, b, f) for a, b, f in
+                            zip(osm["tipo"], osm["cocina"], osm["comida_osm"])]
     return {"censo": censo[censo["tipo_local"].notna()],
             "osm": osm[osm["tipo_local"].notna()]}
+
+
+def categorias(loc: pd.DataFrame) -> dict[str, int]:
+    """Recuento por tipo de local y de locales que sirven comidas."""
+    out = {t: int((loc["tipo_local"] == t).sum()) for t in S.TIPOS_COMPETENCIA}
+    out["sirven_comidas"] = int(loc["sirve_comidas"].sum())
+    return out
 
 
 def en_radio(g: gpd.GeoDataFrame, punto, radio: float) -> gpd.GeoDataFrame:
@@ -136,17 +162,26 @@ def en_radio(g: gpd.GeoDataFrame, punto, radio: float) -> gpd.GeoDataFrame:
 
 
 @lru_cache(maxsize=64)
-def media_municipio(cod_municipio: str, fuente: str, radio: float) -> float:
+def media_municipio(cod_municipio: str, fuente: str, radio: float) -> dict[str, float]:
     """Locales a menos de `radio` de donde vive la gente del municipio: media de sus
-    secciones censales (desde un punto interior) ponderada por población."""
+    secciones censales (desde un punto interior) ponderada por población; en total, por
+    tipo de local y de locales que sirven comidas."""
     secc = capas()["secciones"]
     s = secc[(secc["cod_municipio"] == cod_municipio) & (secc["poblacion"].fillna(0) > 0)]
     zonas = gpd.GeoDataFrame({"pob": s["poblacion"].astype(float).to_numpy()},
                              geometry=s.representative_point().buffer(radio).to_numpy(),
                              crs=CRS)
-    j = gpd.sjoin(zonas, locales()[fuente][["geometry"]], predicate="intersects")
-    n = j.groupby(level=0).size().reindex(zonas.index, fill_value=0)
-    return float((n * zonas["pob"]).sum() / zonas["pob"].sum())
+    loc = locales()[fuente]
+    j = gpd.sjoin(zonas, loc[["tipo_local", "sirve_comidas", "geometry"]],
+                  predicate="intersects")
+    pob = zonas["pob"]
+    media = lambda m: float((m.groupby(level=0).sum().reindex(zonas.index, fill_value=0)
+                             * pob).sum() / pob.sum())
+    out = {"total": media(pd.Series(1, index=j.index))}
+    for t in S.TIPOS_COMPETENCIA:
+        out[t] = media((j["tipo_local"] == t).astype(int))
+    out["sirven_comidas"] = media(j["sirve_comidas"].astype(int))
+    return out
 
 
 @lru_cache(maxsize=64)
@@ -195,7 +230,13 @@ def b_competencia(punto, radio, muni: dict) -> dict:
               for t in S.TIPOS_COMPETENCIA}
     total = int(len(loc))
     area_km2 = math.pi * radio ** 2 / 1e6
-    media = media_municipio(muni["cod"], fuente, radio)
+    medias = media_municipio(muni["cod"], fuente, radio)
+    media = medias["total"]
+    cat = categorias(loc)
+    comparacion_tipos = {
+        k: {"radio": cat[k], "media_municipio": round(medias[k], 1),
+            "relacion": round(cat[k] / medias[k], 2) if medias[k] > 0 else None}
+        for k in [*S.TIPOS_COMPETENCIA, "sirven_comidas"]}
 
     # Cocinas: siempre de OpenStreetMap (el censo no las tiene)
     osm = en_radio(locales()["osm"], punto, radio)
@@ -224,7 +265,16 @@ def b_competencia(punto, radio, muni: dict) -> dict:
     ]
     if madrid:
         notas.append("Clasificación del censo por epígrafe (src/supuestos.py): el «bar "
-                     "restaurante» cuenta como bar.")
+                     "restaurante» cuenta como bar. Por eso se da aparte el recuento de "
+                     f"**locales que sirven comidas** ({cat['sirven_comidas']}: restaurante, "
+                     "autoservicio, bar restaurante y bar con cocina), que es el que debe "
+                     "usarse para buscar huecos, y no el de «restaurantes» a secas.")
+    else:
+        notas.append(f"**Locales que sirven comidas** ({cat['sirven_comidas']}): en OSM, "
+                     "todos los restaurantes y los bares, pubs y cafeterías que indican "
+                     "comida o un tipo de cocina de comida. Es el criterio más parecido al "
+                     "del censo de Madrid, pero muchos bares de OSM que dan comidas no lo "
+                     "indican: **aproximación**.")
     cob = cobertura_osm(muni["cod"])
     if not madrid:
         notas.append(
@@ -239,8 +289,10 @@ def b_competencia(punto, radio, muni: dict) -> dict:
         "competencia", "Competencia en el radio", MIXTO, fuentes,
         f"{total} locales de hostelería en {radio:.0f} m ({nombre_fuente}): "
         + ", ".join(f"{k.lower()} {v}" for k, v in cuenta.items())
-        + f"; {comparacion} (media: {dec(media)}).",
+        + f"; {cat['sirven_comidas']} sirven comidas; {comparacion} (media: {dec(media)}).",
         {"fuente_usada": nombre_fuente, "por_tipo": cuenta, "total": total,
+         "sirven_comidas": cat["sirven_comidas"],
+         "comparacion_por_tipo": comparacion_tipos,
          "densidad_km2": round(total / area_km2, 1),
          "media_municipio": round(media, 1),
          "densidad_media_municipio_km2": round(media / area_km2, 1),
@@ -312,20 +364,51 @@ def ipc() -> tuple[dict, str]:
     return tasas, f"{meses[int(ultimo['Periodo'][1:]) - 1]} de {ultimo['Año']}"
 
 
-def b_precios(pr: dict, rc: float) -> dict:
+def gama_desde_num(x: float) -> str:
+    return ("económica" if x < S.GAMA_CORTES[0] else
+            "alta" if x > S.GAMA_CORTES[1] else "media")
+
+
+def gama_ajustada(gama_zona: str, perfil: dict) -> dict:
+    """Gama media ponderada por el peso de cada tipo de cliente en el perfil por horas
+    (gente que pasa en el día). Cada tipo tiene su gama supuesta (S.GAMA_CLIENTE)."""
+    from perfil_horario import DIAS, TIPOS
+    num = {t: S.GAMA_NUM[gama_zona] if g == "zona" else float(g)
+           for t, g in S.GAMA_CLIENTE.items()}
+    prop = pd.Series(S.PROPENSION_CONSUMO)
+    pesos_dia = {d: perfil["horas"].loc[d][TIPOS].sum() * prop[TIPOS] for d in DIAS}
+    out = {}
+    for d, p in pesos_dia.items():
+        out[d] = (float((p * pd.Series(num)).sum() / p.sum()) if p.sum() > 0
+                  else S.GAMA_NUM[gama_zona])
+    semana = sum(S.DIAS_SEMANA[d] * pesos_dia[d] for d in DIAS)
+    out["semana"] = (float((semana * pd.Series(num)).sum() / semana.sum())
+                     if semana.sum() > 0 else S.GAMA_NUM[gama_zona])
+    reparto = (semana / semana.sum()).round(3).to_dict() if semana.sum() > 0 else {}
+    return {"valor": {k: round(v, 2) for k, v in out.items()},
+            "gama": {k: gama_desde_num(v) for k, v in out.items()},
+            "reparto_semana": reparto, "gama_por_tipo": num}
+
+
+def b_precios(pr: dict, rc: float, perfil: dict | None = None) -> dict:
     r = pr["renta_persona"] / rc
     gama = ("económica" if r < S.GAMA_UMBRALES[0] else
             "alta" if r > S.GAMA_UMBRALES[1] else "media")
+    aj = gama_ajustada(gama, perfil) if perfil is not None else None
     t, mes = ipc()
     dif = t["restaurantes_alojamiento"] - t["alimentos"]
     fmt = lambda x: f"{x:+.1f} %".replace(".", ",")
     return bloque(
         "precios", "Gama de precios y evolución de precios", MIXTO,
         [fuente_externa("ine_adrh", "renta 2024"), fuente_portal("ipc_base_2025", mes)],
-        f"Gama **{gama}** (renta de la zona ×{dec(r, 2)} la media de la Comunidad). En los "
+        f"Gama por la renta de los vecinos: **{gama}** (×{dec(r, 2)} la media de la "
+        f"Comunidad)"
+        + (f"; ajustada a la clientela: **{aj['gama']['semana']}**" if aj else "")
+        + ". En los "
         f"últimos 12 meses (hasta {mes}) restaurantes y alojamiento {fmt(t['restaurantes_alojamiento'])} "
         f"frente a alimentos {fmt(t['alimentos'])}.",
-        {"gama": gama, "renta_relativa": round(r, 2), "umbrales": S.GAMA_UMBRALES,
+        {"gama": gama, "gama_ajustada": aj, "renta_relativa": round(r, 2),
+         "umbrales": S.GAMA_UMBRALES,
          "ipc_mes": mes, "ipc_interanual": t,
          "diferencia_restaurantes_menos_alimentos": round(dif, 1)},
         [f"Gama (**estimación**): económica si la renta de la zona es menor que "
@@ -333,6 +416,17 @@ def b_precios(pr: dict, rc: float) -> dict:
          f"{dec(S.GAMA_UMBRALES[1], 2)}, media entre medias. Se basa en la renta de los "
          "residentes: si la mayoría de los clientes no son vecinos (perfil por horas), "
          "tómese con cautela.",
+         "Gama ajustada a la clientela (**estimación**): media de las gamas de cada tipo de "
+         "cliente (vecinos, familias y pacientes con la de la zona; universitarios "
+         "económica; viajeros entre económica y media; trabajadores y deporte media; ver "
+         "src/supuestos.py) ponderada por la gente de cada tipo en el perfil por horas "
+         "multiplicada por su propensión a pararse a consumir (viajeros 0,3; padres y "
+         "niños 0,6) (5 "
+         "laborables y 1 sábado; el domingo no se modela)."
+         + (f" Laborable: {aj['gama']['laborable']} ({dec(aj['valor']['laborable'], 2)}); "
+            f"sábado: {aj['gama']['fin_de_semana']} ({dec(aj['valor']['fin_de_semana'], 2)})"
+            f"; semana: {aj['gama']['semana']} ({dec(aj['valor']['semana'], 2)}) en una "
+            "escala de 1 (económica) a 3 (alta)." if aj else ""),
          f"IPC de la Comunidad de Madrid, tasa interanual de {mes} (**dato**): "
          f"restaurantes y servicios de alojamiento {fmt(t['restaurantes_alojamiento'])}, "
          f"alimentos y bebidas no alcohólicas {fmt(t['alimentos'])}, bebidas alcohólicas "
@@ -533,9 +627,15 @@ def municipio(punto) -> dict:
             "seccion": f["cdgseccion"]}
 
 
-def informe_local(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
+def informe_local(lat: float, lon: float, radio: float = S.RADIO_M,
+                  perfil: dict | None = None) -> dict:
     """Informe de contexto (parte A) para un punto. Cada bloque lleva su carácter (dato o
-    estimación), sus fuentes con fecha y sus notas."""
+    estimación), sus fuentes con fecha y sus notas. `perfil` es el resultado de
+    perfil_horario() para el mismo punto (si no se pasa, se calcula): hace falta para la
+    gama ajustada a la clientela."""
+    if perfil is None:
+        from perfil_horario import perfil_horario
+        perfil = perfil_horario(lat, lon, radio)
     x, y = _A_UTM.transform(lon, lat)
     punto = shapely.Point(x, y)
     muni = municipio(punto)
@@ -545,7 +645,7 @@ def informe_local(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
         "punto": {"lat": lat, "lon": lon}, "radio_m": radio, "municipio": muni,
         "fecha_informe": date.today().isoformat(),
         "bloques": [b_competencia(punto, radio, muni), b_mercado(punto, radio, pr),
-                    b_precios(pr, rc), b_turismo(punto, muni), b_festivos(muni),
+                    b_precios(pr, rc, perfil), b_turismo(punto, muni), b_festivos(muni),
                     b_sector()],
     }
 
@@ -560,7 +660,15 @@ def a_markdown(inf: dict) -> str:
         if b["clave"] == "competencia":
             out.append("| Tipo | Locales |\n|---|---|")
             out += [f"| {k} | {v} |" for k, v in d["por_tipo"].items()]
-            out += [f"| **Total** | **{d['total']}** |", "",
+            out += [f"| **Total** | **{d['total']}** |",
+                    f"| *De ellos, sirven comidas* | *{d['sirven_comidas']}* |", "",
+                    "| Frente a la media del municipio | Radio | Media | Relación |",
+                    "|---|---|---|---|"]
+            nombres = {**S.TIPOS_COMPETENCIA, "sirven_comidas": "Sirven comidas"}
+            out += [f"| {nombres[k]} | {v['radio']} | {dec(v['media_municipio'])} | "
+                    + (f"×{dec(v['relacion'], 2)}" if v["relacion"] is not None else "—")
+                    + " |" for k, v in d["comparacion_por_tipo"].items()]
+            out += ["",
                     f"Densidad: {dec(d['densidad_km2'], 0)} locales/km² frente a "
                     f"{dec(d['densidad_media_municipio_km2'], 0)} de media en el municipio "
                     f"(×{dec(d['relacion_con_media'] or 0, 2)}).", ""]

@@ -648,3 +648,207 @@ CP_DISTANCIA_MAX_M = 1000
 # curso como orientación de cuándo suelen caer (ESTIMACIÓN: muchas fiestas locales
 # cambian de fecha cada año).
 FESTIVOS_MESES = 12
+
+
+# #########################################################################################
+# RECOMENDACIONES (src/recomendaciones.py) y correcciones de la parte A que las alimentan.
+# Todo ESTIMACIÓN; cada valor lleva su justificación.
+# #########################################################################################
+
+# ------------------------------------------------- A1. locales que sirven comidas
+# En el censo de Madrid el «bar restaurante» cuenta como bar, así que «restaurantes» a
+# secas infravalora mucho la oferta de comidas. «Locales que sirven comidas» = locales
+# con alguno de estos epígrafes. Se incluyen el bar restaurante y el bar con cocina (en
+# la normativa de Madrid tienen cocina y sirven comidas). No se incluyen la cafetería
+# (sirve platos combinados, pero su negocio principal es el café: dudosa, se cuenta
+# aparte), el bar sin cocina ni la comida rápida (se cuenta en su propio tipo).
+EPIGRAFES_SIRVEN_COMIDAS = {
+    "561001",  # restaurante
+    "561003",  # autoservicio de restauración
+    "561004",  # bar restaurante
+    "561005",  # bar con cocina
+}
+# OpenStreetMap, criterio más parecido posible: todos los `restaurant`, y los `bar`,
+# `pub` y `cafe` que dicen servir comida, bien con `food=yes` (etiqueta casi nunca
+# usada) o bien con un tipo de cocina (`cuisine`) que no sea solo de café, dulce o
+# bebida. Aproximación: muchos bares de OSM que sirven comida no lo indican.
+OSM_SIRVE_COMIDAS_AMENITY = {"restaurant"}
+OSM_COCINAS_NO_COMIDA = {"coffee_shop", "coffee", "tea", "ice_cream", "cake", "churro",
+                         "juice", "bubble_tea", "donut", "crepe", "dessert", "cocktail",
+                         "wine", "beer", "chocolate", "frozen_yogurt", "pastry"}
+
+# ----------------------------------------------------- A2. gama ajustada a la clientela
+# Escala numérica de las gamas para poder hacer medias ponderadas.
+GAMA_NUM = {"económica": 1.0, "media": 2.0, "alta": 3.0}
+# Media ponderada → gama: por debajo de 1,67 económica, por encima de 2,33 alta (los
+# tercios del intervalo 1-3).
+GAMA_CORTES = (1.67, 2.33)
+# Gama supuesta de cada tipo de cliente. «zona» = la gama de la renta de los vecinos.
+GAMA_CLIENTE = {
+    "vecinos": "zona",          # su renta es la de la zona (dato del INE)
+    "padres_ninos": "zona",     # los colegios escolarizan sobre todo a niños del barrio
+    "pacientes": "zona",        # el centro de salud atiende a su zona básica de salud;
+                                # en consultas y hospitales el origen es más variado
+    "universitarios": 1.0,      # presupuesto de estudiante: buscan precio (menú barato,
+                                # café y bocadillo); su renta familiar no es la que gastan
+    "viajeros": 1.5,            # de paso: compra rápida y de poco importe, muy sensible
+                                # al precio y al tiempo; renta muy variada
+    "trabajadores": 2.0,        # menú del día a precio de mercado; parte paga con
+                                # tarjeta o ticket de comida de la empresa
+    "deporte_eventos": 2.0,     # gente de toda la zona o de fuera; gasto de ocio medio
+}
+# La gama ajustada de la semana suma 5 laborables y 1 sábado. El perfil por horas no
+# modela el domingo aparte (su «fin de semana» usa el horario de transporte del sábado),
+# así que el domingo no entra en la media.
+DIAS_SEMANA = {"laborable": 5, "fin_de_semana": 1}
+
+# ------------------------------------------------------- propensión a pararse a consumir
+# Qué parte de la gente que pasa de cada tipo puede pararse a consumir, frente a un vecino.
+# El perfil cuenta gente que PASA; no todos son clientes posibles. ESTIMACIÓN:
+#  - viajeros 0,3: van de paso hacia el transporte o el destino; la mayoría no se para
+#    (sobre todo en hora punta), solo el café para llevar o la caña de vuelta;
+#  - padres y niños 0,6: el perfil cuenta a niños y adultos, pero quien decide y paga es
+#    el adulto (unos 0,6-0,9 adultos por niño en infantil y primaria; los de secundaria
+#    van solos y gastan poco);
+#  - el resto 1: vecinos, estudiantes, trabajadores, pacientes y público de eventos están
+#    en la zona un rato y tienen huecos para consumir.
+# Se usa para ponderar a quién orientar la oferta, los momentos de consumo y la gama
+# ajustada (no cambia el perfil por horas, que sigue contando gente que pasa).
+PROPENSION_CONSUMO = {
+    "viajeros": 0.3,
+    "vecinos": 1.0,
+    "universitarios": 1.0,
+    "trabajadores": 1.0,
+    "padres_ninos": 0.6,
+    "pacientes": 1.0,
+    "deporte_eventos": 1.0,
+}
+# La confianza horaria de una franja la marcan los tipos de cliente que pesan al menos
+# esto en ella (un tipo minoritario con horario poco fiable no la rebaja).
+PESO_CONFIANZA_FRANJA = 0.25
+
+# ------------------------------------------------------------------------- B1. a quién
+# Tipos de cliente que se muestran en cada franja: los que suman al menos este peso.
+PESO_MINIMO_CLIENTE = 0.10
+
+# ----------------------------------------------------------------------- B2. a qué hora
+# Se compara la gente por hora de cada franja (media de sus horas) con la de la mejor
+# franja del día: ≥ 50 % «abrir», 30-50 % «valorar», < 30 % «no compensa». Los cortes son
+# una elección razonable para un prototipo (un bar pequeño suele cubrir costes si la
+# franja tiene al menos la mitad del movimiento de la mejor).
+APERTURA_ABRIR = 0.5
+APERTURA_VALORAR = 0.3
+# Para comparar con los horarios de la competencia (etiqueta opening_hours de OSM) hace
+# falta un mínimo de locales con horario en el radio.
+HORARIOS_MINIMO_LOCALES = 3
+# Día de la semana que representa al laborable y al sábado en opening_hours.
+DIA_OSM = {"laborable": "We", "fin_de_semana": "Sa"}
+# Una franja es un posible hueco horario si tiene movimiento suficiente («abrir») y abre
+# en ella menos de este porcentaje de los locales con horario conocido.
+HUECO_HORARIO = 0.4
+
+# ---------------------------------------------------------------------- B3. qué vender
+MOMENTOS = {
+    "desayuno": "Desayuno",
+    "almuerzo": "Almuerzo de media mañana",
+    "menu_del_dia": "Menú del día",
+    "merienda": "Merienda",
+    "canas_raciones": "Cañas y raciones",
+    "cenas": "Cenas",
+    "copas": "Copas",
+}
+# Tabla tipo de cliente × franja → momentos de consumo. Origen: horarios de comidas en
+# España (COMIDAS, arriba), horarios de cada tipo de cliente (perfil por horas) y
+# costumbres generales de la hostelería española. ESTIMACIÓN cualitativa.
+F1, F2, F3, F4, F5, F6 = list(FRANJAS)   # primera hora … noche
+TABLA_MOMENTOS = {
+    # Vecinos: café de camino al trabajo o al colegio; media mañana de jubilados, gente que
+    # teletrabaja y recados; menú del día entre semana; merienda y paseo; cañas y cena; copas.
+    ("vecinos", F1): ["desayuno"],
+    ("vecinos", F2): ["almuerzo"],
+    ("vecinos", F3): ["menu_del_dia", "canas_raciones"],
+    ("vecinos", F4): ["merienda"],
+    ("vecinos", F5): ["canas_raciones", "cenas"],
+    ("vecinos", F6): ["copas"],
+    # Trabajadores: desayuno antes de entrar, la pausa del almuerzo (bocadillo y café hacia
+    # las 10:30-11:30), menú del día a la hora de comer y la caña a la salida.
+    ("trabajadores", F1): ["desayuno"],
+    ("trabajadores", F2): ["almuerzo"],
+    ("trabajadores", F3): ["menu_del_dia"],
+    ("trabajadores", F4): ["canas_raciones"],
+    ("trabajadores", F5): ["canas_raciones"],
+    # Universitarios: café antes de clase, descanso entre clases, menú barato al cambio de
+    # turno, merienda por la tarde y cañas al salir del turno de tarde.
+    ("universitarios", F1): ["desayuno"],
+    ("universitarios", F2): ["almuerzo"],
+    ("universitarios", F3): ["menu_del_dia"],
+    ("universitarios", F4): ["merienda"],
+    ("universitarios", F5): ["canas_raciones"],
+    # Viajeros: café y bollería para llevar al ir al trabajo, algo rápido a media mañana o
+    # media tarde y una caña a la vuelta. A mediodía y de noche pasan de largo (se come en
+    # el destino; los búhos van a casa): sin momento.
+    ("viajeros", F1): ["desayuno"],
+    ("viajeros", F2): ["almuerzo"],
+    ("viajeros", F4): ["merienda"],
+    ("viajeros", F5): ["canas_raciones"],
+    # Padres y niños: los padres desayunan tras dejar a los niños; a la salida de la tarde
+    # se merienda. A mediodía recogen a los niños y comen en casa: sin momento.
+    ("padres_ninos", F1): ["desayuno"],
+    ("padres_ninos", F4): ["merienda"],
+    # Pacientes: muchos análisis son en ayunas, así que desayunan al salir; luego café
+    # mientras esperan o acompañan.
+    ("pacientes", F1): ["desayuno"],
+    ("pacientes", F2): ["almuerzo"],
+    ("pacientes", F4): ["merienda"],
+    # Deporte y eventos: aperitivo tras el partido de mañana, merienda, cañas, cena y copas
+    # después de un evento.
+    ("deporte_eventos", F3): ["canas_raciones"],
+    ("deporte_eventos", F4): ["merienda"],
+    ("deporte_eventos", F5): ["canas_raciones", "cenas"],
+    ("deporte_eventos", F6): ["copas"],
+}
+# Si una celda tiene varios momentos, su gente se reparte a partes iguales entre ellos
+# (para no contarla dos veces).
+# Momentos que solo existen ciertos días: el menú del día es de lunes a viernes; en
+# sábado ese público hace el aperitivo (cañas y raciones).
+MOMENTO_SOLO_LABORABLE = {"menu_del_dia": "canas_raciones"}
+# Se recomiendan los momentos con al menos este porcentaje de la gente del momento más
+# fuerte del día.
+MOMENTO_RECOMENDAR = 0.5
+# En el «porqué» de un momento no se citan aportes de menos de estas personas.
+APORTE_MINIMO = 5
+
+# Huecos de competencia: un tipo de local «falta» si en el radio hay menos de este
+# porcentaje de la media del municipio, y «sobra» (saturación) si hay más de
+# SATURACION veces la media. Solo se compara si la media del municipio es de al menos
+# HUECO_MEDIA_MINIMA locales (con menos, la comparación no dice nada).
+HUECO_FALTA = 0.75
+HUECO_SATURACION = 1.5
+HUECO_MEDIA_MINIMA = 1.0
+# Cocinas: solo se usan si en el radio hay al menos COCINAS_MINIMO_LOCALES locales en OSM
+# y más de COCINAS_MINIMA_FRACCION de ellos indica su cocina.
+COCINAS_MINIMO_LOCALES = 5
+COCINAS_MINIMA_FRACCION = 0.5
+
+# ----------------------------------------------------------------- B4. avisos y riesgos
+# Competencia alta: más de esta proporción frente a la media del municipio.
+RIESGO_COMPETENCIA = 1.5
+# Peso de estudiantes (universitarios + padres y niños) en un laborable a partir del
+# cual se avisa de los periodos sin clase.
+RIESGO_ESTUDIANTES = 0.15
+# Calendario escolar: el portal de la Comunidad no publica un conjunto con el calendario
+# escolar (búsqueda del 2026-11-10: «calendario escolar», «calendario lectivo»,
+# «vacaciones escolares», sin resultados). Se usa el periodo lectivo típico de la
+# Comunidad de Madrid. ESTIMACIÓN: las fechas exactas cambian cada curso.
+PERIODO_LECTIVO = {
+    "padres_ninos": "de principios de septiembre a la segunda quincena de junio; sin clase "
+                    "en Navidad (del 22-23 de diciembre al 7-8 de enero), en Semana Santa "
+                    "(unos 10 días) ni en julio y agosto",
+    "universitarios": "de mediados de septiembre a mayo, con exámenes hasta finales de "
+                      "junio o principios de julio; sin clase en Navidad, en Semana Santa "
+                      "ni en julio y agosto (el campus queda casi vacío en agosto)",
+}
+# Confianza de una recomendación a partir de la de sus datos («orientativa» → baja).
+CONFIANZA_A_RECOMENDACION = {"alta": "alta", "media": "media", "orientativa": "baja"}
+# Cuántas comprobaciones en persona se proponen como máximo y como mínimo.
+COMPROBACIONES = (5, 8)

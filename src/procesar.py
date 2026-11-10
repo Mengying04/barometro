@@ -355,7 +355,8 @@ def hosteleria_osm(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
         t = e.get("tags", {})
         c = e if "lat" in e else e.get("center", {})
         filas.append({"osm_tipo": e["type"], "osm_id": e["id"], "tipo": t.get("amenity"),
-                      "cocina": t.get("cuisine"), "lon": c.get("lon"), "lat": c.get("lat")})
+                      "cocina": t.get("cuisine"), "horario_osm": t.get("opening_hours"),
+                      "comida_osm": t.get("food"), "lon": c.get("lon"), "lat": c.get("lat")})
     d = pd.DataFrame(filas)
     g = a_puntos(d.drop(columns=["lat", "lon"]), d["lon"], d["lat"], crs=4326, capa=capa)
     g = recortar(g, lim, secc, capa)
@@ -363,10 +364,12 @@ def hosteleria_osm(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
         "`tipo` = etiqueta amenity (restaurant, bar, cafe, fast_food, pub). `cocina` = "
         "etiqueta cuisine tal cual (puede llevar varios valores separados por «;»).",
         "Vías y relaciones (edificios) se representan por su punto central.",
+        "`horario_osm` = etiqueta opening_hours tal cual (la tienen pocos locales); "
+        "`comida_osm` = etiqueta food (casi nunca está).",
         "No se conserva el nombre del local ni etiquetas de contacto.",
     ]
-    guardar(g, capa, ["osm_tipo", "osm_id", "tipo", "cocina", "cod_municipio",
-                      "cdgseccion"], n, "elementos")
+    guardar(g, capa, ["osm_tipo", "osm_id", "tipo", "cocina", "horario_osm", "comida_osm",
+                      "cod_municipio", "cdgseccion"], n, "elementos")
 
 
 # ------------------------------------------------------- 7. hostelería Madrid capital
