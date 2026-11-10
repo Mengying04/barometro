@@ -258,7 +258,11 @@ CRTM_CAPAS = [  # (servicio, capa, fichero, descripción)
     ("M4_Red", 0, "metro_estaciones", "Metro: estaciones (capa de red)"),
 ]
 # Resto de modos: feeds GTFS del portal datos.crtm.es (ficheros de ArcGIS Online).
+# El GTFS de Metro (mayo de 2025) se descarga solo para calcular frecuencias por hora
+# (src/procesar_perfil.py); la ubicación de las estaciones sigue saliendo de la capa.
 CRTM_GTFS = [  # (id del item, fichero, descripción, ficha en datos.crtm.es)
+    ("5c7f2951962540d69ffe8f640d94c246", "gtfs_metro.zip",
+     "Metro (solo para frecuencias; publicado en mayo de 2025)", "gtfs-red-de-metro"),
     ("aaed26cc0ff64b0c947ac0bc3e033196", "gtfs_metro_ligero.zip", "Metro Ligero / Tranvía",
      "gtfs-red-de-metro-ligero"),
     ("1a25440bf66f499bae2657ec7fb40144", "gtfs_cercanias.zip", "Cercanías (producido por Renfe)",
@@ -401,8 +405,11 @@ def fuente_crtm(informe: dict) -> dict:
                                 "originales (fechas de actualización, que la licencia obliga "
                                 "a conservar)"],
         "notas": [
-            "Metro se toma de la capa de red porque su GTFS publicado (30/05/2025) es "
-            "anterior a la capa (junio de 2026). Coordenadas de la capa en WGS84 (EPSG:4326).",
+            "Las estaciones de Metro se toman de la capa de red porque su GTFS publicado "
+            "(30/05/2025) es anterior a la capa (junio de 2026). Coordenadas de la capa en "
+            "WGS84 (EPSG:4326). El GTFS de Metro se descarga igualmente, solo para calcular "
+            "cuántos trenes pasan por hora (src/procesar_perfil.py): los horarios de 2025 se "
+            "toman como aproximación de los actuales.",
             "Los GTFS se guardan completos, sin descomprimir. Las paradas están en "
             "`stops.txt` (`stop_lat`/`stop_lon`, WGS84). `location_type`: 0 = parada o andén, "
             "1 = estación, 2 = acceso; vacío equivale a 0.",
