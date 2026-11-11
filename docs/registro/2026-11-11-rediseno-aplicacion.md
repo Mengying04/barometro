@@ -165,3 +165,135 @@ portal, la nota de no respaldo y «orientación, no garantías».
   igual que con las teselas del mapa. Sin acceso, se usa la fuente del sistema.
 - **En móvil, el nivel 1 no cabe en una pantalla:** los botones de ejemplo se apilan.
   Se ha priorizado que el titular quede visible.
+
+---
+
+# Parte A3 · Simplificación: vista Resumen e Informe completo
+
+## Por qué
+
+El usuario es un hostelero de 40 a 60 años sin conocimientos técnicos. La parte A2
+todavía tenía demasiado texto, con porcentajes, siglas y etiquetas, y el «Por qué» se
+abría dentro de una tarjeta estrecha. Regla nueva: **la vista principal debe leerse en
+10 segundos**, con letra grande y palabras de la calle, y todo lo técnico va en una
+vista aparte. Los cálculos no cambian: `src/` sigue sin tocarse.
+
+## Qué ha cambiado
+
+### Dos vistas con un selector arriba
+
+- **Resumen** (por defecto) e **Informe completo**, con un selector a la derecha del
+  nombre.
+- El **Informe completo** conserva todo lo técnico de la parte A2 en sus cinco
+  pestañas: confianza, dato o estimación, porqués con cifras, mercado, riesgos,
+  comprobaciones, fuentes y fechas.
+  - El gráfico por horas con los siete tipos de cliente y su selector de día pasan a
+    la pestaña «Detalle de las recomendaciones».
+  - Mercado pasa de tres columnas a dos.
+  - Lleva el aviso técnico completo y la línea con el radio y el tiempo de cálculo.
+  - Desaparecen de la pantalla el titular técnico de la A2 y las líneas de apoyo de
+    sus tarjetas. Eran un resumen derivado de las mismas recomendaciones, que siguen
+    completas en el informe.
+
+### Vista Resumen
+
+- **Aviso** en una línea sencilla: «Esto es una orientación con datos públicos, no una
+  garantía. Compruébalo siempre en persona.»
+- **Titular de una idea**, de doce palabras como mucho, a partir de qué conviene
+  ofrecer:
+  - si recomendar() señala la oportunidad de comidas: «Buena zona para desayunos y
+    menú del día» (Vicálvaro);
+  - si hay riesgo de competencia alta: «Zona de desayunos, con mucha competencia
+    cerca» (Fuenlabrada);
+  - si no: «Aquí encajan sobre todo desayunos y meriendas» (Griñón).
+- **Cuatro tarjetas** con una pregunta y una respuesta corta en letra grande:
+  - «¿Quién pasa por aquí?» → «Vecinos y universitarios»;
+  - «¿Cuándo hay más gente?» → «De 8 a 10 y a las 14»;
+  - «¿Qué conviene ofrecer?» → «Desayunos y menú del día»;
+  - «¿A qué precios?» → «Económicos».
+
+  Cada una lleva una sola línea de apoyo, de ocho palabras como mucho, sin
+  porcentajes, símbolos ni siglas (por ejemplo, «Los sábados, de 11 a 14»). No
+  aparecen «IPC», «gama», «propensión» ni «franja».
+- **Fiabilidad** con tres puntos y texto, sacada de la confianza de la recomendación:
+  alta → «Bastante fiable», media → «Orientativo», baja → «Poco fiable, compruébalo».
+  En esta vista no hay etiquetas de dato o estimación.
+- **Explicación a todo el ancho.** Ya no hay desplegable dentro de la tarjeta: se
+  pulsa la tarjeta entera y su explicación se abre debajo de la fila. Solo hay una
+  abierta a la vez, y la tarjeta abierta queda marcada. Cada explicación tiene tres o
+  cuatro frases cortas y una figura:
+  - **quién:** «De cada 10 posibles clientes», con diez puntos de colores;
+  - **cuándo:** una cifra grande, como «Unas 2.000 personas»;
+  - **qué ofrecer:** barras con los posibles clientes de cada momento del día;
+  - **precios:** «Cerca de un 6 % más», la subida del sector en un año.
+- **Mapa y gráfico por horas, lado a lado,** con título en forma de frase: «Los bares
+  y restaurantes que ya hay cerca» y «Así se mueve la gente en un día de diario» (o
+  «en un sábado»).
+  - Leyenda simplificada: los tipos de cliente con menos del 5 % de la gente del día
+    se juntan en «Otros», en gris.
+  - Las horas con más gente llevan la marca «más gente» (dos como mucho).
+- **«Ojo con esto»:** tres avisos como mucho, de una línea, sacados de los riesgos y
+  ordenados por importancia. Por ejemplo: «En vacaciones de la universidad pasa mucha
+  menos gente.»
+- **«Antes de decidir, compruébalo tú»:** las tres primeras comprobaciones de
+  recomendar(), dichas con palabras sencillas, y un botón para verlas todas.
+- **Pie:** Powered by CRTM (con enlace), OpenStreetMap, CartoCiudad, la fecha de los
+  datos, la nota de no respaldo y el botón «Fuentes y licencias», que abre el Informe
+  completo en esa pestaña.
+
+### Lenguaje
+
+- Tuteo y frases de menos de 15 palabras.
+- «Día de diario» en vez de «laborable».
+- Números redondos: «unas 2.000 personas» en vez de «~2.084». Se redondea a 500 por
+  encima de mil y a 50 por encima de cien, solo para mostrar.
+- Los nombres técnicos se traducen con diccionarios en `app/app.py`, por ejemplo:
+  - «padres y niños» → «familias con niños»;
+  - «tarde-noche» → «al caer la tarde»;
+  - «cañas y raciones» → «cañas con raciones», para que no se junten dos «y»;
+  - gama «económica» → precios «económicos».
+
+### Estilo
+
+- Letra base de **18 px** (`baseFontSize` en `.streamlit/config.toml`); los textos
+  pequeños y los botones no bajan de 17 px en el Resumen.
+- Titular a 2,1 rem y respuestas de las tarjetas a 1,7 rem.
+- Más espacio en blanco: página de hasta 1.320 px, tarjetas blancas con más relleno y
+  secciones más separadas.
+
+## Pruebas
+
+- **`AppTest`:** los tres ejemplos, las cuatro tarjetas abiertas y cerradas, el botón
+  de todas las comprobaciones, el cambio de día en las dos vistas, el cambio de vista
+  y el botón del pie. Sin excepciones.
+- **Capturas** (Chromium sin interfaz, 1440 × 900 y 390 × 844), que sustituyen a las
+  de la A2 en `docs/capturas/`. Para cada ejemplo y cada tamaño:
+  - `*-resumen-inicio.png`: lo que se ve sin bajar;
+  - `*-resumen.png`: la vista Resumen entera;
+  - `*-tarjeta-abierta.png`: con una explicación abierta;
+  - `*-informe.png`: el Informe completo.
+
+  Además, `portatil-vicalvaro-informe-mercado.png` y
+  `portatil-vicalvaro-informe-riesgos.png`.
+- **Nada en columnas estrechas:**
+  - en portátil, las tarjetas miden 299 px y la explicación abierta 1.248 px, todo el
+    ancho del contenido;
+  - en móvil, todo va en una columna de 354 px, sin desplazamiento horizontal.
+- **Una sola explicación abierta:** al pulsar otra tarjeta, la primera se cierra. Se
+  comprobó pulsando en el centro de la tarjeta, no en un botón.
+- **Navegador:** sin errores de JavaScript.
+- **Portátil sin bajar:** se ven la cabecera, el aviso, el titular y las cuatro
+  tarjetas completas, que terminan entre 621 y 658 px de 900.
+
+## Limitaciones
+
+- **Las frases del Resumen son plantillas** que leen la redacción de recomendar():
+  los riesgos por su comienzo, las comprobaciones por su comienzo y la oportunidad de
+  comidas por el nombre del momento. Si esos textos cambian, hay que revisar los
+  diccionarios. Una comprobación sin traducción se muestra con su texto original.
+- **«Buena zona para…»** solo aparece cuando recomendar() señala la oportunidad de
+  comidas. Sigue siendo una orientación, y el aviso lo dice justo encima.
+- **En móvil,** la explicación se abre debajo de las cuatro tarjetas apiladas, no
+  junto a la que se pulsa: hay que bajar para verla.
+- **La tarjeta pulsable** es un botón invisible que cubre la tarjeta, hecho con CSS.
+  Se puede usar con el teclado y la tarjeta se resalta al recibir el foco.

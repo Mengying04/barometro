@@ -29,6 +29,8 @@ borderColor = "#e3dcd1"
 baseRadius = "0.6rem"
 # Inter desde Google Fonts; sin conexión, la fuente sin serifa del sistema.
 font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+# Letra base grande (18 px): la vista Resumen debe leerse sin esfuerzo.
+baseFontSize = 18
 metricValueFontSize = "1.9rem"
 metricValueFontWeight = 650
 # Colores de los tipos de cliente (mismo orden que COLOR_CLIENTE en app/app.py).

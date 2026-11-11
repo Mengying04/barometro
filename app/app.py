@@ -5,11 +5,13 @@ y las recomendaciones. No repite cálculos: solo llama a perfil_horario(), infor
 recomendar() (src/), además de dos consultas de informe_local para saber en qué municipio
 cae el punto y qué locales del radio se dibujan en el mapa.
 
-La pantalla va de la conclusión al detalle, en tres niveles:
-  1. cabecera con buscador, titular de una frase y cuatro tarjetas (visible sin bajar);
-  2. mapa y perfil por horas, lado a lado;
-  3. pestañas con el detalle, el mercado, los riesgos, las comprobaciones y las fuentes.
-El titular y las tarjetas solo resumen lo que ya devuelve recomendar(): no calculan nada.
+Hay dos vistas, con un selector arriba:
+  - «Resumen» (por defecto), para un hostelero sin conocimientos técnicos: un titular,
+    cuatro tarjetas con pregunta y respuesta corta, el mapa, la gente por horas, tres
+    avisos y tres comprobaciones, con palabras de la calle y números redondos;
+  - «Informe completo», con todo lo técnico: confianza, dato o estimación, porqués con
+    cifras, mercado, riesgos, comprobaciones, fuentes y fechas.
+El resumen solo traduce lo que ya devuelven recomendar() e informe_local(): no calcula nada.
 
 Arranque (desde la raíz del repositorio):
     streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
@@ -67,12 +69,6 @@ COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": 
 COLOR_TIPO = {"bar": "#c4302b", "restaurante": "#1c3f73", "cafeteria": "#8a5a2b",
               "comida_rapida": "#4d4d4d"}
 DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana"}
-# Nombre corto de cada tipo de cliente para el titular.
-CLIENTE_TITULAR = {"vecinos": "vecinos", "viajeros": "viajeros",
-                   "universitarios": "universitarios", "padres_ninos": "familias con niños",
-                   "pacientes": "pacientes", "trabajadores": "trabajadores",
-                   "deporte_eventos": "público de deporte y eventos"}
-
 # Geocodificador de CartoCiudad (IGN). Condiciones de uso y licencia en docs/fuentes.md.
 CARTOCIUDAD = "https://www.cartociudad.es/geocoder/api/geocoder"
 AGENTE = "BARometro-datamad2026/0.1"
@@ -82,42 +78,73 @@ st.set_page_config(page_title="BARómetro", page_icon="☕", layout="wide",
 
 st.markdown("""
 <style>
-.block-container {padding-top: 2.6rem; padding-bottom: 1rem; max-width: 1280px;}
+.block-container {padding: 2.8rem 2rem 1.5rem 2rem; max-width: 1320px;}
+[data-testid="stCaptionContainer"], .stButton button p {font-size: 0.95rem;}
 h1, h2, h3, h4 {letter-spacing: -0.01em;}
 .marca {display:flex; align-items:baseline; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.2rem;}
-.marca b {font-size:1.7rem; font-weight:700; color:#9c3d1b; letter-spacing:-0.02em;}
-.marca span {color:#5c5248; font-size:0.98rem;}
-.aviso {font-size:0.82rem; color:#5c5248; border-left:3px solid #c98a2b;
-        padding:0.1rem 0.6rem; margin:0.1rem 0 0.4rem 0;}
-.donde {font-size:0.85rem; color:#5c5248; margin:0.3rem 0 0 0;}
-.titular {font-size:1.5rem; font-weight:650; line-height:1.3; color:#1f1b16;
-          margin:0.15rem 0 0.7rem 0;}
-.tarjeta-cab {font-size:0.78rem; font-weight:600; text-transform:uppercase;
-              letter-spacing:0.06em; color:#7a6f64;}
-.tarjeta-cab .ico {font-size:1.15rem; margin-right:0.35rem; vertical-align:-0.1rem;}
-.tarjeta-res {font-size:1.45rem; font-weight:700; line-height:1.2; color:#1f1b16;
-              margin:0.35rem 0 0.25rem 0; min-height:3.5rem;}
-.tarjeta-apoyo {font-size:0.88rem; color:#4a4038; line-height:1.35; min-height:2.4rem;}
+.marca b {font-size:1.8rem; font-weight:700; color:#9c3d1b; letter-spacing:-0.02em;}
+.marca span {color:#4a4038; font-size:1rem;}
+.aviso {font-size:0.95rem; color:#4a4038; border-left:3px solid #c98a2b;
+        padding:0.1rem 0.7rem; margin:0.3rem 0 0.6rem 0;}
+.donde {font-size:1rem; color:#4a4038; margin:0.6rem 0 0 0;}
+.titular {font-size:2.1rem; font-weight:700; line-height:1.2; color:#1f1b16;
+          margin:0.2rem 0 1.2rem 0;}
+.seccion {font-size:1.45rem; font-weight:700; line-height:1.25; color:#1f1b16;
+          margin:1.6rem 0 0.6rem 0;}
+
+/* Tarjetas del resumen: toda la tarjeta es el botón (el botón real, invisible, la cubre). */
+[class*="st-key-tarjeta_"] {position:relative; background:#ffffff; padding:1.2rem 1.3rem;}
+[class*="st-key-tarjeta_"]:hover {box-shadow:0 2px 12px rgba(60,40,20,0.14);}
+[class*="st-key-tarjeta_"]:focus-within {outline:3px solid #c98a2b; outline-offset:2px;}
+[class*="st-key-abrir_"] {position:absolute !important; inset:0; width:auto !important;
+                          z-index:5; margin:0;}
+[class*="st-key-abrir_"] div {height:100%;}
+[class*="st-key-abrir_"] button {width:100%; height:100%; opacity:0; cursor:pointer;}
+.pregunta {font-size:1.05rem; font-weight:500; color:#5c5248;}
+.respuesta {font-size:1.7rem; font-weight:700; line-height:1.2; color:#1f1b16;
+            margin:0.5rem 0 0.5rem 0; min-height:4.1rem;}
+.apoyo {font-size:1rem; color:#4a4038; line-height:1.35; min-height:2.7rem;}
+.fiable {font-size:0.95rem; color:#4a4038; margin-top:0.6rem; white-space:nowrap;}
+.fiable i {display:inline-block; width:0.7rem; height:0.7rem; border-radius:50%;
+           margin-right:0.2rem; background:#d9d0c3;}
+.fiable i.si {background:#1f1b16;}
+.fiable span {margin-left:0.3rem;}
+.ver {font-size:1rem; font-weight:600; color:#9c3d1b; margin-top:0.7rem;}
+
+/* Explicación de la tarjeta abierta, a todo el ancho. */
+.st-key-explicacion {background:#ffffff; padding:1.4rem 1.6rem;
+                     border-color:#9c3d1b !important;}
+.explica-titulo {font-size:1.35rem; font-weight:700; margin-bottom:0.5rem;}
+.explica p {font-size:1.15rem; line-height:1.5; margin:0 0 0.5rem 0; color:#1f1b16;}
+.cifra {font-size:2.8rem; font-weight:700; color:#9c3d1b; line-height:1.1;}
+.cifra-pie {font-size:1.05rem; color:#4a4038; margin-top:0.3rem;}
+.diez i {display:inline-block; width:1.7rem; height:1.7rem; border-radius:50%;
+         margin:0 0.3rem 0.3rem 0;}
+.lista-grande {font-size:1.15rem; line-height:1.5; margin:0.2rem 0 0.6rem 0;}
+.lista-grande div {padding:0.35rem 0;}
+
 .etiqueta {display:inline-block; padding:0.08rem 0.5rem; border-radius:0.6rem;
-           font-size:0.75rem; font-weight:500; margin:0.35rem 0.25rem 0 0;
+           font-size:0.8rem; font-weight:500; margin:0.35rem 0.25rem 0 0;
            background:#efe9e0; color:#4a3d32;}
 .conf-alta {background:#dcefdf; color:#1b5427;}
 .conf-media {background:#fbefc9; color:#5e4700;}
 .conf-baja {background:#f6dcda; color:#7a1f1f;}
-.punto {display:inline-block; width:0.7rem; height:0.7rem; border-radius:50%;
-        margin-right:0.3rem; vertical-align:0.05rem;}
-.leyenda {font-size:0.82rem; color:#4a4038; line-height:1.8;}
+.punto {display:inline-block; width:0.8rem; height:0.8rem; border-radius:50%;
+        margin-right:0.35rem; vertical-align:0.02rem;}
+.leyenda {font-size:0.95rem; color:#4a4038; line-height:1.9;}
 .leyenda b {font-weight:600; margin-right:0.5rem;}
-.leyenda span {display:inline-block; margin-right:0.8rem; white-space:nowrap;}
-.frase {font-size:0.88rem; color:#4a4038; margin-top:-0.4rem;}
+.leyenda span {display:inline-block; margin-right:0.9rem; white-space:nowrap;}
+.frase {font-size:0.95rem; color:#4a4038; margin-top:-0.4rem;}
 .riesgo {font-size:1rem; margin:0.2rem 0 0 0;}
-.pie {font-size:0.78rem; color:#6b6157; border-top:1px solid #e3dcd1;
-      padding-top:0.6rem; margin-top:1.5rem;}
-.pie a {color:#6b6157;}
+.pie {font-size:0.95rem; color:#5c5248; border-top:1px solid #e3dcd1;
+      padding-top:0.8rem; margin-top:2rem;}
+.pie a {color:#5c5248;}
 div[data-testid="stMetric"] {padding:0;}
 @media (max-width: 640px) {
-  .titular {font-size:1.25rem;}
-  .tarjeta-res, .tarjeta-apoyo {min-height:0;}
+  .titular {font-size:1.6rem;}
+  .block-container {padding-left: 1rem; padding-right: 1rem;}
+  .respuesta, .apoyo {min-height:0;}
+  .cifra {font-size:2.2rem;}
 }
 @media print {header, .stButton, iframe {display:none !important;}}
 </style>
@@ -277,7 +304,7 @@ def bloque_inf(inf: dict, clave: str) -> dict:
     return next(b for b in inf["bloques"] if b["clave"] == clave)
 
 
-# ------------------------------------------------- resumen (solo lee recomendar())
+# ------------------------------------------- lecturas de recomendar() (sin cálculos)
 def horas_punta(rec: dict, dia: str) -> list[int]:
     return [int(h["hora"][:2]) for h in rec["a_que_hora"]["detalle"][dia]["horas_punta"]]
 
@@ -317,116 +344,400 @@ def clientes_principales(rec: dict, dia: str = "laborable") -> list[tuple[str, f
     return fuertes or pesos[:1]
 
 
-def frase_competencia(rec: dict, inf: dict) -> str:
-    comp = bloque_inf(inf, "competencia")["datos"]
-    huecos = rec["que_vender"]["huecos"]
-    textos_riesgo = " ".join(r["texto"] for r in rec["riesgos"])
-    falta = [h["tipo"] for h in huecos if h.get("sentido") == "falta"]
-    al_menos = "al menos " if comp.get("cobertura_osm") else ""
-    if "sirven_comidas" in falta:
-        return "pocos locales que sirven comidas"
-    if falta:
-        return "pocos " + S.TIPOS_COMPETENCIA[falta[0]].lower()
-    if textos_riesgo.startswith("Competencia alta") or "Competencia alta" in textos_riesgo:
-        return f"mucha competencia ({al_menos}{comp['total']} locales en {S.RADIO_M} m)"
-    return f"{al_menos}{comp['total']} locales de hostelería en {S.RADIO_M} m"
+# ------------------------------------------------- vista Resumen: palabras de la calle
+# Esta vista no calcula nada: traduce a frases cortas lo que devuelven recomendar() e
+# informe_local(). Las cifras se redondean solo para mostrarlas.
+CLIENTE_CALLE = {"vecinos": "vecinos", "viajeros": "viajeros",
+                 "universitarios": "universitarios", "padres_ninos": "familias con niños",
+                 "pacientes": "pacientes", "trabajadores": "trabajadores",
+                 "deporte_eventos": "gente del deporte"}
+ARTICULO = {"padres_ninos": "las", "deporte_eventos": "la"}   # el resto, «los»
+MOMENTO_CALLE = {"desayuno": "desayunos", "almuerzo": "almuerzos a media mañana",
+                 "menu_del_dia": "menú del día", "merienda": "meriendas",
+                 "canas_raciones": "cañas con raciones", "cenas": "cenas", "copas": "copas"}
+FRANJA_CALLE = {"primera hora de la mañana": "a primera hora",
+                "media mañana": "a media mañana", "mediodía": "a mediodía",
+                "media tarde": "a media tarde", "tarde-noche": "al caer la tarde",
+                "noche": "de noche"}
+PRECIO_CALLE = {"económica": "económicos", "media": "medios", "alta": "altos"}
+FIABILIDAD = {"alta": (3, "Bastante fiable"), "media": (2, "Orientativo"),
+              "baja": (1, "Poco fiable, compruébalo")}
+LOCAL_CALLE = {"sirven_comidas": "sitios para comer", "bar": "bares",
+               "cafeteria": "cafeterías", "comida_rapida": "locales de comida rápida"}
+COLOR_OTROS = "#b8b0a4"
+DIA_RESUMEN = {"Día de diario": "laborable", "Sábado": "fin_de_semana"}
 
 
-def titular(rec: dict, inf: dict) -> str:
-    """Una frase que resume el punto a partir de las recomendaciones."""
-    quien = [CLIENTE_TITULAR[t] for t, _ in clientes_principales(rec)]
-    grupos = grupos_horas(rec, "laborable")[:2]
-    horas = sorted(hora_de_grupo(rec, "laborable", g) for g in grupos)
-    partes = [f"Zona de {lista_y(quien)}"] if quien else ["Zona con poco movimiento"]
-    if horas:
-        partes.append("con hora punta hacia " + lista_y([f"las {h}" for h in horas]))
-    frase = ", ".join(partes) + " y " + frase_competencia(rec, inf) + "."
-    return frase[0].upper() + frase[1:]
+def unas(n: float) -> str:
+    """Número redondo para leer de un vistazo: 2.084 → «2.000», 580 → «600»."""
+    paso = 500 if n >= 1000 else 50 if n >= 100 else 10 if n >= 20 else 1
+    return miles(max(paso, round(n / paso) * paso))
 
 
-def tarjeta(icono: str, titulo: str, respuesta: str, apoyo: str, r: dict,
-            porque: callable) -> None:
-    with st.container(border=True):
-        st.markdown(
-            f"<div class='tarjeta-cab'><span class='ico'>{icono}</span>{titulo}</div>"
-            f"<div class='tarjeta-res'>{respuesta}</div>"
-            f"<div class='tarjeta-apoyo'>{apoyo}</div>{etiquetas(r)}",
-            unsafe_allow_html=True)
-        with st.expander("Por qué"):
-            porque()
+def horas_calle(grupos: list[list[int]]) -> str:
+    """Tramos de horas punta en palabras: «de 8 a 10 y a las 14»."""
+    def uno(g):
+        if len(g) > 1:
+            return f"de {g[0]} a {g[-1] + 1}"
+        return "a la 1" if g[0] == 1 else f"a las {g[0]}"
+    return lista_y([uno(g) for g in sorted(grupos)])
 
 
-def porque_de(recs: list[dict], extra: str | None = None) -> callable:
-    def mostrar():
-        for r in recs:
-            st.markdown(f"**{r['texto']}**")
-            if r.get("porque"):
-                st.markdown("\n".join(f"- {p}" for p in r["porque"]))
-        if extra:
-            st.caption(extra)
-    return mostrar
+def mayus(t: str) -> str:
+    return t[0].upper() + t[1:] if t else t
 
 
-def tarjetas(rec: dict, inf: dict) -> None:
-    c = st.columns(4, gap="small")
-    # ---- a quién
+def oportunidad_comidas(rec: dict) -> list[str]:
+    """Momentos (menú del día, cenas) que recomendar() señala como oportunidad."""
+    textos = [r["texto"] for r in rec["que_vender"]["recomendaciones"] if "dia" not in r]
+    return [m for m in ("menu_del_dia", "cenas")
+            if any(S.MOMENTOS[m].lower() in t for t in textos)]
+
+
+def ofertas(rec: dict) -> list[str]:
+    """Los dos momentos que se enseñan: el primero del día de diario y la oportunidad de
+    comidas si la hay; si no, el segundo del día de diario."""
+    lab = [r["momento"] for r in rec_dia(rec["que_vender"]["recomendaciones"], "laborable")]
+    out = lab[:1]
+    for m in oportunidad_comidas(rec) + lab[1:]:
+        if m not in out:
+            out.append(m)
+    return out[:2]
+
+
+def competencia_alta(rec: dict) -> bool:
+    return any(r["texto"].startswith("Competencia alta") for r in rec["riesgos"])
+
+
+def titular_calle(rec: dict) -> str:
+    """Una sola idea, doce palabras como mucho."""
+    of = lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)])
+    if not of:
+        return "Por aquí pasa poca gente"
+    if oportunidad_comidas(rec):
+        return f"Buena zona para {of}"
+    if competencia_alta(rec):
+        return f"Zona de {MOMENTO_CALLE[ofertas(rec)[0]]}, con mucha competencia cerca"
+    return f"Aquí encajan sobre todo {of}"
+
+
+def fiabilidad(r: dict) -> str:
+    n, texto = FIABILIDAD.get(r.get("confianza"), FIABILIDAD["baja"])
+    puntos = "".join(f"<i class='{'si' if i < n else ''}'></i>" for i in range(3))
+    return f"<div class='fiable'>{puntos}<span>{texto}</span></div>"
+
+
+def alternar(clave: str | None) -> None:
+    """Abre la explicación de una tarjeta (solo una a la vez) o la cierra."""
+    st.session_state["abierta"] = (None if st.session_state.get("abierta") == clave
+                                   else clave)
+
+
+def respuestas(rec: dict, inf: dict) -> dict:
+    """Pregunta, respuesta corta, línea de apoyo y recomendación de la que sale la
+    fiabilidad, para cada una de las cuatro tarjetas."""
     aq = rec["a_quien"]["recomendaciones"]
-    lab = rec_dia(aq, "laborable")
-    principales = clientes_principales(rec)
-    resp = " y ".join(
-        f"<span class='punto' style='background:{COLOR_CLIENTE[t]}'></span>"
-        f"{S.TIPOS_CLIENTE[t] if i == 0 else S.TIPOS_CLIENTE[t].lower()}"
-        for i, (t, _) in enumerate(principales)) or "Sin datos"
-    sab = clientes_principales(rec, "fin_de_semana")
-    apoyo = ("≈" + " y ≈".join(f"{round(100 * p)} %" for _, p in principales)
-             + " de los clientes posibles en laborable"
-             + (f" · sábado: {lista_y([S.TIPOS_CLIENTE[t].lower() for t, _ in sab])}"
-                if sab else ""))
-    with c[0]:
-        tarjeta("👥", "A quién", resp, apoyo, lab[0] if lab else aq[0],
-                porque_de(aq, rec["a_quien"]["nota"]))
-    # ---- a qué hora
     hr = rec["a_que_hora"]["recomendaciones"]
-    g_lab = sorted(grupos_horas(rec, "laborable"))
-    g_sab = sorted(grupos_horas(rec, "fin_de_semana"))
-    hueco = [r for r in hr if r["texto"].startswith("Posible hueco horario")]
-    apoyo = "Horas punta de un laborable"
-    if g_sab:
-        apoyo += " · sábado: " + ", ".join(tramo(g) for g in g_sab)
-    if hueco:
-        apoyo += " · posible hueco en " + hueco[0]["texto"].split(": ", 1)[1].split(" (")[0]
-    with c[1]:
-        tarjeta("🕗", "A qué hora", " · ".join(tramo(g) for g in g_lab) or "Sin datos",
-                apoyo, rec_dia(hr, "laborable")[0] if rec_dia(hr, "laborable") else hr[0],
-                porque_de(hr))
-    # ---- qué vender
     qv = rec["que_vender"]
+    pr = rec["a_que_precio"]["recomendaciones"]
+    lab = clientes_principales(rec)
+    sab = clientes_principales(rec, "fin_de_semana")
+    g_sab = grupos_horas(rec, "fin_de_semana")
     v_lab = rec_dia(qv["recomendaciones"], "laborable")
     v_sab = rec_dia(qv["recomendaciones"], "fin_de_semana")
-    oportunidad = [r for r in qv["recomendaciones"] if "dia" not in r]
-    resp = S.MOMENTOS[v_lab[0]["momento"]] if v_lab else "Sin datos"
-    if oportunidad:
-        momento = oportunidad[0]["texto"].split("público para ")[1].split(":")[0]
-        apoyo = f"Oportunidad a comprobar: {momento} (pocos locales de comidas)"
-    else:
-        apoyo = " · ".join(
-            ([f"Luego {S.MOMENTOS[v_lab[1]['momento']].lower()}"] if len(v_lab) > 1 else [])
-            + ([f"sábado: {S.MOMENTOS[v_sab[0]['momento']].lower()}"] if v_sab else []))
-    with c[2]:
-        tarjeta("🍽️", "Qué vender", resp, apoyo,
-                v_lab[0] if v_lab else qv["cocinas"],
-                porque_de(qv["recomendaciones"] + qv["huecos"] + [qv["cocinas"]]))
-    # ---- a qué precio
-    pr = rec["a_que_precio"]["recomendaciones"]
     gama = bloque_inf(inf, "precios")["datos"]["gama_ajustada"]["gama"]["semana"]
-    ipc = bloque_inf(inf, "precios")["datos"].get("ipc_interanual") or {}
-    apoyo = "Sin precios en euros: compara 3–5 cartas cerca"
-    v = ipc.get("restaurantes_alojamiento")
-    if v is not None:
-        apoyo = (f"Sector {v:+.1f} % en 12 meses (IPC)".replace(".", ",")
-                 + " · sin precios en euros: compara 3–5 cartas cerca")
-    with c[3]:
-        tarjeta("💶", "A qué precio", f"Gama {gama}", apoyo, pr[0], porque_de(pr))
+    return {
+        "quien": {
+            "pregunta": "¿Quién pasa por aquí?",
+            "respuesta": mayus(lista_y([CLIENTE_CALLE[t] for t, _ in lab])) or "Poca gente",
+            "apoyo": f"Los sábados, sobre todo {CLIENTE_CALLE[sab[0][0]]}" if sab else "",
+            "rec": (rec_dia(aq, "laborable") or aq)[0]},
+        "cuando": {
+            "pregunta": "¿Cuándo hay más gente?",
+            "respuesta": mayus(horas_calle(grupos_horas(rec, "laborable"))) or "Sin datos",
+            "apoyo": f"Los sábados, {horas_calle(g_sab)}" if g_sab else "",
+            "rec": (rec_dia(hr, "laborable") or hr)[0]},
+        "que": {
+            "pregunta": "¿Qué conviene ofrecer?",
+            "respuesta": mayus(lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)]))
+            or "Sin datos",
+            "apoyo": f"Los sábados, {MOMENTO_CALLE[v_sab[0]['momento']]}" if v_sab else "",
+            "rec": v_lab[0] if v_lab else qv["cocinas"]},
+        "precio": {
+            "pregunta": "¿A qué precios?",
+            "respuesta": mayus(PRECIO_CALLE.get(gama, gama)),
+            "apoyo": "Mira antes los precios de la zona",
+            "rec": pr[0]},
+    }
+
+
+def tarjetas_resumen(resp: dict) -> None:
+    abierta = st.session_state.get("abierta")
+    if abierta:   # la tarjeta abierta se marca con el color principal
+        st.markdown(f"<style>.st-key-tarjeta_{abierta} {{border:2px solid #9c3d1b "
+                    "!important;}</style>", unsafe_allow_html=True)
+    for col, (clave, t) in zip(st.columns(4, gap="small"), resp.items()):
+        with col, st.container(border=True, key=f"tarjeta_{clave}"):
+            st.markdown(
+                f"<div class='pregunta'>{t['pregunta']}</div>"
+                f"<div class='respuesta'>{html.escape(t['respuesta'])}</div>"
+                f"<div class='apoyo'>{html.escape(t['apoyo'])}</div>"
+                + fiabilidad(t["rec"])
+                + f"<div class='ver'>{'Cerrar ▴' if abierta == clave else 'Ver por qué ▾'}"
+                  "</div>", unsafe_allow_html=True)
+            st.button(f"Ver por qué: {t['pregunta']}", key=f"abrir_{clave}",
+                      on_click=alternar, args=(clave,))
+
+
+def frases_quien(rec: dict) -> list[str]:
+    lab = clientes_principales(rec)
+    sab = clientes_principales(rec, "fin_de_semana")
+    out = []
+    if lab:
+        out.append(f"En un día de diario pasan sobre todo "
+                   f"{lista_y([CLIENTE_CALLE[t] for t, _ in lab])}.")
+    r = rec_dia(rec["a_quien"]["recomendaciones"], "laborable")
+    fuerte = {}
+    for p in (r[0]["porque"] if r else []):
+        m = re.match(r"([^:]+): .*franja fuerte es «([^»]+)»", p)
+        if m:
+            fuerte[m.group(1)] = m.group(2)
+    cuando = [f"{ARTICULO.get(t, 'los')} {CLIENTE_CALLE[t]}, "
+              f"{FRANJA_CALLE[fuerte[S.TIPOS_CLIENTE[t]]]}"
+              for t, _ in lab if fuerte.get(S.TIPOS_CLIENTE[t]) in FRANJA_CALLE]
+    if cuando:
+        out.append(mayus("; ".join(cuando)) + ".")
+    if sab:
+        out.append(f"Los sábados pasan sobre todo "
+                   f"{lista_y([CLIENTE_CALLE[t] for t, _ in sab])}.")
+    if any(t == "viajeros" for t, _ in lab + sab):
+        out.append("Los viajeros van al metro, al tren o al autobús: paran menos.")
+    return out
+
+
+def diez_clientes(rec: dict) -> None:
+    """«De cada 10 posibles clientes»: diez puntos con el color de cada tipo."""
+    r = rec_dia(rec["a_quien"]["recomendaciones"], "laborable")
+    pesos = sorted((r[0].get("pesos") or {}).items(), key=lambda kv: -kv[1]) if r else []
+    reparto = [(t, round(10 * p)) for t, p in pesos if round(10 * p) > 0]
+    while sum(n for _, n in reparto) > 10:
+        reparto[-1] = (reparto[-1][0], reparto[-1][1] - 1)
+    otros = 10 - sum(n for _, n in reparto)
+    puntos = "".join(f"<i style='background:{COLOR_CLIENTE[t]}'></i>" * n
+                     for t, n in reparto) + f"<i style='background:{COLOR_OTROS}'></i>" * otros
+    texto = " · ".join([f"{n} {CLIENTE_CALLE[t]}" for t, n in reparto if n]
+                       + ([f"{otros} de otro tipo"] if otros else []))
+    st.markdown("<div class='cifra-pie'>De cada 10 posibles clientes en un día de diario:"
+                f"</div><div class='diez' style='margin-top:0.6rem'>{puntos}</div>"
+                f"<div class='cifra-pie'>{texto}</div>", unsafe_allow_html=True)
+
+
+def frases_cuando(rec: dict) -> list[str]:
+    out = []
+    g_lab = grupos_horas(rec, "laborable")
+    g_sab = grupos_horas(rec, "fin_de_semana")
+    if g_lab:
+        out.append(f"En un día de diario hay más gente {horas_calle(g_lab)}.")
+    if g_sab:
+        out.append(f"Los sábados, {horas_calle(g_sab)}.")
+    hueco = [r for r in rec["a_que_hora"]["recomendaciones"]
+             if r["texto"].startswith("Posible hueco horario") and r.get("dia") == "laborable"]
+    if hueco:
+        franja = hueco[0]["texto"].split(": ", 1)[1].split(" (")[0].split(",")[0]
+        if franja in FRANJA_CALLE:
+            out.append(f"{mayus(FRANJA_CALLE[franja])} hay gente y abren pocos locales. "
+                       "Puede ser un hueco.")
+    clase = rec["a_que_hora"]["detalle"]["laborable"]["clase"]
+    flojas = [f for f, c in clase.items() if c != "abrir" and f in FRANJA_CALLE]
+    if flojas:
+        out.append(f"{mayus(FRANJA_CALLE[flojas[-1]])} pasa muy poca gente.")
+    return out
+
+
+def cifra_cuando(rec: dict) -> None:
+    punta = rec["a_que_hora"]["detalle"]["laborable"]["horas_punta"]
+    if punta:
+        mejor = max(punta, key=lambda h: h["total"])
+        st.markdown(f"<div class='cifra'>Unas {unas(mejor['total'])} personas</div>"
+                    f"<div class='cifra-pie'>pasan cerca a las {int(mejor['hora'][:2])}, la "
+                    "mejor hora de un día de diario.</div>", unsafe_allow_html=True)
+
+
+def frases_que(rec: dict) -> list[str]:
+    qv = rec["que_vender"]
+    lab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "laborable")]
+    sab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "fin_de_semana")]
+    out = []
+    if lab:
+        out.append(f"En un día de diario encajan sobre todo {lista_y(lab[:3])}.")
+    op = oportunidad_comidas(rec)
+    if op:
+        out.append(f"Hay pocos sitios para comer cerca y gente para "
+                   f"{lista_y([MOMENTO_CALLE[m] for m in op])}. Puede ser una oportunidad.")
+    if sab:
+        out.append(f"Los sábados, sobre todo {lista_y(sab[:2])}.")
+    sobra = [LOCAL_CALLE[h["tipo"]] for h in qv["huecos"]
+             if h.get("sentido") == "sobra" and h.get("tipo") in LOCAL_CALLE]
+    if sobra:
+        out.append(f"Ya hay muchos {lista_y(sobra[:2])} cerca: ahí cuesta más competir.")
+    return out
+
+
+def barras_que(rec: dict) -> None:
+    mo = rec["que_vender"]["momentos"]["laborable"]
+    datos = pd.DataFrame([{"momento": mayus(MOMENTO_CALLE[m]), "n": n,
+                           "txt": f"unos {unas(n)}"} for m, n in mo.items() if n > 0])
+    if datos.empty:
+        return
+    datos = datos.sort_values("n", ascending=False).head(5)
+    base = alt.Chart(datos).encode(
+        y=alt.Y("momento:N", sort="-x", title=None,
+                axis=alt.Axis(labelFontSize=15, labelLimit=220, labelColor="#1f1b16",
+                              ticks=False, domain=False)),
+        x=alt.X("n:Q", axis=None, scale=alt.Scale(domain=[0, datos["n"].max() * 1.7])))
+    st.markdown("<div class='cifra-pie'>Posibles clientes en un día de diario:</div>",
+                unsafe_allow_html=True)
+    st.altair_chart(
+        (base.mark_bar(color=PRINCIPAL, cornerRadiusEnd=4, height=22)
+         + base.mark_text(align="left", dx=6, fontSize=15, color="#1f1b16").encode(
+             text="txt:N")).properties(height=42 * len(datos)).configure_view(strokeWidth=0),
+        width="stretch")
+
+
+def frases_precio(inf: dict) -> list[str]:
+    d = bloque_inf(inf, "precios")["datos"]
+    renta = {"económica": "ganan menos que la media de la región",
+             "media": "ganan más o menos como la media de la región",
+             "alta": "ganan más que la media de la región"}
+    ajustada = d["gama_ajustada"]["gama"]["semana"]
+    out = []
+    if d["gama"] in renta:
+        out.append(f"Los vecinos de la zona {renta[d['gama']]}.")
+    if ajustada != d["gama"]:
+        out.append("Pero mucha de la gente que pasa no vive aquí.")
+    out.append(f"Por eso encajan precios {PRECIO_CALLE.get(ajustada, ajustada)}.")
+    out.append("No tenemos las cartas de los bares de la zona: míralas tú.")
+    return out
+
+
+def cifra_precio(inf: dict) -> None:
+    v = (bloque_inf(inf, "precios")["datos"].get("ipc_interanual") or {}).get(
+        "restaurantes_alojamiento")
+    if v is not None and v > 0:
+        st.markdown(f"<div class='cifra'>Cerca de un {round(v)} % más</div>"
+                    "<div class='cifra-pie'>han subido en un año los precios de bares, "
+                    "restaurantes y hoteles en la región.</div>", unsafe_allow_html=True)
+
+
+def explicacion(clave: str, resp: dict, rec: dict, inf: dict) -> None:
+    """Explicación de la tarjeta abierta: a todo el ancho, debajo de la fila."""
+    frases = {"quien": lambda: frases_quien(rec), "cuando": lambda: frases_cuando(rec),
+              "que": lambda: frases_que(rec), "precio": lambda: frases_precio(inf)}[clave]()
+    figura = {"quien": lambda: diez_clientes(rec), "cuando": lambda: cifra_cuando(rec),
+              "que": lambda: barras_que(rec), "precio": lambda: cifra_precio(inf)}[clave]
+    t = resp[clave]
+    with st.container(border=True, key="explicacion"):
+        st.markdown(f"<div class='explica-titulo'>{t['pregunta']} "
+                    f"{html.escape(t['respuesta'])}</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([3, 2], gap="large")
+        with c1:
+            st.markdown("<div class='explica'>" + "".join(
+                f"<p>{html.escape(f)}</p>" for f in frases[:4]) + "</div>"
+                + fiabilidad(t["rec"]), unsafe_allow_html=True)
+        with c2:
+            figura()
+        st.button("Cerrar", key="cerrar_explicacion", on_click=alternar, args=(clave,))
+
+
+def avisos_calle(rec: dict, inf: dict) -> list[str]:
+    """Como mucho tres avisos, de una línea, con lo más importante primero."""
+    total = bloque_inf(inf, "competencia")["datos"]["total"]
+    out = []
+    for r in sorted(rec["riesgos"], key=lambda r: icono_y_orden(r["texto"])[0]):
+        t, ico = r["texto"], icono_y_orden(r["texto"])[1]
+        if t.startswith("Periodos sin clase"):
+            cuando = "de la universidad" if "universitarios" in t else "escolares"
+            frase = f"En vacaciones {cuando} pasa mucha menos gente."
+        elif t.startswith("Competencia alta"):
+            frase = f"Ya hay muchos bares y restaurantes cerca: {total}."
+        elif t.startswith("Cobertura baja"):
+            frase = "Puede haber más locales de los que salen en el mapa."
+        elif t.startswith("No se puede valorar"):
+            frase = "No sabemos si aquí hay mucha o poca competencia."
+        elif t.startswith("Festivos"):
+            frase = "Vienen festivos: esos días cambia la gente que pasa."
+        else:
+            continue
+        if f"{ico} {frase}" not in out:
+            out.append(f"{ico} {frase}")
+    return out[:3] or ["✅ No vemos nada especial, pero compruébalo en persona."]
+
+
+def comprobaciones_calle(rec: dict) -> list[str]:
+    """La lista de recomendar(), en el mismo orden, dicha con palabras sencillas."""
+    g = grupos_horas(rec, "laborable")
+    hora = f"a las {hora_de_grupo(rec, 'laborable', g[0])}" if g else "en la mejor hora"
+    calle = {
+        "Contar durante": f"Cuenta la gente que pasa por delante {hora}, durante 15 minutos.",
+        "Anotar en": "Apunta el precio del café, la caña y el menú en tres bares cercanos.",
+        "Comprobar a qué hora": "Mira a qué hora abren y cierran los bares de la zona.",
+        "Ver por qué acera": "Fíjate por dónde sale la gente del metro o del autobús.",
+        "Consultar el calendario": "Pregunta cuándo hay clase en el campus y si tiene "
+                                   "cafetería dentro.",
+        "Observar la salida": "Mira si las familias se quedan a merendar al salir del "
+                              "colegio.",
+        "Recorrer el radio": "Date una vuelta y cuenta los bares que hay de verdad.",
+        "Preguntar a un hostelero": "Pregunta a otro hostelero qué meses flojea la zona.",
+        "Confirmar los posibles huecos": "Pregunta si cerraron locales como el tuyo, y por "
+                                         "qué.",
+    }
+    return [next((frase for clave, frase in calle.items() if c.startswith(clave)), c)
+            for c in rec["comprobar_en_persona"]]
+
+
+def grafico_resumen(perfil: dict, rec: dict, dia: str) -> list[tuple[str, str]]:
+    """Gente por horas con pocos colores: los tipos con poco peso se juntan en «Otros».
+    Devuelve las entradas de la leyenda."""
+    horas = perfil["horas"].loc[dia]
+    suma = horas[list(COLOR_CLIENTE)].sum()
+    grandes = [t for t in COLOR_CLIENTE if suma.sum() > 0 and suma[t] / suma.sum() >= 0.05]
+    tabla = horas[grandes].copy()
+    resto = [t for t in COLOR_CLIENTE if t not in grandes]
+    hay_otros = bool(resto) and float(horas[resto].sum().sum()) > 0
+    if hay_otros:
+        tabla["otros"] = horas[resto].sum(axis=1)
+    nombres = {**{t: mayus(CLIENTE_CALLE[t]) for t in grandes}, "otros": "Otros"}
+    colores = {**{t: COLOR_CLIENTE[t] for t in grandes}, "otros": COLOR_OTROS}
+    orden = list(tabla.columns)
+    largo = tabla.reset_index().melt(id_vars="hora", var_name="tipo", value_name="personas")
+    largo["quien"] = largo["tipo"].map(nombres)
+    largo["orden"] = largo["tipo"].map({t: i for i, t in enumerate(orden)})
+    largo["txt"] = largo["personas"].map(lambda n: f"unas {unas(n)}" if n >= 1 else "casi nadie")
+    barras = alt.Chart(largo).mark_bar(stroke="#fbfaf7", strokeWidth=0.6).encode(
+        x=alt.X("hora:O", title="Hora del día",
+                axis=alt.Axis(labelAngle=0, labelFontSize=13, titleFontSize=14,
+                              labelColor="#4a4038", labelOverlap=True)),
+        y=alt.Y("personas:Q", title="Personas que pasan cerca",
+                axis=alt.Axis(labelExpr="replace(format(datum.value, ',.0f'), ',', '.')",
+                              labelFontSize=13, titleFontSize=14, labelColor="#4a4038",
+                              gridColor="#ece6dc", tickCount=5)),
+        color=alt.Color("quien:N", legend=None,
+                        scale=alt.Scale(domain=[nombres[t] for t in orden],
+                                        range=[colores[t] for t in orden])),
+        order=alt.Order("orden:Q", sort="ascending"),
+        tooltip=[alt.Tooltip("hora:O", title="Hora"), alt.Tooltip("quien:N", title="Quién"),
+                 alt.Tooltip("txt:N", title="Personas")])
+    capas = barras
+    mejores = [hora_de_grupo(rec, dia, g) for g in grupos_horas(rec, dia)[:2]]
+    if mejores:
+        marca = pd.DataFrame([{"hora": h, "total": float(horas["total"].loc[h]),
+                               "txt": "más gente"} for h in mejores])
+        capas = barras + alt.Chart(marca).mark_text(
+            dy=-10, fontSize=13, fontWeight=600, color="#1f1b16").encode(
+            x="hora:O", y="total:Q", text="txt:N")
+    st.altair_chart(capas.properties(height=360).configure_view(strokeWidth=0),
+                    width="stretch")
+    return [(nombres[t], colores[t]) for t in orden]
 
 
 # ------------------------------------------------------------------ mapa y gráfico
@@ -497,6 +808,8 @@ def elegir_punto(lat: float, lon: float, ejemplo: str | None = None) -> None:
     st.session_state["punto"] = (round(lat, 6), round(lon, 6))
     st.session_state["ejemplo"] = ejemplo
     st.session_state.pop("resultado", None)
+    st.session_state["abierta"] = None
+    st.session_state["todas_comprobaciones"] = False
 
 
 def pedir_busqueda() -> None:
@@ -647,8 +960,7 @@ def pestana_riesgos(rec: dict, inf: dict) -> None:
 
 
 # --------------------------------------------------------------- detalle y fuentes
-def pestana_detalle(rec: dict, perfil: dict, dia_txt: str) -> None:
-    dia = DIA_ETIQUETA[dia_txt]
+def pestana_detalle(rec: dict, perfil: dict) -> None:
     st.caption(rec["a_quien"]["nota"])
     c1, c2 = st.columns(2, gap="large")
     with c1:
@@ -688,6 +1000,16 @@ def pestana_detalle(rec: dict, perfil: dict, dia_txt: str) -> None:
         st.markdown("##### 💶 A qué precio")
         for r in rec["a_que_precio"]["recomendaciones"]:
             mostrar_rec(r)
+    st.markdown("##### Perfil por horas (≈ personas, estimación)")
+    dia_txt = st.segmented_control("Día", list(DIA_ETIQUETA), default="Laborable",
+                                   label_visibility="collapsed", key="dia_informe",
+                                   help="El perfil no modela el domingo aparte.") \
+        or "Laborable"
+    dia = DIA_ETIQUETA[dia_txt]
+    grafico_perfil(perfil, rec, dia)
+    presentes = perfil["horas"].loc[dia][list(COLOR_CLIENTE)].sum()
+    leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
+                         if presentes[t] > 0], "<span>«punta»: horas punta</span>")
     st.markdown(f"##### Perfil por franjas · {dia_txt.lower()} (≈ personas, estimación)")
     fr = perfil["franjas"].loc[dia].rename(columns={**S.TIPOS_CLIENTE, "total": "Total"})
     fr.index = fr.index.astype(str)
@@ -744,18 +1066,30 @@ def pestana_fuentes(fu: dict) -> None:
 # =========================================================================== página
 cargar_datos()
 fu = leer_fuentes()
+VISTAS = ["Resumen", "Informe completo"]
+AVISO_SENCILLO = ("Esto es una orientación con datos públicos, no una garantía. "
+                  "Compruébalo siempre en persona.")
 
-# ------------------------------------------------------- nivel 1: cabecera y buscador
-st.markdown("<div class='marca'><b>BARómetro</b><span>Qué vender, a quién, a qué hora y a "
-            "qué precio en un bar o restaurante de la Comunidad de Madrid, con datos "
-            "abiertos.</span></div>", unsafe_allow_html=True)
+
+def ir_a_informe() -> None:
+    st.session_state["vista"] = "Informe completo"
+    st.session_state["pestanas"] = "Fuentes y licencias"
+
+
+# ---------------------------------------------------- cabecera, vistas y buscador
+ca = st.columns([3, 1.3], vertical_alignment="bottom")
+with ca[0]:
+    st.markdown("<div class='marca'><b>BARómetro</b><span>Te ayuda a decidir qué ofrecer en "
+                "tu bar o restaurante, según la zona.</span></div>", unsafe_allow_html=True)
+with ca[1]:
+    st.session_state.setdefault("vista", "Resumen")
+    vista = st.segmented_control("Vista", VISTAS, key="vista",
+                                 label_visibility="collapsed", width="stretch") or "Resumen"
 cb = st.columns([2.6, 0.7, 1.45, 1.55, 1.55], gap="small", vertical_alignment="bottom")
 with cb[0]:
-    texto = st.text_input("Dirección", placeholder="Escribe una dirección: Calle Mayor 1, "
-                          "Getafe", label_visibility="collapsed", key="texto",
-                          on_change=pedir_busqueda,
-                          help="La dirección se envía al geocodificador de CartoCiudad "
-                               "(IGN) para situarla en el mapa. No se guarda.")
+    texto = st.text_input("Dirección del local", placeholder="Escribe la dirección del local",
+                          label_visibility="collapsed", key="texto",
+                          on_change=pedir_busqueda)
 with cb[1]:
     if st.button("Buscar", type="primary", width="stretch"):
         pedir_busqueda()
@@ -771,18 +1105,17 @@ if st.session_state.pop("buscar", False) and texto.strip():
         st.session_state["candidatos"] = geocodificar(texto.strip())
     except Exception:
         st.session_state["candidatos"] = None
-        st.error("No se ha podido consultar CartoCiudad. Prueba más tarde o haz clic en "
-                 "el mapa.")
+        st.error("Ahora no podemos buscar direcciones. Prueba más tarde o toca el mapa.")
 cand = st.session_state.get("candidatos")
 if cand == []:
-    st.info("No se ha encontrado esa dirección en la provincia de Madrid.")
+    st.info("No encontramos esa dirección en Madrid. Prueba a escribirla de otra forma.")
 elif cand:
     cc = st.columns([3.2, 1.2], vertical_alignment="bottom")
     with cc[0]:
-        i = st.selectbox("Resultados de CartoCiudad", range(len(cand)),
+        i = st.selectbox("Elige tu dirección", range(len(cand)),
                          format_func=lambda k: cand[k]["texto"])
     with cc[1]:
-        analizar = st.button("Analizar esta dirección", type="primary", width="stretch")
+        analizar = st.button("Ver esta dirección", type="primary", width="stretch")
     st.caption("La dirección se envía a CartoCiudad para situarla y no se guarda. "
                + ATRIBUCION_CARTOCIUDAD)
     if analizar:
@@ -795,17 +1128,18 @@ elif cand:
             st.session_state.pop("candidatos", None)
             st.rerun()
         else:
-            st.error("CartoCiudad no ha devuelto la posición de esa dirección.")
+            st.error("No hemos podido situar esa dirección. Prueba con otra o toca el mapa.")
 
-st.markdown(f"<div class='aviso'>⚠️ {AVISO}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='aviso'>{AVISO_SENCILLO if vista == 'Resumen' else AVISO}</div>",
+            unsafe_allow_html=True)
 
 punto = st.session_state.get("punto")
 muni = municipio_de(*punto) if punto else None
 if punto and muni is None:
-    st.error("Ese punto está fuera de la Comunidad de Madrid: no se calcula nada. Elige otro.")
+    st.error("Ese punto está fuera de la Comunidad de Madrid. Elige otro.")
 
 if punto and muni and "resultado" not in st.session_state:
-    with st.spinner("Calculando el perfil, el informe y las recomendaciones…"):
+    with st.spinner("Mirando la zona…"):
         t0 = time.perf_counter()
         st.session_state["resultado"] = calcular(*punto)
         st.session_state["segundos"] = time.perf_counter() - t0
@@ -823,53 +1157,65 @@ def atender_clic(salida: dict | None) -> None:
                 st.rerun()
 
 
-if not res:
-    st.info("Busca una dirección, prueba un ejemplo o haz clic en el mapa para elegir el "
-            "punto.")
-    atender_clic(mapa(None, None, None, alto=460))
-else:
-    rec, perfil, inf = res["rec"], res["perfil"], res["informe"]
-    comp = bloque_inf(inf, "competencia")
+def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
+    lugar = st.session_state.get("ejemplo") or "El punto que has elegido"
+    st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} ({muni['nombre']})</div>"
+                f"<div class='titular'>{html.escape(titular_calle(rec))}</div>",
+                unsafe_allow_html=True)
+    resp = respuestas(rec, inf)
+    tarjetas_resumen(resp)
+    abierta = st.session_state.get("abierta")
+    if abierta in resp:
+        explicacion(abierta, resp, rec, inf)
+
+    # ------------------------------------------------------- mapa y gente por horas
+    cm, cg = st.columns([1, 1.25], gap="large")
+    with cm:
+        st.markdown("<div class='seccion'>Los bares y restaurantes que ya hay cerca</div>",
+                    unsafe_allow_html=True)
+        atender_clic(mapa(*punto, locales_del_radio(*punto, muni["cod"]), alto=400))
+        leyenda("", [(n, COLOR_TIPO[t]) for t, n in S.TIPOS_COMPETENCIA.items()])
+        st.markdown(f"<div class='leyenda'>El círculo marca {S.RADIO_M} metros. Toca el "
+                    "mapa para mirar otro sitio.</div>", unsafe_allow_html=True)
+    with cg:
+        dia_txt = st.session_state.get("dia_resumen") or "Día de diario"
+        st.markdown("<div class='seccion'>Así se mueve la gente en un "
+                    f"{dia_txt.lower()}</div>", unsafe_allow_html=True)
+        st.segmented_control("Día", list(DIA_RESUMEN), default="Día de diario",
+                             label_visibility="collapsed", key="dia_resumen")
+        leyenda("", grafico_resumen(perfil, rec, DIA_RESUMEN[dia_txt]))
+
+    # --------------------------------------------------- avisos y comprobaciones
+    st.markdown("<div class='seccion'>Ojo con esto</div><div class='lista-grande'>"
+                + "".join(f"<div>{html.escape(a)}</div>" for a in avisos_calle(rec, inf))
+                + "</div>", unsafe_allow_html=True)
+    lista = comprobaciones_calle(rec)
+    todas = st.session_state.get("todas_comprobaciones", False)
+    st.markdown("<div class='seccion'>Antes de decidir, compruébalo tú</div>"
+                "<div class='lista-grande'>" + "".join(
+                    f"<div><b>{n}.</b> {html.escape(c)}</div>"
+                    for n, c in enumerate(lista if todas else lista[:3], 1))
+                + "</div>", unsafe_allow_html=True)
+    if len(lista) > 3:
+        st.button("Ver solo las tres primeras" if todas else
+                  f"Ver las {len(lista)} comprobaciones", key="ver_comprobaciones",
+                  on_click=lambda: st.session_state.update(todas_comprobaciones=not todas))
+
+
+def vista_informe(rec: dict, perfil: dict, inf: dict) -> None:
     lugar = st.session_state.get("ejemplo") or "Punto elegido"
     st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} · {muni['nombre']} · radio de "
                 f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
                 unsafe_allow_html=True)
-    st.markdown(f"<div class='titular'>{html.escape(titular(rec, inf))}</div>",
-                unsafe_allow_html=True)
-    tarjetas(rec, inf)
-
-    # ------------------------------------------------- nivel 2: mapa y perfil por horas
-    st.markdown("#### Dónde y cuándo")
-    cm, cg = st.columns([1, 1.25], gap="medium")
-    with cm:
-        locs = locales_del_radio(*punto, muni["cod"])
-        atender_clic(mapa(*punto, locs, alto=400))
-        leyenda("Locales", [(n, COLOR_TIPO[t]) for t, n in S.TIPOS_COMPETENCIA.items()],
-                f"<span>◯ radio de {S.RADIO_M} m</span>"
-                f"<span>fuente: {comp['datos']['fuente_usada']}</span>")
-        st.caption("Haz clic en el mapa para analizar otro punto.")
-    with cg:
-        dia_txt = st.segmented_control("Día", list(DIA_ETIQUETA), default="Laborable",
-                                       label_visibility="collapsed", key="dia",
-                                       help="El perfil no modela el domingo aparte.") \
-            or "Laborable"
-        grafico_perfil(perfil, rec, DIA_ETIQUETA[dia_txt])
-        presentes = perfil["horas"].loc[DIA_ETIQUETA[dia_txt]][list(COLOR_CLIENTE)].sum()
-        leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
-                             if presentes[t] > 0],
-                "<span>«punta»: horas punta</span>")
-
-    # ------------------------------------------------------ nivel 3: pestañas
-    st.markdown("#### Detalle")
     tabs = st.tabs(["Detalle de las recomendaciones", "Mercado", "Riesgos y avisos",
-                    "Qué comprobar en persona", "Fuentes y licencias"])
+                    "Qué comprobar en persona", "Fuentes y licencias"],
+                   key="pestanas", on_change="rerun")
     with tabs[0]:
-        pestana_detalle(rec, perfil, dia_txt)
+        pestana_detalle(rec, perfil)
     with tabs[1]:
         bloques = inf["bloques"]
-        for fila in range(0, len(bloques), 3):
-            cols = st.columns(3, gap="small")
-            for col, b in zip(cols, bloques[fila:fila + 3]):
+        for fila in range(0, len(bloques), 2):
+            for col, b in zip(st.columns(2, gap="medium"), bloques[fila:fila + 2]):
                 with col:
                     bloque_mercado(b)
     with tabs[2]:
@@ -879,19 +1225,28 @@ else:
     with tabs[4]:
         pestana_fuentes(fu)
 
-if not res:
-    with st.expander("Fuentes y licencias"):
-        pestana_fuentes(fu)
+
+if res and vista == "Resumen":
+    vista_resumen(res["rec"], res["perfil"], res["informe"])
+elif res:
+    vista_informe(res["rec"], res["perfil"], res["informe"])
+elif vista == "Resumen":
+    st.info("Escribe la dirección de tu local, prueba un ejemplo o toca el mapa.")
+    atender_clic(mapa(None, None, None, alto=460))
+else:
+    st.info("Elige primero un sitio en la vista Resumen. Aquí debajo tienes las fuentes.")
+    pestana_fuentes(fu)
 
 # --------------------------------------------------------------------- pie
 st.markdown(
     "<div class='pie'>"
     "Powered by <a href='https://www.crtm.es'>CRTM</a> · "
     "© <a href='https://www.openstreetmap.org/copyright'>colaboradores de OpenStreetMap</a>"
-    " (ODbL) · Direcciones: CartoCiudad, IGN · CC BY 4.0 "
+    " · Direcciones: CartoCiudad, IGN · CC BY 4.0 "
     "<a href='https://www.scne.es/productos.html#CartoCiudad'>"
     "www.scne.es/productos.html#CartoCiudad</a> · "
-    f"Datos del portal descargados el {fu['portal_descarga']} · "
+    f"Datos descargados el {fu['portal_descarga']} · "
     "Sin respaldo de las entidades que publican los datos · "
-    "BARómetro, prototipo para DATAMAD 2026: orientación, no garantías"
+    "BARómetro, prototipo para DATAMAD 2026"
     "</div>", unsafe_allow_html=True)
+st.button("Fuentes y licencias", key="ir_fuentes", type="tertiary", on_click=ir_a_informe)
