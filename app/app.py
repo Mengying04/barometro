@@ -23,8 +23,10 @@ de Streamlit están desactivadas en .streamlit/config.toml.
 
 from __future__ import annotations
 
+import functools
 import html
 import json
+import os
 import re
 import sys
 import time
@@ -73,10 +75,65 @@ DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana"}
 CARTOCIUDAD = "https://www.cartociudad.es/geocoder/api/geocoder"
 AGENTE = "BARometro-datamad2026/0.1"
 
+# ------------------------------------------------------------------------ medidas
+# Cronómetro opcional (BAROMETRO_MEDIR=1): escribe en la terminal cuántas veces se ejecuta
+# la página y cuánto tarda cada parte. Nunca escribe direcciones ni puntos.
+MEDIR = os.environ.get("BAROMETRO_MEDIR") == "1"
+_TIEMPOS: dict[str, float] = {}
+
+
+class medir:
+    """`with medir("mapa"):` suma el tiempo de ese bloque a la parte «mapa»."""
+
+    def __init__(self, parte: str):
+        self.parte = parte
+
+    def __enter__(self):
+        self.t0 = time.perf_counter()
+
+    def __exit__(self, *_):
+        if MEDIR:
+            _TIEMPOS[self.parte] = (_TIEMPOS.get(self.parte, 0.0)
+                                    + 1000 * (time.perf_counter() - self.t0))
+
+
+def anotar_medidas(que: str, t_inicio: float) -> None:
+    """Una línea por ejecución: qué se ha ejecutado, total y milisegundos por parte."""
+    if MEDIR:
+        total = 1000 * (time.perf_counter() - t_inicio)
+        resto = total - sum(_TIEMPOS.values())
+        partes = " ".join(f"{k}={v:.0f}" for k, v in _TIEMPOS.items())
+        print(f"MEDIDA {que} total={total:.0f} {partes} resto={resto:.0f}",
+              file=sys.stderr, flush=True)
+        _TIEMPOS.clear()
+
+
+def fragmento(nombre: str):
+    """Como st.fragment: al tocar algo de dentro solo se vuelve a ejecutar esa parte, no
+    toda la página. Además mide lo que tarda (si BAROMETRO_MEDIR=1)."""
+    def decorar(f):
+        @st.fragment
+        @functools.wraps(f)
+        def envuelta(*args, **kwargs):
+            sola = not st.session_state.get("_en_pagina", False)
+            t0 = time.perf_counter()
+            with medir(nombre):
+                f(*args, **kwargs)
+            if sola:
+                anotar_medidas(f"fragmento:{nombre}", t0)
+        return envuelta
+    return decorar
+
+
+_T_PAGINA = time.perf_counter()
+
 st.set_page_config(page_title="BARómetro", page_icon="☕", layout="wide",
                    initial_sidebar_state="collapsed")
 
-st.markdown("""
+@st.cache_resource
+def hoja_de_estilos() -> str:
+    """El CSS de la página, sin comentarios ni espacios de sobra (se prepara una vez)."""
+    css = """
 <style>
 .block-container {padding: 2.8rem 2rem 1.5rem 2rem; max-width: 1320px;}
 [data-testid="stCaptionContainer"], .stButton button p {font-size: 0.95rem;}
@@ -148,7 +205,13 @@ div[data-testid="stMetric"] {padding:0;}
 }
 @media print {header, .stButton, iframe {display:none !important;}}
 </style>
-""", unsafe_allow_html=True)
+"""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    return re.sub(r"\s+", " ", css).strip()
+
+
+st.session_state["_en_pagina"] = True
+st.markdown(hoja_de_estilos(), unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------- datos
@@ -741,7 +804,7 @@ def grafico_resumen(perfil: dict, rec: dict, dia: str) -> list[tuple[str, str]]:
 
 
 # ------------------------------------------------------------------ mapa y gráfico
-def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400) -> dict | None:
+def construir_mapa(lat, lon, locs: pd.DataFrame | None) -> folium.Map:
     zoom = 16 if lat is not None else 10
     centro = (lat, lon) if lat is not None else CENTRO_MADRID
     # Zoom máximo 16: a partir de 17 las teselas de OpenStreetMap rotulan los nombres de
@@ -763,7 +826,18 @@ def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400) -> dict | None:
         folium.CircleMarker((lat, lon), radius=9, weight=3, color="#ffffff",
                             fill=True, fill_color=PRINCIPAL, fill_opacity=1,
                             interactive=False).add_to(m)
-    return st_folium(m, height=alto, use_container_width=True,
+    return m
+
+
+def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400) -> dict | None:
+    """Dibuja el mapa. El objeto del mapa se construye una sola vez por punto y se guarda
+    en la sesión. Solo vuelve al servidor el último clic: mover el mapa o hacer zoom no
+    provoca ninguna recarga."""
+    guardado = st.session_state.get("mapa_obj")
+    if not guardado or guardado[0] != (lat, lon):
+        guardado = ((lat, lon), construir_mapa(lat, lon, locs))
+        st.session_state["mapa_obj"] = guardado
+    return st_folium(guardado[1], height=alto, use_container_width=True,
                      returned_objects=["last_clicked"], key="mapa")
 
 
@@ -1071,9 +1145,15 @@ AVISO_SENCILLO = ("Esto es una orientación con datos públicos, no una garantí
                   "Compruébalo siempre en persona.")
 
 
+def abrir_informe_en(pestana: str | None) -> None:
+    """Las pestañas se vuelven a montar (clave nueva) abiertas por la que se pide."""
+    st.session_state["pestana_inicial"] = pestana
+    st.session_state["pestanas_n"] = st.session_state.get("pestanas_n", 0) + 1
+
+
 def ir_a_informe() -> None:
     st.session_state["vista"] = "Informe completo"
-    st.session_state["pestanas"] = "Fuentes y licencias"
+    abrir_informe_en("Fuentes y licencias")
 
 
 # ---------------------------------------------------- cabecera, vistas y buscador
@@ -1083,8 +1163,9 @@ with ca[0]:
                 "tu bar o restaurante, según la zona.</span></div>", unsafe_allow_html=True)
 with ca[1]:
     st.session_state.setdefault("vista", "Resumen")
-    vista = st.segmented_control("Vista", VISTAS, key="vista",
-                                 label_visibility="collapsed", width="stretch") or "Resumen"
+    vista = st.segmented_control("Vista", VISTAS, key="vista", on_change=abrir_informe_en,
+                                 args=(None,), label_visibility="collapsed",
+                                 width="stretch") or "Resumen"
 cb = st.columns([2.6, 0.7, 1.45, 1.55, 1.55], gap="small", vertical_alignment="bottom")
 with cb[0]:
     texto = st.text_input("Dirección del local", placeholder="Escribe la dirección del local",
@@ -1096,9 +1177,8 @@ with cb[1]:
 for col, (nombre_ej, (la, lo)) in zip(cb[2:], EJEMPLOS.items()):
     with col:
         activo = st.session_state.get("ejemplo") == nombre_ej
-        if st.button(nombre_ej, width="stretch", type="primary" if activo else "secondary"):
-            elegir_punto(la, lo, nombre_ej)
-            st.rerun()
+        st.button(nombre_ej, width="stretch", type="primary" if activo else "secondary",
+                  on_click=elegir_punto, args=(la, lo, nombre_ej))
 
 if st.session_state.pop("buscar", False) and texto.strip():
     try:
@@ -1133,62 +1213,63 @@ elif cand:
 st.markdown(f"<div class='aviso'>{AVISO_SENCILLO if vista == 'Resumen' else AVISO}</div>",
             unsafe_allow_html=True)
 
+# El resultado del punto actual (perfil, informe, recomendaciones, municipio y locales del
+# radio) se calcula una vez y se guarda en la sesión hasta que cambia el punto
+# (elegir_punto lo borra). No se guarda en disco ni en ninguna caché compartida.
 punto = st.session_state.get("punto")
-muni = municipio_de(*punto) if punto else None
-if punto and muni is None:
-    st.error("Ese punto está fuera de la Comunidad de Madrid. Elige otro.")
-
-if punto and muni and "resultado" not in st.session_state:
-    with st.spinner("Mirando la zona…"):
-        t0 = time.perf_counter()
-        st.session_state["resultado"] = calcular(*punto)
-        st.session_state["segundos"] = time.perf_counter() - t0
-res = st.session_state.get("resultado") if (punto and muni) else None
-
-
-def atender_clic(salida: dict | None) -> None:
-    clic = (salida or {}).get("last_clicked")
-    if clic:
-        nuevo = (round(clic["lat"], 6), round(clic["lng"], 6))
-        if nuevo != st.session_state.get("ultimo_clic"):
-            st.session_state["ultimo_clic"] = nuevo
-            if nuevo != punto:
-                elegir_punto(*nuevo)
-                st.rerun()
+res = st.session_state.get("resultado") if punto else None
+if punto and res is None:
+    muni_nuevo = municipio_de(*punto)
+    if muni_nuevo is None:
+        st.error("Ese punto está fuera de la Comunidad de Madrid. Elige otro.")
+    else:
+        with st.spinner("Mirando la zona…"), medir("cálculo"):
+            t0 = time.perf_counter()
+            res = {**calcular(*punto), "muni": muni_nuevo,
+                   "locs": locales_del_radio(*punto, muni_nuevo["cod"])}
+            st.session_state["resultado"] = res
+            st.session_state["segundos"] = time.perf_counter() - t0
+muni = res["muni"] if res else None
 
 
-def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
-    lugar = st.session_state.get("ejemplo") or "El punto que has elegido"
-    st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} ({muni['nombre']})</div>"
-                f"<div class='titular'>{html.escape(titular_calle(rec))}</div>",
-                unsafe_allow_html=True)
+# ------------------------------------------------------------------- vista Resumen
+# Cada parte que cambia sola es un fragmento: al tocarla se vuelve a ejecutar solo ella.
+@fragmento("tarjetas")
+def parte_tarjetas(rec: dict, inf: dict) -> None:
+    """Las cuatro tarjetas y, debajo, la explicación de la que esté abierta."""
     resp = respuestas(rec, inf)
     tarjetas_resumen(resp)
     abierta = st.session_state.get("abierta")
     if abierta in resp:
         explicacion(abierta, resp, rec, inf)
 
-    # ------------------------------------------------------- mapa y gente por horas
-    cm, cg = st.columns([1, 1.25], gap="large")
-    with cm:
-        st.markdown("<div class='seccion'>Los bares y restaurantes que ya hay cerca</div>",
-                    unsafe_allow_html=True)
-        atender_clic(mapa(*punto, locales_del_radio(*punto, muni["cod"]), alto=400))
-        leyenda("", [(n, COLOR_TIPO[t]) for t, n in S.TIPOS_COMPETENCIA.items()])
-        st.markdown(f"<div class='leyenda'>El círculo marca {S.RADIO_M} metros. Toca el "
-                    "mapa para mirar otro sitio.</div>", unsafe_allow_html=True)
-    with cg:
-        dia_txt = st.session_state.get("dia_resumen") or "Día de diario"
-        st.markdown("<div class='seccion'>Así se mueve la gente en un "
-                    f"{dia_txt.lower()}</div>", unsafe_allow_html=True)
-        st.segmented_control("Día", list(DIA_RESUMEN), default="Día de diario",
-                             label_visibility="collapsed", key="dia_resumen")
-        leyenda("", grafico_resumen(perfil, rec, DIA_RESUMEN[dia_txt]))
 
-    # --------------------------------------------------- avisos y comprobaciones
-    st.markdown("<div class='seccion'>Ojo con esto</div><div class='lista-grande'>"
-                + "".join(f"<div>{html.escape(a)}</div>" for a in avisos_calle(rec, inf))
-                + "</div>", unsafe_allow_html=True)
+@fragmento("mapa")
+def parte_mapa(lat, lon, locs, alto: int) -> None:
+    """El mapa. Un clic elige otro punto y, solo entonces, se recalcula la página."""
+    clic = (mapa(lat, lon, locs, alto=alto) or {}).get("last_clicked")
+    if clic:
+        nuevo = (round(clic["lat"], 6), round(clic["lng"], 6))
+        if nuevo != st.session_state.get("ultimo_clic"):
+            st.session_state["ultimo_clic"] = nuevo
+            if nuevo != st.session_state.get("punto"):
+                elegir_punto(*nuevo)
+                st.rerun()
+
+
+@fragmento("gráfico")
+def parte_grafico(perfil: dict, rec: dict) -> None:
+    """Título, selector de día, gráfico por horas y leyenda."""
+    dia_txt = st.session_state.get("dia_resumen") or "Día de diario"
+    st.markdown("<div class='seccion'>Así se mueve la gente en un "
+                f"{dia_txt.lower()}</div>", unsafe_allow_html=True)
+    st.segmented_control("Día", list(DIA_RESUMEN), default="Día de diario",
+                         label_visibility="collapsed", key="dia_resumen")
+    leyenda("", grafico_resumen(perfil, rec, DIA_RESUMEN[dia_txt]))
+
+
+@fragmento("comprobaciones")
+def parte_comprobaciones(rec: dict) -> None:
     lista = comprobaciones_calle(rec)
     todas = st.session_state.get("todas_comprobaciones", False)
     st.markdown("<div class='seccion'>Antes de decidir, compruébalo tú</div>"
@@ -1202,14 +1283,43 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
                   on_click=lambda: st.session_state.update(todas_comprobaciones=not todas))
 
 
-def vista_informe(rec: dict, perfil: dict, inf: dict) -> None:
-    lugar = st.session_state.get("ejemplo") or "Punto elegido"
-    st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} · {muni['nombre']} · radio de "
-                f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
+def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
+    lugar = st.session_state.get("ejemplo") or "El punto que has elegido"
+    st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} ({muni['nombre']})</div>"
+                f"<div class='titular'>{html.escape(titular_calle(rec))}</div>",
                 unsafe_allow_html=True)
-    tabs = st.tabs(["Detalle de las recomendaciones", "Mercado", "Riesgos y avisos",
-                    "Qué comprobar en persona", "Fuentes y licencias"],
-                   key="pestanas", on_change="rerun")
+    parte_tarjetas(rec, inf)
+
+    # ------------------------------------------------------- mapa y gente por horas
+    cm, cg = st.columns([1, 1.25], gap="large")
+    with cm:
+        st.markdown("<div class='seccion'>Los bares y restaurantes que ya hay cerca</div>",
+                    unsafe_allow_html=True)
+        parte_mapa(*punto, res["locs"], 400)
+        leyenda("", [(n, COLOR_TIPO[t]) for t, n in S.TIPOS_COMPETENCIA.items()])
+        st.markdown(f"<div class='leyenda'>El círculo marca {S.RADIO_M} metros. Toca el "
+                    "mapa para mirar otro sitio.</div>", unsafe_allow_html=True)
+    with cg:
+        parte_grafico(perfil, rec)
+
+    # --------------------------------------------------- avisos y comprobaciones
+    st.markdown("<div class='seccion'>Ojo con esto</div><div class='lista-grande'>"
+                + "".join(f"<div>{html.escape(a)}</div>" for a in avisos_calle(rec, inf))
+                + "</div>", unsafe_allow_html=True)
+    parte_comprobaciones(rec)
+
+
+# ------------------------------------------------------------ vista Informe completo
+PESTANAS = ["Detalle de las recomendaciones", "Mercado", "Riesgos y avisos",
+            "Qué comprobar en persona", "Fuentes y licencias"]
+
+
+@fragmento("informe")
+def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
+    """Las pestañas del informe. Cambiar de pestaña no va al servidor: lo hace el
+    navegador. Cambiar de día en el detalle vuelve a ejecutar solo esta parte."""
+    tabs = st.tabs(PESTANAS, key=f"pestanas_{st.session_state.get('pestanas_n', 0)}",
+                   default=st.session_state.get("pestana_inicial"))
     with tabs[0]:
         pestana_detalle(rec, perfil)
     with tabs[1]:
@@ -1226,13 +1336,22 @@ def vista_informe(rec: dict, perfil: dict, inf: dict) -> None:
         pestana_fuentes(fu)
 
 
+def vista_informe(rec: dict, perfil: dict, inf: dict) -> None:
+    lugar = st.session_state.get("ejemplo") or "Punto elegido"
+    st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} · {muni['nombre']} · radio de "
+                f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
+                unsafe_allow_html=True)
+    parte_informe(rec, perfil, inf)
+
+
+# Solo se construye la vista que se está viendo.
 if res and vista == "Resumen":
     vista_resumen(res["rec"], res["perfil"], res["informe"])
 elif res:
     vista_informe(res["rec"], res["perfil"], res["informe"])
 elif vista == "Resumen":
     st.info("Escribe la dirección de tu local, prueba un ejemplo o toca el mapa.")
-    atender_clic(mapa(None, None, None, alto=460))
+    parte_mapa(None, None, None, 460)
 else:
     st.info("Elige primero un sitio en la vista Resumen. Aquí debajo tienes las fuentes.")
     pestana_fuentes(fu)
@@ -1250,3 +1369,5 @@ st.markdown(
     "BARómetro, prototipo para DATAMAD 2026"
     "</div>", unsafe_allow_html=True)
 st.button("Fuentes y licencias", key="ir_fuentes", type="tertiary", on_click=ir_a_informe)
+st.session_state["_en_pagina"] = False
+anotar_medidas("página", _T_PAGINA)
