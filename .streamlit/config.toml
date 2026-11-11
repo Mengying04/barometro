@@ -17,5 +17,19 @@ level = "warning"
 toolbarMode = "minimal"
 
 [theme]
+# Paleta sobria: un color principal (ladrillo) y uno de acento (ocre, solo en la
+# interfaz), sobre un blanco cálido. Texto casi negro: contraste alto en modo claro.
 base = "light"
 primaryColor = "#9c3d1b"
+backgroundColor = "#fbfaf7"
+secondaryBackgroundColor = "#f3efe8"
+textColor = "#1f1b16"
+linkColor = "#9c3d1b"
+borderColor = "#e3dcd1"
+baseRadius = "0.6rem"
+# Inter desde Google Fonts; sin conexión, la fuente sin serifa del sistema.
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+metricValueFontSize = "1.9rem"
+metricValueFontWeight = 650
+# Colores de los tipos de cliente (mismo orden que COLOR_CLIENTE en app/app.py).
+chartCategoricalColors = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6"]
