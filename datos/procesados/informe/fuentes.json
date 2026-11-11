@@ -1,0 +1,163 @@
+{
+ "portal": {
+  "gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006": {
+   "title": "Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006)",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-11-05T17:44:13.529497",
+   "descargado": "2026-11-10"
+  },
+  "ipc_base_2025": {
+   "title": "Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-11-05T18:16:40.759865",
+   "descargado": "2026-11-10"
+  },
+  "alojamientos_turisticos": {
+   "title": "Alojamientos turísticos de la Comunidad de Madrid",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-11-09T06:11:14.962940",
+   "descargado": "2026-11-10"
+  },
+  "declaraciones_actividad_viviendas_uso_turistico": {
+   "title": "Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-10-14T16:31:10.223890",
+   "descargado": "2026-11-10"
+  },
+  "festivos_regionales_locales": {
+   "title": "Festivos regionales y locales año en curso",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-01-13T10:10:44.591269",
+   "descargado": "2026-11-10"
+  },
+  "demografia_empresarial_cnae09": {
+   "title": "Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2009)",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-11-05T18:18:15.644413",
+   "descargado": "2026-11-10"
+  },
+  "demografia_empresarial_cnae25": {
+   "title": "Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2025)",
+   "license_title": "Creative Commons Attribution",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode.es",
+   "metadata_modified": "2026-11-05T18:18:25.412517",
+   "descargado": "2026-11-10"
+  }
+ },
+ "externas": {
+  "ine_adrh": {
+   "carpeta": "ine_adrh",
+   "titulo": "INE. Atlas de distribución de renta de los hogares (ADRH), provincia de Madrid, por municipio, distrito y sección censal",
+   "enlace": "https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608",
+   "licencia": "Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))",
+   "version": "Años 2015–2024 (último disponible: **2024**); tablas actualizadas el 2026-10-15",
+   "ficheros": [
+    "31097.csv (Indicadores de renta media y mediana): 300.660 filas",
+    "31105.csv (Indicadores demográficos): 350.770 filas"
+   ],
+   "notas": [
+    "Se descarga la serie completa; el análisis usará el último año. La población está en la tabla 31105, indicador «Población».",
+    "Los valores usan coma decimal y punto de miles; «..» o vacío = dato no disponible (secreto estadístico)."
+   ],
+   "fecha_descarga": "2026-11-09"
+  },
+  "madrid_censo_locales": {
+   "carpeta": "madrid_censo_locales",
+   "titulo": "Censo de locales, sus actividades y terrazas de hostelería y restauración",
+   "enlace": "https://datos.madrid.es/dataset/200085-0-censo-locales",
+   "licencia": "Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid»",
+   "version": "Actualización diaria; ficheros del 2026-11-09",
+   "ficheros": [
+    "locales.csv (Locales; original `200085-0-censo-locales_2_20261109_063056.csv`): 203.794 filas",
+    "actividades.csv (Actividades; original `200085-0-censo-locales_4_20261109_063752.csv`): 225.892 filas",
+    "terrazas.csv (Terrazas; original `200085-0-censo-locales_5_20261109_064136.csv`): 6.614 filas",
+    "estructura_ds_ficherocla.pdf (Censo de Locales y Actividades. Contenido y estructura del fichero)",
+    "estructura_ds_ficherocla_terrazas.pdf (Terrazas de hostelería y restauración. Contenido y estructura del fichero)"
+   ],
+   "notas": [
+    "No se descargan las copias JSON/XML (mismo contenido) ni el fichero «Locales con información de licencia»."
+   ],
+   "fecha_descarga": "2026-11-09"
+  },
+  "osm_hosteleria": {
+   "carpeta": "osm_hosteleria",
+   "titulo": "OpenStreetMap: bares, pubs, cafeterías, restaurantes y comida rápida de la Comunidad de Madrid (API Overpass)",
+   "enlace": "https://www.openstreetmap.org/copyright",
+   "licencia": "Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright",
+   "version": "Datos OSM a 2026-11-09T18:22:32Z",
+   "ficheros": [
+    "osm_hosteleria.json: 15.665 elementos (restaurant 7.675, bar 2.343, cafe 2.225, fast_food 1.792, pub 1.630); 5.753 con etiqueta `cuisine`",
+    "consulta.overpassql: consulta usada"
+   ],
+   "notas": [
+    "Se incluye `amenity=pub` porque en España muchos bares están etiquetados así; se puede filtrar después.",
+    "Nodos con `lat`/`lon`; vías y relaciones con su punto central (`center`).",
+    "Una base de datos derivada que se publique debe mantener la licencia ODbL."
+   ],
+   "fecha_descarga": "2026-11-09"
+  },
+  "crtm_paradas": {
+   "carpeta": "crtm_paradas",
+   "titulo": "Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y demanda diaria de viajeros por modo",
+   "enlace": "Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro, https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos; demanda: https://datos.crtm.es/datasets/crtm::crtm-evolucion-demanda-diaria (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)",
+   "licencia": "[Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. Obligaciones: mostrar **«Powered by CRTM»** con enlace a [crtm.es](http://www.crtm.es/) en webs y apps; **garantizar que la información mostrada esté siempre actualizada** (volver a ejecutar este script); citar al CRTM como fuente indicando si son datos en bruto o explotados; conservar los metadatos de fecha de actualización; no sugerir que el CRTM patrocina o apoya el producto",
+   "version": "metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027; crtm_demanda_diaria.xlsx: publicado el 2026-10-28",
+   "ficheros": [
+    "metro_estaciones.geojson (Metro: estaciones (capa de red)): 293 estaciones",
+    "gtfs_metro.zip (Metro (solo para frecuencias; publicado en mayo de 2025); original `google_transit_M4.zip`): 1.050 registros en stops.txt (location_type 0: 290, location_type 1: 240, location_type 2: 520), 13 líneas, calendario 20250527–20260527",
+    "gtfs_metro_ligero.zip (Metro Ligero / Tranvía; original `google_transit_M10.zip`): 96 registros en stops.txt (location_type 0: 57, location_type 1: 14, location_type 2: 25), 4 líneas, calendario 20261028–20271028",
+    "gtfs_cercanias.zip (Cercanías (producido por Renfe); original `google_transit_M5.zip`): 95 registros en stops.txt (location_type 0: 95), 38 líneas, calendario 20261030–20261128",
+    "gtfs_interurbanos.zip (Autobuses interurbanos; original `google_transit_M89.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 354 líneas, calendario 20261027–20271128",
+    "gtfs_emt.zip (Autobuses urbanos de Madrid (EMT); original `google_transit_M6.zip`): 4.935 registros en stops.txt (location_type 0: 4.935), 238 líneas, calendario 20261030–20261231",
+    "gtfs_urbanos.zip (Autobuses urbanos de otros municipios (el CRTM avisa: «datos parciales»); original `google_transit_M9.zip`): 8.408 registros en stops.txt (location_type 0: 8.399, location_type 1: 9), 117 líneas, calendario 20261027–20271128",
+    "crtm_demanda_diaria.xlsx (Evolución de la demanda diaria y mensual por modo (Observatorio de la Demanda del Transporte Público); original `CRTM_Evolucion_demanda_diaria.xlsx`): hojas «diaria» y «mensual» con viajeros de Metro de Madrid, EMT, concesiones por carretera y Renfe Cercanías (datos provisionales)",
+    "metadatos_capas.json, metadatos_gtfs.json: metadatos originales (fechas de actualización, que la licencia obliga a conservar)"
+   ],
+   "notas": [
+    "Las estaciones de Metro se toman de la capa de red porque su GTFS publicado (30/05/2025) es anterior a la capa (junio de 2026). Coordenadas de la capa en WGS84 (EPSG:4326). El GTFS de Metro se descarga igualmente, solo para calcular cuántos trenes pasan por hora (src/procesar_perfil.py): los horarios de 2025 se toman como aproximación de los actuales.",
+    "Los GTFS se guardan completos, sin descomprimir. Las paradas están en `stops.txt` (`stop_lat`/`stop_lon`, WGS84). `location_type`: 0 = parada o andén, 1 = estación, 2 = acceso; vacío equivale a 0.",
+    "gtfs_interurbanos.zip y gtfs_urbanos.zip comparten el mismo `stops.txt` (paradas de las dos redes juntas); lo que cambia son las líneas y los horarios. Para saber qué paradas usa cada red hay que cruzar `stop_times.txt` y `trips.txt`.",
+    "El calendario del GTFS de Cercanías solo cubre unas semanas: hay que volver a descargarlo con frecuencia.",
+    "La demanda diaria sirve para calibrar cuántas personas suben o bajan por cada tren o autobús que para (src/procesar_perfil.py). Es por modo, no por estación."
+   ],
+   "fecha_descarga": "2026-11-10"
+  },
+  "ine_seccionado": {
+   "carpeta": "ine_seccionado",
+   "titulo": "INE. Cartografía digitalizada de secciones censales, seccionado a 1 de enero de 2025 (toda España)",
+   "enlace": "https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout (fichero https://www.ine.es/prodyser/cartografia/seccionado_2025.zip)",
+   "licencia": "Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))",
+   "version": "Seccionado a 1 de enero de 2025",
+   "ficheros": [
+    "seccionado_2025.zip: shapefile `España_Seccionado2025_ETRS89H30/SECC_CE_20250101.shp` (ETRS89 / UTM 30N, EPSG:25830); capa.txt: ruta del .shp dentro del ZIP"
+   ],
+   "notas": [
+    "Se usa el seccionado de 2025 y no el de 2024 porque es el que corresponde a los datos del Atlas de renta de 2024: casan todas las secciones de Madrid con datos.",
+    "Uso: polígonos de las secciones para la renta y la población del INE (capa `secciones_censales` procesada). Los límites de la Comunidad y de los municipios se toman de las secciones del portal de la Comunidad."
+   ],
+   "fecha_descarga": "2026-11-09"
+  },
+  "osm_universidades": {
+   "carpeta": "osm_universidades",
+   "titulo": "OpenStreetMap: recintos universitarios (amenity=university) de la Comunidad de Madrid (API Overpass)",
+   "enlace": "https://www.openstreetmap.org/copyright",
+   "licencia": "Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright",
+   "version": "Datos OSM a 2026-11-10T10:36:21Z",
+   "ficheros": [
+    "osm_universidades.json: 164 elementos (node 42, relation 12, way 110), con geometría completa (`out geom`)",
+    "consulta.overpassql: consulta usada"
+   ],
+   "notas": [
+    "Se usan para ubicar los campus y repartir entre ellos los estudiantes de cada universidad (src/procesar_perfil.py). Unos elementos son campus enteros y otros, facultades o edificios sueltos; no se conserva más que el nombre del centro, el operador y la geometría.",
+    "Una base de datos derivada que se publique debe mantener la licencia ODbL."
+   ],
+   "fecha_descarga": "2026-11-10"
+  }
+ }
+}

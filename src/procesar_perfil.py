@@ -514,7 +514,9 @@ def dea() -> None:
         "`cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).",
     ]
     d["fds"] = d["fds"].astype("boolean")
-    guardar(d, capa, ["codigo_dea", "tipo_establecimiento", "horario_acceso", "horario_tipo",
+    # No se guarda el texto libre de horario_acceso: ya está interpretado en las columnas
+    # siguientes y alguna vez nombra el establecimiento.
+    guardar(d, capa, ["codigo_dea", "tipo_establecimiento", "horario_tipo",
                       "abre_lab", "cierra_lab", "abre_fds", "cierra_fds", "fds", "cliente",
                       "personas_dia", "perfil", "n_dea", "cod_municipio", "cdgseccion"], n)
 

@@ -1,0 +1,339 @@
+municipio_codigo;entidad_codigo;entidad_nombre;fecha_festivo
+002;00;Ajalvir;2026-02-03
+002;00;Ajalvir;2026-05-15
+003;00;Alameda del Valle;2026-07-17
+003;00;Alameda del Valle;2026-07-27
+005;00;Alcalá de Henares;2026-08-06
+005;00;Alcalá de Henares;2026-10-09
+006;00;Alcobendas;2026-01-24
+006;00;Alcobendas;2026-05-15
+007;00;Alcorcón;2026-04-06
+007;00;Alcorcón;2026-09-08
+008;00;Aldea del Fresno;2026-01-17
+008;00;Aldea del Fresno;2026-06-29
+009;00;Algete;2026-09-11
+009;00;Algete;2026-09-14
+010;00;Alpedrete;2026-05-21
+010;00;Alpedrete;2026-05-22
+011;00;Ambite;2026-05-04
+011;00;Ambite;2026-09-14
+012;00;Anchuelo;2026-04-29
+012;00;Anchuelo;2026-04-30
+013;00;Aranjuez;2026-05-29
+013;00;Aranjuez;2026-09-04
+014;00;Arganda del Rey;2026-09-11
+014;00;Arganda del Rey;2026-09-14
+015;00;Arroyomolinos;2026-06-04
+015;00;Arroyomolinos;2026-06-05
+017;00;Batres;2026-02-09
+017;00;Batres;2026-08-31
+018;00;Becerril de la Sierra;2026-08-17
+018;00;Becerril de la Sierra;2026-09-14
+019;00;Belmonte de Tajo;2026-05-15
+019;00;Belmonte de Tajo;2026-09-08
+020;00;Berzosa del Lozoya;2026-04-30
+020;00;Berzosa del Lozoya;2026-10-30
+022;00;Boadilla del Monte;2026-06-01
+022;00;Boadilla del Monte;2026-10-05
+024;00;Braojos;2026-01-22
+024;00;Braojos;2026-09-08
+025;00;Brea de Tajo;2026-10-05
+025;00;Brea de Tajo;2026-10-06
+027;00;Buitrago del Lozoya;2026-08-14
+027;00;Buitrago del Lozoya;2026-09-15
+028;00;Bustarviejo;2026-05-15
+028;00;Bustarviejo;2026-09-14
+029;00;Cabanillas de la Sierra;2026-06-05
+029;00;Cabanillas de la Sierra;2026-12-04
+031;00;Cadalso de los Vidrios;2026-04-06
+031;00;Cadalso de los Vidrios;2026-09-14
+032;00;Camarma de Esteruelas;2026-09-03
+032;00;Camarma de Esteruelas;2026-09-04
+033;00;Campo Real;2026-05-15
+033;00;Campo Real;2026-09-14
+034;00;Canencia;2026-04-06
+034;00;Canencia;2026-10-13
+035;00;Carabaña;2026-09-14
+035;00;Carabaña;2026-12-14
+036;00;Casarrubuelos;2026-05-04
+036;00;Casarrubuelos;2026-07-24
+037;00;Cenicientos;2026-05-15
+037;00;Cenicientos;2026-08-14
+038;00;Cercedilla;2026-01-20
+038;00;Cercedilla;2026-09-08
+051;00;Chapinería;2026-03-02
+051;00;Chapinería;2026-10-05
+052;00;Chinchón;2026-08-14
+052;00;Chinchón;2026-08-17
+040;00;Ciempozuelos;2026-09-14
+040;00;Ciempozuelos;2026-09-15
+041;00;Cobeña;2026-05-08
+041;00;Cobeña;2026-10-02
+046;00;Collado Mediano;2026-01-23
+046;00;Collado Mediano;2026-01-26
+047;00;Collado Villalba;2026-06-12
+047;00;Collado Villalba;2026-07-24
+042;00;Colmenar del Arroyo;2026-01-22
+042;00;Colmenar del Arroyo;2026-09-11
+045;00;Colmenar Viejo;2026-08-31
+045;00;Colmenar Viejo;2026-09-01
+044;00;Colmenarejo;2026-05-15
+044;00;Colmenarejo;2026-07-24
+048;00;Corpa;2026-05-15
+048;00;Corpa;2026-09-14
+049;00;Coslada;2026-05-15
+049;00;Coslada;2026-06-08
+050;00;Cubas de la Sagra;2026-02-03
+050;00;Cubas de la Sagra;2026-09-14
+053;00;Daganzo de Arriba;2026-06-12
+053;00;Daganzo de Arriba;2026-09-07
+004;00;El Álamo;2026-05-15
+004;00;El Álamo;2026-09-02
+016;00;El Atazar;2026-05-04
+016;00;El Atazar;2026-11-25
+021;00;El Berrueco;2026-05-11
+021;00;El Berrueco;2026-05-12
+023;02;Cerceda;2026-05-04
+023;02;Cerceda;2026-09-14
+023;00;El Boalo;2026-01-20
+023;00;El Boalo;2026-05-15
+023;03;Mataelpino;2026-02-05
+023;03;Mataelpino;2026-08-24
+054;00;El Escorial;2026-06-11
+054;00;El Escorial;2026-09-07
+086;00;El Molar;2026-05-14
+086;00;El Molar;2026-05-15
+168;01;El Espartal;2026-03-20
+168;01;El Espartal;2026-10-09
+168;00;El Vellón;2026-10-02
+168;00;El Vellón;2026-10-05
+055;00;Estremera;2026-10-13
+055;00;Estremera;2026-10-16
+056;00;Fresnedillas de la Oliva;2026-01-20
+056;00;Fresnedillas de la Oliva;2026-08-24
+057;00;Fresno de Torote;2026-08-13
+057;00;Fresno de Torote;2026-08-14
+058;00;Fuenlabrada;2026-09-14
+058;00;Fuenlabrada;2026-12-26
+059;00;Fuente el Saz de Jarama;2026-09-07
+059;00;Fuente el Saz de Jarama;2026-09-08
+060;00;Fuentidueña de Tajo;2026-09-14
+060;00;Fuentidueña de Tajo;2026-09-15
+061;00;Galapagar;2026-05-15
+061;00;Galapagar;2026-09-14
+062;00;Garganta de los Montes;2026-05-15
+062;00;Garganta de los Montes;2026-10-05
+063;00;Gargantilla del Lozoya y Pinilla de Buitrago;2026-03-21
+063;00;Gargantilla del Lozoya y Pinilla de Buitrago;2026-08-24
+064;00;Gascones;2026-08-03
+064;00;Gascones;2026-10-05
+065;00;Getafe;2026-05-14
+065;00;Getafe;2026-05-25
+066;00;Griñón;2026-06-17
+066;00;Griñón;2026-08-14
+067;00;Guadalix de la Sierra;2026-05-15
+067;00;Guadalix de la Sierra;2026-09-08
+068;00;Guadarrama;2026-09-29
+068;00;Guadarrama;2026-10-05
+070;00;Horcajo de la Sierra-Aoslos;2026-05-15
+070;00;Horcajo de la Sierra-Aoslos;2026-08-17
+071;00;Horcajuelo de la Sierra;2026-06-15
+071;00;Horcajuelo de la Sierra;2026-12-04
+072;00;Hoyo de Manzanares;2026-09-07
+072;00;Hoyo de Manzanares;2026-09-08
+073;00;Humanes de Madrid;2026-08-08
+073;00;Humanes de Madrid;2026-09-21
+001;00;La Acebeda;2026-01-19
+001;00;La Acebeda;2026-09-29
+030;00;La Cabrera;2026-06-12
+030;00;La Cabrera;2026-10-19
+138;00;La Serna del Monte;2026-08-27
+138;00;La Serna del Monte;2026-08-28
+127;00;Las Rozas de Madrid;2026-05-04
+127;00;Las Rozas de Madrid;2026-09-29
+074;00;Leganés;2026-08-14
+074;00;Leganés;2026-10-09
+075;00;Loeches;2026-09-10
+075;00;Loeches;2026-09-11
+087;00;Los Molinos;2026-01-20
+087;00;Los Molinos;2026-09-14
+137;00;Los Santos de la Humosa;2026-05-15
+137;00;Los Santos de la Humosa;2026-09-08
+076;00;Lozoya;2026-08-06
+076;00;Lozoya;2026-10-06
+078;00;Madarcos;2026-03-02
+078;00;Madarcos;2026-07-27
+079;00;Madrid;2026-05-15
+079;00;Madrid;2026-11-09
+080;00;Majadahonda;2026-09-14
+080;00;Majadahonda;2026-11-25
+082;00;Manzanares el Real;2026-05-25
+082;00;Manzanares el Real;2026-09-14
+083;00;Meco;2026-09-10
+083;00;Meco;2026-09-11
+084;00;Mejorada del Campo;2026-09-21
+084;00;Mejorada del Campo;2026-09-22
+085;00;Miraflores de la Sierra;2026-02-03
+085;00;Miraflores de la Sierra;2026-05-15
+089;00;Moraleja de Enmedio;2026-09-07
+089;00;Moraleja de Enmedio;2026-09-08
+090;00;Moralzarzal;2026-09-24
+090;00;Moralzarzal;2026-09-25
+091;00;Morata de Tajuña;2026-05-15
+091;00;Morata de Tajuña;2026-09-08
+092;00;Móstoles;2026-05-15
+092;00;Móstoles;2026-09-12
+093;00;Navacerrada;2026-06-13
+093;00;Navacerrada;2026-09-08
+094;00;Navalafuente;2026-02-03
+094;00;Navalafuente;2026-08-24
+095;00;Navalagamella;2026-05-08
+095;00;Navalagamella;2026-09-14
+096;00;Navalcarnero;2026-05-15
+096;00;Navalcarnero;2026-09-08
+097;00;Navarredonda y San Mamés;2026-08-17
+097;00;Navarredonda y San Mamés;2026-09-29
+099;00;Navas del Rey;2026-09-07
+099;00;Navas del Rey;2026-09-08
+100;00;Nuevo Baztán;2026-05-11
+100;00;Nuevo Baztán;2026-12-03
+101;00;Olmeda de las Fuentes;2026-04-06
+101;00;Olmeda de las Fuentes;2026-08-24
+102;00;Orusco de Tajuña;2026-09-14
+102;00;Orusco de Tajuña;2026-12-28
+104;00;Paracuellos de Jarama;2026-05-25
+104;00;Paracuellos de Jarama;2026-05-26
+106;00;Parla;2026-06-15
+106;00;Parla;2026-09-14
+107;00;Patones;2026-02-02
+107;00;Patones;2026-06-24
+108;00;Pedrezuela;2026-09-29
+108;00;Pedrezuela;2026-09-30
+109;00;Pelayos de la Presa;2026-02-03
+109;00;Pelayos de la Presa;2026-08-17
+110;00;Perales de Tajuña;2026-02-03
+110;00;Perales de Tajuña;2026-05-15
+111;00;Pezuela de las Torres;2026-05-04
+111;00;Pezuela de las Torres;2026-09-14
+112;00;Pinilla del Valle;2026-09-29
+112;00;Pinilla del Valle;2026-09-30
+113;00;Pinto;2026-03-19
+113;00;Pinto;2026-05-15
+114;00;Piñuécar-Gandullas;2026-01-23
+114;00;Piñuécar-Gandullas;2026-10-07
+115;00;Pozuelo de Alarcón;2026-07-16
+115;00;Pozuelo de Alarcón;2026-09-07
+116;00;Pozuelo del Rey;2026-05-15
+116;00;Pozuelo del Rey;2026-09-28
+117;00;Prádena del Rincón;2026-07-16
+117;00;Prádena del Rincón;2026-10-09
+118;00;Puebla de la Sierra;2026-04-27
+118;00;Puebla de la Sierra;2026-05-15
+902;00;Puentes Viejas;2026-06-08
+902;00;Puentes Viejas;2026-07-27
+119;00;Quijorna;2026-05-15
+119;00;Quijorna;2026-12-28
+121;00;Redueña;2026-09-14
+121;00;Redueña;2026-12-14
+122;00;Ribatejada;2026-05-29
+122;00;Ribatejada;2026-08-28
+123;00;Rivas-Vaciamadrid;2026-05-14
+123;00;Rivas-Vaciamadrid;2026-05-15
+124;00;Robledillo de la Jara;2026-08-10
+124;00;Robledillo de la Jara;2026-10-05
+125;00;Robledo de Chavela;2026-08-27
+125;00;Robledo de Chavela;2026-08-31
+126;00;Robregordo;2026-08-17
+126;00;Robregordo;2026-08-18
+128;00;Rozas de Puerto Real;2026-02-05
+128;00;Rozas de Puerto Real;2026-06-24
+129;00;San Agustín del Guadalix;2026-09-18
+129;00;San Agustín del Guadalix;2026-09-21
+130;00;San Fernando de Henares;2026-05-15
+130;00;San Fernando de Henares;2026-05-29
+131;00;San Lorenzo de El Escorial;2026-08-10
+131;00;San Lorenzo de El Escorial;2026-09-14
+132;00;San Martín de la Vega;2026-04-27
+132;00;San Martín de la Vega;2026-04-28
+133;00;San Martín de Valdeiglesias;2026-09-08
+133;00;San Martín de Valdeiglesias;2026-11-11
+134;00;San Sebastián de los Reyes;2026-01-20
+134;00;San Sebastián de los Reyes;2026-08-28
+136;00;Santorcaz;2026-05-15
+136;00;Santorcaz;2026-09-14
+140;00;Serranillos del Valle;2026-08-17
+140;00;Serranillos del Valle;2026-09-03
+141;00;Sevilla la Nueva;2026-05-15
+141;00;Sevilla la Nueva;2026-09-14
+143;00;Somosierra;2026-07-31
+143;00;Somosierra;2026-08-03
+144;00;Soto del Real;2026-08-03
+144;00;Soto del Real;2026-10-07
+146;00;Tielmes;2026-05-15
+146;00;Tielmes;2026-08-06
+147;00;Titulcia;2026-08-31
+147;00;Titulcia;2026-09-01
+148;00;Torrejón de Ardoz;2026-06-22
+148;00;Torrejón de Ardoz;2026-06-23
+149;00;Torrejón de la Calzada;2026-01-20
+149;00;Torrejón de la Calzada;2026-09-08
+150;00;Torrejón de Velasco;2026-05-15
+150;00;Torrejón de Velasco;2026-10-09
+152;00;Torrelodones;2026-07-16
+152;00;Torrelodones;2026-08-14
+153;00;Torremocha de Jarama;2026-05-14
+153;00;Torremocha de Jarama;2026-05-15
+154;00;Torres de la Alameda;2026-10-05
+154;00;Torres de la Alameda;2026-10-06
+903;00;Tres Cantos;2026-03-21
+903;00;Tres Cantos;2026-06-24
+155;00;Valdaracete;2026-05-04
+155;00;Valdaracete;2026-09-14
+156;00;Valdeavero;2026-09-11
+156;00;Valdeavero;2026-09-14
+158;00;Valdemanco;2026-07-16
+158;00;Valdemanco;2026-08-17
+159;00;Valdemaqueda;2026-02-18
+159;00;Valdemaqueda;2026-08-17
+160;00;Valdemorillo;2026-02-03
+160;00;Valdemorillo;2026-09-08
+161;00;Valdemoro;2026-05-11
+161;00;Valdemoro;2026-09-08
+162;01;Alalpardo;2026-05-15
+162;01;Alalpardo;2026-08-24
+162;00;Valdeolmos-Alalpardo;2026-05-15
+162;00;Valdeolmos-Alalpardo;2026-08-10
+163;00;Valdepiélagos;2026-05-14
+163;00;Valdepiélagos;2026-05-15
+165;00;Valdilecha;2026-09-08
+165;00;Valdilecha;2026-11-11
+166;00;Valverde de Alcalá;2026-05-15
+166;00;Valverde de Alcalá;2026-09-04
+167;00;Velilla de San Antonio;2026-09-28
+167;00;Velilla de San Antonio;2026-09-29
+169;00;Venturada;2026-05-15
+169;00;Venturada;2026-06-24
+171;00;Villa del Prado;2026-04-06
+171;00;Villa del Prado;2026-09-08
+172;00;Villalbilla;2026-05-04
+172;00;Villalbilla;2026-09-25
+173;00;Villamanrique de Tajo;2026-04-24
+173;00;Villamanrique de Tajo;2026-09-14
+174;00;Villamanta;2026-01-30
+174;00;Villamanta;2026-05-22
+175;00;Villamantilla;2026-09-29
+175;00;Villamantilla;2026-12-30
+176;00;Villanueva de la Cañada;2026-05-15
+176;00;Villanueva de la Cañada;2026-07-24
+178;00;Villanueva de Perales;2026-05-04
+178;00;Villanueva de Perales;2026-12-09
+177;00;Villanueva del Pardillo;2026-10-15
+177;00;Villanueva del Pardillo;2026-10-16
+179;00;Villar del Olmo;2026-05-15
+179;00;Villar del Olmo;2026-09-21
+181;00;Villaviciosa de Odón;2026-01-20
+181;00;Villaviciosa de Odón;2026-09-21
+182;00;Villavieja del Lozoya;2026-08-24
+182;00;Villavieja del Lozoya;2026-12-04
+183;00;Zarzalejo;2026-06-29
+183;00;Zarzalejo;2026-09-08

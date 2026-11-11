@@ -223,8 +223,22 @@ __marimo__/
 # Entorno virtual del sandbox Linux
 .venv-linux/
 
-# Datos descargados y procesados (se regeneran con src/descargar_datos.py)
+# Datos descargados: no se suben (se regeneran con src/descargar_datos.py y
+# src/descargar_externas.py).
 datos/originales/*
 !datos/originales/.gitkeep
+
+# Datos procesados: solo se suben los que la aplicación necesita para funcionar
+# (licencias en datos/LICENCIAS.md). El resto se regenera con src/procesar*.py.
 datos/procesados/*
 !datos/procesados/.gitkeep
+!datos/procesados/secciones_censales.parquet
+!datos/procesados/centros_educativos_alumnos.parquet
+!datos/procesados/centros_sanitarios.parquet
+!datos/procesados/desfibriladores_horario.parquet
+!datos/procesados/salidas_paradas.parquet
+!datos/procesados/salidas_paradas_dias.json
+!datos/procesados/campus_universitarios.parquet
+!datos/procesados/hosteleria_madrid_capital.parquet
+!datos/procesados/hosteleria_osm.parquet
+!datos/procesados/informe/

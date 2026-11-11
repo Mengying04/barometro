@@ -1,4 +1,6 @@
-# BARómetro — dependencias de los scripts de src/ (probado con Python 3.14).
+# BARómetro — dependencias de los scripts de src/ y de la aplicación web.
+# Probado con Python 3.14. Con estas versiones hay paquetes para Python 3.12, 3.13 y 3.14
+# (no para 3.11 ni anteriores): al desplegar hay que elegir una de esas tres.
 # src/descargar_datos.py y src/descargar_externas.py solo usan la biblioteca estándar.
 # Instalación:  python -m pip install -r requirements.txt
 
@@ -16,7 +18,10 @@ pyarrow==26.0.1
 # src/procesar_perfil.py (lectura del Excel de demanda del CRTM con pandas)
 openpyxl==3.1.5
 
+# src/procesar_informe.py solo usa pandas.
+
 # app/app.py (aplicación web)
 streamlit==1.67.0
+altair==6.3.0
 folium==0.20.0
 streamlit-folium==0.27.4

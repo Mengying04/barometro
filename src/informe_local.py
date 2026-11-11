@@ -22,7 +22,7 @@ import math
 import re
 import sys
 import unicodedata
-from datetime import date, datetime
+from datetime import date
 from functools import lru_cache
 
 import geopandas as gpd
@@ -32,7 +32,7 @@ import shapely
 from pyproj import Transformer
 
 import supuestos as S
-from procesar import CRS, ORIG, PROC, leer_csv
+from procesar import CRS, PROC, leer_csv
 
 PORTAL = "https://datos.comunidad.madrid/dataset"
 DATO, ESTIMACION, MIXTO = "dato", "estimación", "dato + estimación"
@@ -54,20 +54,30 @@ def norm_municipio(s: str) -> str:
     return re.sub(r"\s+", " ", s)
 
 
+# Tablas pequeñas del informe (src/procesar_informe.py): las mismas filas y columnas de
+# datos/originales que usa este módulo, para funcionar sin los ficheros originales.
+INFORME = PROC / "informe"
+
+
+@lru_cache(maxsize=1)
+def fuentes_informe() -> dict:
+    return json.loads((INFORME / "fuentes.json").read_text(encoding="utf-8"))
+
+
 def fuente_portal(conjunto: str, periodo: str | None = None) -> dict:
-    """Ficha de un conjunto del portal de la Comunidad (descargada en ficha.json)."""
-    ruta = ORIG / conjunto / "ficha.json"
-    f = json.loads(ruta.read_text(encoding="utf-8"))
+    """Ficha de un conjunto del portal de la Comunidad (copiada de su ficha.json a
+    datos/procesados/informe/fuentes.json por src/procesar_informe.py)."""
+    f = fuentes_informe()["portal"][conjunto]
     return {"nombre": f.get("title", conjunto),
             "enlace": f"{PORTAL}/{conjunto}",
             "licencia": f.get("license_title") or "?",
             "actualizado": (f.get("metadata_modified") or "?")[:10],
-            "descargado": datetime.fromtimestamp(ruta.stat().st_mtime).date().isoformat(),
+            "descargado": f["descargado"],
             **({"periodo": periodo} if periodo else {})}
 
 
 def fuente_externa(carpeta: str, periodo: str | None = None) -> dict:
-    e = json.loads((ORIG / ".fuentes_externas.json").read_text(encoding="utf-8"))[carpeta]
+    e = fuentes_informe()["externas"][carpeta]
     return {"nombre": e["titulo"], "enlace": e["enlace"].split(" ")[0],
             "licencia": re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", e["licencia"]),
             "actualizado": e["version"], "descargado": e["fecha_descarga"],
@@ -306,8 +316,7 @@ def b_competencia(punto, radio, muni: dict) -> dict:
 # ------------------------------------------------------------- 2. mercado potencial
 @lru_cache(maxsize=1)
 def gasto_restauracion() -> tuple[float, str]:
-    carpeta = "gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006"
-    g = leer_csv(next((ORIG / carpeta).glob("*.csv")))
+    g = leer_csv(INFORME / "gasto_restauracion.csv")
     g = g[(g["Concepto"] == "Gasto medio por persona de los hogares en restauración")
           & (g["Medida"] == "Gasto medio persona")]
     anyo = g["Año"].max()
@@ -352,7 +361,7 @@ def b_mercado(punto, radio, pr: dict) -> dict:
 # --------------------------------------------------------------- 3. gama de precios
 @lru_cache(maxsize=1)
 def ipc() -> tuple[dict, str]:
-    i = leer_csv(next((ORIG / "ipc_base_2025").glob("*.csv")))
+    i = leer_csv(INFORME / "ipc.csv")
     i = i[(i["Territorio"] == "Comunidad de Madrid")
           & (i["Indicador"] == "Tasa de variación sobre igual periodo del año anterior")]
     ultimo = i.sort_values(["Año", "Periodo"]).iloc[-1][["Año", "Periodo"]]
@@ -451,14 +460,13 @@ def codigo_postal(punto) -> str | None:
 
 def b_turismo(punto, muni: dict) -> dict:
     cp = codigo_postal(punto)
-    a = leer_csv(ORIG / "alojamientos_turisticos" / "alojamientos_turisticos.csv")
+    a = leer_csv(INFORME / "alojamientos_turisticos.csv")
     a["tipo"] = a["alojamiento_tipo"].str.strip().replace(
         {"VIVIENDAS DE USO TU": "VIVIENDA DE USO TURÍSTICO"}).str.capitalize()
     a["mun"] = a["localidad"].map(norm_municipio)
     en_mun = a[a["mun"] == norm_municipio(muni["nombre"])]
     en_cp = a[a["cdpostal"].str.strip() == cp] if cp else a.iloc[0:0]
-    v = leer_csv(ORIG / "declaraciones_actividad_viviendas_uso_turistico"
-                 / "declaraciones_actividad_viviendas_uso_turistico.csv")
+    v = leer_csv(INFORME / "viviendas_uso_turistico.csv")
     vut_mun = int((v["Localidad"].map(norm_municipio) == norm_municipio(muni["nombre"])).sum())
     por_tipo = lambda d: {k: int(x) for k, x in d["tipo"].value_counts().items()}
     return bloque(
@@ -488,8 +496,8 @@ def b_festivos(muni: dict) -> dict:
     hoy = date.today()
     fin = date(hoy.year + (hoy.month + S.FESTIVOS_MESES - 1) // 12,
                (hoy.month + S.FESTIVOS_MESES - 1) % 12 + 1, min(hoy.day, 28))
-    loc = leer_csv(ORIG / "festivos_regionales_locales" / "festivos_locales.csv")
-    reg = leer_csv(ORIG / "festivos_regionales_locales" / "festivos_regionales.csv")
+    loc = leer_csv(INFORME / "festivos_locales.csv")
+    reg = leer_csv(INFORME / "festivos_regionales.csv")
     loc = loc[loc["municipio_codigo"] == muni["cod"][2:]]
     filas = [{"fecha": f, "festivo": "local", "ambito": e if c != "00" else muni["nombre"]}
              for f, c, e in zip(loc["fecha_festivo"], loc["entidad_codigo"],
@@ -533,9 +541,9 @@ def b_festivos(muni: dict) -> dict:
 @lru_cache(maxsize=1)
 def demografia() -> tuple[pd.DataFrame, pd.DataFrame]:
     out = []
-    for carpeta, col in (("demografia_empresarial_cnae09", "CNAE2009"),
-                         ("demografia_empresarial_cnae25", "CNAE2025")):
-        d = leer_csv(next((ORIG / carpeta).glob("*.csv")))
+    for fichero, col in (("demografia_cnae09.csv", "CNAE2009"),
+                         ("demografia_cnae25.csv", "CNAE2025")):
+        d = leer_csv(INFORME / fichero)
         d = d[(d["Concepto"] == "Unidades empresariales") & (d["Indicador"] == "Serie")]
         d = d.rename(columns={col: "rama"})
         d["valor"] = pd.to_numeric(d["Valor"].str.replace(",", "."), errors="coerce")
