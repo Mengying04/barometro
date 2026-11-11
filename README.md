@@ -1,0 +1,252 @@
+# BARómetro
+
+**BARómetro ayuda a quien tiene o quiere abrir un bar o restaurante en la Comunidad de
+Madrid a decidir qué ofrecer, a quién, a qué hora y a qué precios, según la zona.** Se
+escribe la dirección del local y, con datos abiertos, se ve quién pasa por allí, cuándo
+hay más gente y qué bares hay ya cerca.
+
+Prototipo para el datathon **DATAMAD 2026** de la Comunidad de Madrid.
+
+<!-- DEMO: sustituir la dirección de abajo por la de la aplicación publicada -->
+**▶ Demo:** <https://DIRECCION-DE-LA-DEMO.streamlit.app>
+
+![Vista Resumen de BARómetro para el campus de Vicálvaro](docs/capturas/portatil-vicalvaro-resumen-inicio.png)
+
+## El problema y a quién ayuda
+
+Quien abre un bar suele decidir la carta, el horario y los precios por intuición. Los
+estudios de mercado cuestan dinero y los datos públicos que servirían están repartidos
+en muchos portales y formatos.
+
+BARómetro está pensado para **un hostelero sin conocimientos técnicos**. La vista
+principal se lee en diez segundos, con frases cortas y números redondos. Quien quiera
+el detalle tiene un «Informe completo» con las cifras, la fiabilidad de cada respuesta
+y las fuentes.
+
+## Qué responde y qué no
+
+| Responde | No responde |
+|---|---|
+| **¿Quién pasa por aquí?** Vecinos, viajeros, universitarios, familias con niños, pacientes, trabajadores… | **No estima la facturación** ni cuántos clientes entrarán |
+| **¿Cuándo hay más gente?** Por horas, en un día de diario y en un sábado | **No da precios en euros:** no hay cartas en datos abiertos |
+| **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones… | No modela el domingo aparte ni la gente que va a un local a propósito |
+| **¿A qué precios?** Económicos, medios o altos, según la zona y quién pasa | No dice si un local concreto es bueno o malo: **no muestra nombres de locales** |
+| Qué bares y restaurantes hay ya en 300 metros, avisos y qué comprobar en persona | **No garantiza nada** |
+
+> **Es una orientación, no una garantía.** Toda cifra de personas es una estimación con
+> supuestos explícitos. Cada respuesta lleva su fiabilidad y la aplicación termina
+> siempre con una lista de cosas que comprobar en persona antes de decidir.
+
+Lo que dice la aplicación en los tres puntos de prueba:
+
+| | Campus de Vicálvaro | Centro de Fuenlabrada | Plaza Mayor de Griñón |
+|---|---|---|---|
+| Titular | Buena zona para desayunos y menú del día | Zona de desayunos, con mucha competencia cerca | Aquí encajan sobre todo desayunos y meriendas |
+| Quién pasa | Vecinos y universitarios | Viajeros y vecinos | Vecinos y familias con niños |
+| Cuándo | De 8 a 10 y a las 14 | De 7 a 10 | A las 8, a las 14 y a las 16 |
+| Locales en 300 m | 27 (censo del Ayuntamiento) | 25 (OpenStreetMap) | 2 (OpenStreetMap) |
+| Precios | Económicos | Económicos | Medios |
+
+## Datos
+
+El centro del análisis son **15 conjuntos del Portal de Datos Abiertos de la Comunidad
+de Madrid** ([datos.comunidad.madrid](https://datos.comunidad.madrid)), todos con
+licencia Creative Commons Attribution y descargados el 2026-11-10.
+
+<!-- inicio:tabla-portal -->
+| Conjunto del portal | Para qué sirve en BARómetro | Última modificación |
+|---|---|---|
+| [Centros educativos de la comunidad de Madrid](https://datos.comunidad.madrid/dataset/centros_educativos) | Dónde están los colegios e institutos: padres y niños que pasan a la entrada y a la salida | 2026-05-05 |
+| [Estadísticas de alumnos de centros educativos de la Comunidad de Madrid](https://datos.comunidad.madrid/dataset/spacm_estadisticas_alumnos) | Cuántos alumnos hay por municipio y enseñanza, para repartirlos entre los centros | 2026-07-22 |
+| [Estudiantes matriculados en estudios de Grado presenciales por universidad](https://datos.comunidad.madrid/dataset/1925489) | Estudiantes de grado por universidad, para repartirlos entre los campus | 2026-11-06 |
+| [Estudiantes matriculados en estudios de máster presenciales por universidad](https://datos.comunidad.madrid/dataset/1925502) | Estudiantes de máster por universidad, para repartirlos entre los campus | 2026-11-05 |
+| [Centros, servicios y establecimientos sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Pacientes que van a centros sanitarios; código postal aproximado del punto | 2026-11-10 |
+| [Desfibriladores externos fuera del ámbito sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Sitios con mucha gente (grandes centros de trabajo, instalaciones deportivas, recintos) y su horario | 2026-11-10 |
+| [Viajeros subidos y bajados en trenes de cercanias por estaciones](https://datos.comunidad.madrid/dataset/1923861) | Viajeros por estación de Cercanías, para ajustar las estaciones grandes | 2026-11-05 |
+| [Secciones censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Límites de la Comunidad y de los municipios | 2025-02-07 |
+| [Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006)](https://datos.comunidad.madrid/dataset/gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006) | Gasto medio por persona en bares y restaurantes | 2026-11-05 |
+| [Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España](https://datos.comunidad.madrid/dataset/ipc_base_2025) | Cuánto han subido los precios de la restauración y de los alimentos | 2026-11-05 |
+| [Alojamientos turísticos de la Comunidad de Madrid](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Alojamientos turísticos del código postal y del municipio | 2026-11-09 |
+| [Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Viviendas de uso turístico declaradas en el municipio | 2026-10-14 |
+| [Festivos regionales y locales año en curso](https://datos.comunidad.madrid/dataset/festivos_regionales_locales) | Festivos regionales y locales próximos | 2026-01-13 |
+| [Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2009)](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae09) | Evolución de las empresas del sector hasta 2025 | 2026-11-05 |
+| [Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2025)](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae25) | Altas y bajas de empresas del sector en 2026 | 2026-11-05 |
+<!-- fin:tabla-portal -->
+
+Se completan con otras fuentes públicas:
+
+<!-- inicio:tabla-otras -->
+| Fuente | Licencia | Descarga |
+|---|---|---|
+| [INE. Atlas de distribución de renta de los hogares (ADRH), provincia de Madrid, por municipio, distrito y sección censal](https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608) | Reutilización libre citando la fuente | 2026-11-09 |
+| [INE. Cartografía digitalizada de secciones censales, seccionado a 1 de enero de 2025 (toda España)](https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout) | Reutilización libre citando la fuente | 2026-11-09 |
+| [Censo de locales, sus actividades y terrazas de hostelería y restauración](https://datos.madrid.es/dataset/200085-0-censo-locales) | Creative Commons Attribution 4.0 International (CC BY 4.0) | 2026-11-09 |
+| [OpenStreetMap: bares, pubs, cafeterías, restaurantes y comida rápida de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-09 |
+| [OpenStreetMap: recintos universitarios (amenity=university) de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-10 |
+| [Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y demanda diaria de viajeros por modo](https://datos.crtm.es/) | [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso) | 2026-11-10 |
+| [CartoCiudad: geocodificador de direcciones (Instituto Geográfico Nacional)](https://www.cartociudad.es/web/portal/directorio-de-servicios/geoprocesamiento) | CC BY 4.0 | no se descarga |
+| [OpenStreetMap: teselas del mapa base](https://www.openstreetmap.org/copyright) | Datos con Open Database License (ODbL) 1.0 | no se descarga |
+<!-- fin:tabla-otras -->
+
+Las dos tablas se generan con `python src/tablas_readme.py --escribir` a partir de
+[`docs/fuentes.md`](docs/fuentes.md), donde está el detalle de cada fuente: enlace,
+licencia, versión, fecha y cómo se ha procesado. Las licencias de los datos incluidos
+en el repositorio están en [`datos/LICENCIAS.md`](datos/LICENCIAS.md).
+
+No se usan datos de Google Maps, Idealista ni otras webs que prohíben su extracción.
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+    A["<b>Descarga</b><br>descargar_datos.py<br>descargar_externas.py"] --> B["<b>Procesado</b><br>procesar.py<br>procesar_perfil.py<br>procesar_informe.py"]
+    B --> C["<b>Perfil por horas</b><br>perfil_horario.py<br>quién pasa y cuándo"]
+    B --> D["<b>Informe del local</b><br>informe_local.py<br>competencia, renta, precios…"]
+    C --> E["<b>Recomendaciones</b><br>recomendaciones.py<br>a quién, cuándo, qué, a qué precio"]
+    D --> E
+    E --> F["<b>Aplicación</b><br>app/app.py<br>Resumen e Informe completo"]
+```
+
+1. **Descarga.** Los conjuntos del portal y las fuentes externas se guardan sin tocar
+   en `datos/originales/` (no se suben al repositorio).
+2. **Procesado.** Se limpian, se sitúan en el mapa y se quitan nombres, direcciones y
+   datos de contacto. El resultado va a `datos/procesados/`.
+3. **Perfil por horas.** Se dibuja un círculo de 300 metros alrededor del punto y se
+   estima cuánta gente pasa cada hora y de qué tipo. Lo que está más cerca pesa más.
+4. **Informe del local.** Seis bloques: competencia, gasto de los vecinos, precios,
+   turismo, festivos y salud del sector.
+5. **Recomendaciones.** Combinan lo anterior. Cada una lleva su porqué, su confianza
+   (alta, media o baja) y si es un dato o una estimación.
+6. **Aplicación.** Una vista «Resumen» en lenguaje sencillo y un «Informe completo»
+   con todo lo técnico.
+
+Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
+cada uno con su comentario.
+
+## Rigor: qué se ha comprobado
+
+- **Coordenadas.** Las del portal están en ETRS89 / UTM 30N. Los desfibriladores
+  traen también longitud y latitud, y coinciden a 0 metros.
+- **Renta y población.** Las 4.518 secciones censales de la provincia casan con los
+  datos de renta de 2024 del INE; la población suma 6.995.318 personas.
+- **Alumnos.** El 99,9 % de los alumnos de la estadística queda asignado a un centro.
+- **Viajeros.** Las personas por tren o autobús se calibran con la demanda diaria
+  real que publica el CRTM, y no con un supuesto. Con ello se vio que los autobuses
+  estaban sobrestimados entre un 13 % y un 35 %.
+- **Cobertura de OpenStreetMap.** Fuera de Madrid capital faltan locales en
+  OpenStreetMap: 1,9 por 1.000 habitantes en Fuenlabrada frente a 5,0 del censo
+  oficial de Madrid. La aplicación lo avisa y baja la fiabilidad.
+- **Revisión a mano.** Las recomendaciones de los tres puntos se revisaron contra sus
+  números y se corrigieron siete resultados que no tenían sentido.
+- **Sin nombres.** Se ha comprobado que ningún fichero publicado contiene nombres de
+  personas ni de locales.
+- **Despliegue.** Los tres puntos dan exactamente el mismo resultado desde un clon
+  limpio del repositorio con Python 3.12, sin datos originales.
+
+Cada paso está explicado, con sus pruebas y sus cifras, en
+[`docs/registro/`](docs/registro/).
+
+## Limitaciones conocidas
+
+- **Todo lo que es «gente» es una estimación.** Sirve para comparar horas y tipos de
+  cliente entre sí, no como recuento real.
+- **Gente que pasa no es gente que entra.** Pasar de una a otra es un supuesto.
+- **No hay datos abiertos de entradas por estación de Metro ni por parada de
+  autobús:** todas las paradas de una red reciben la misma gente por vehículo. Los
+  horarios de Metro publicados son de 2025.
+- **Un estudiante que llega en metro cuenta dos veces,** como viajero y como
+  universitario.
+- **Fuera de Madrid capital,** la competencia sale de OpenStreetMap, al que le faltan
+  locales. En municipios pequeños no se puede valorar.
+- **Las cenas y las copas casi nunca salen recomendadas:** dependen de que la gente
+  vaya a propósito, y eso el modelo no lo capta.
+- **El domingo no se modela** y el calendario escolar es un supuesto.
+- **El dato del sector mezcla hostelería con comercio y transporte,** y el índice de
+  precios mezcla restaurantes con hoteles. No hay datos abiertos más finos.
+- **Los horarios de la competencia** solo están en OpenStreetMap, en muy pocos locales.
+
+## Privacidad y ética
+
+- **Sin nombres de personas ni de locales.** Los datos procesados no los guardan, el
+  mapa no deja acercarse hasta leer rótulos y el buscador descarta nombres de
+  comercios.
+- **La dirección que se escribe no se guarda.** Solo se envía a CartoCiudad (IGN)
+  para situarla en el mapa, y la aplicación lo dice.
+- **La aplicación no recoge estadísticas de uso.**
+- **Lenguaje de orientación,** nunca de garantía, y fiabilidad visible en cada
+  respuesta.
+- **Atribución de todas las fuentes** en la aplicación, con sus fechas. «Powered by
+  CRTM»; © colaboradores de OpenStreetMap.
+- Este proyecto **no está respaldado ni patrocinado** por ninguna de las entidades
+  que publican los datos.
+
+## Cómo reproducirlo
+
+Hace falta Python 3.12, 3.13 o 3.14.
+
+**Arrancar la aplicación** (el repositorio ya trae los datos procesados que necesita,
+13 MB):
+
+```bash
+git clone https://github.com/Mengying04/barometro.git
+cd barometro
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -r requirements.txt
+streamlit run app/app.py
+```
+
+**Rehacer los datos desde cero** (descarga unos 700 MB de las fuentes):
+
+```bash
+python src/descargar_datos.py       # portal de la Comunidad de Madrid
+python src/descargar_externas.py    # INE, Ayuntamiento, OpenStreetMap y CRTM
+python src/procesar.py              # capas limpias y situadas en el mapa
+python src/procesar_perfil.py       # alumnos, campus, horarios y transporte
+python src/procesar_informe.py      # tablas pequeñas del informe
+```
+
+**Consultar un punto desde la terminal:**
+
+```bash
+python src/perfil_horario.py 40.4046 -3.6106     # quién pasa y cuándo
+python src/informe_local.py 40.4046 -3.6106      # contexto de mercado
+python src/recomendaciones.py 40.4046 -3.6106    # las cuatro respuestas
+```
+
+Los pasos para publicarla están en [`docs/despliegue.md`](docs/despliegue.md).
+
+## Uso de inteligencia artificial
+
+El código de este proyecto **se ha escrito con Claude Code** (un asistente de
+programación de Anthropic), **dirigido por la autora**: ella decidió qué construir, en
+qué orden y con qué datos, y pidió cada cambio y cada comprobación.
+
+- Las reglas que el asistente debe cumplir están en [`CLAUDE.md`](CLAUDE.md): datos
+  del portal como centro, fuentes anotadas con licencia y fecha, nada de webs que
+  prohíben la extracción, ningún nombre de persona y toda estimación marcada.
+- Lo que se hizo en cada paso, con sus pruebas y sus errores corregidos, está en
+  [`docs/registro/`](docs/registro/).
+- **La autora revisa el trabajo y es la responsable** de los resultados, de las
+  fuentes y de lo que se publica.
+- La aplicación **no usa inteligencia artificial** al funcionar: las respuestas salen
+  de cálculos con reglas fijas sobre los datos, que se pueden leer en `src/`.
+
+## Siguientes pasos
+
+- Usar entradas por estación de Metro y viajeros por parada de autobús, si se
+  publican.
+- Modelar el domingo y usar un calendario escolar oficial.
+- Sustituir el reparto de estudiantes entre campus por datos de cada universidad.
+- Añadir precios reales de cartas, si aparece una fuente abierta.
+- Actualizar los datos de forma automática: la licencia del CRTM pide mantenerlos al
+  día.
+- Probar la aplicación con hosteleros y ajustar el lenguaje.
+
+## Autora y licencias
+
+**Mengying Xia Ruan** · DATAMAD 2026.
+
+- **Código:** licencia MIT ([`LICENSE`](LICENSE)).
+- **Datos:** la licencia MIT no se aplica a los datos. Cada fichero conserva la
+  licencia de su fuente (CC BY 4.0, ODbL, INE o CRTM), como se explica en
+  [`datos/LICENCIAS.md`](datos/LICENCIAS.md).

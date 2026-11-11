@@ -232,6 +232,7 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - 344 desfibriladores de «Centro educativo» sin ningún centro del listado a menos de 120 m ni campus universitario a menos de 150 m (academias, centros de estudios que no están en ninguna lista): se cuentan como «universitarios» con 1000 usuarios al día y horario universitario (**supuesto**), fusionando los que están a menos de 150 m.
 - Los del mismo tipo a menos de 50 m se fusionan en un solo sitio (`n_dea` = cuántos había).
 - `cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).
+- No se guarda el texto libre de `horario_acceso` (ya está interpretado en `horario_tipo` y en las horas de apertura y cierre, y alguna vez nombra el establecimiento).
 
 **salidas_paradas** (14.401 paradas → 14.401)
 
@@ -252,6 +253,28 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
 <!-- fin:perfil -->
+
+<!-- inicio:informe -->
+## Tablas del informe del local
+
+Generadas con `src/procesar_informe.py` en `datos/procesados/informe/` (CSV con «;»). Son las filas y columnas de siete conjuntos del portal que usa `src/informe_local.py`, sin calcular ni cambiar valores, para que la aplicación funcione sin los ficheros originales.
+
+| Fichero | Conjunto del portal | Filas | Qué se conserva |
+|---|---|---|---|
+| gasto_restauracion.csv | gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006 | 10 | Gasto medio por persona en restauración, por año |
+| ipc.csv | ipc_base_2025 | 26.355 | Tasas interanuales de la Comunidad de Madrid, por grupo y mes |
+| alojamientos_turisticos.csv | alojamientos_turisticos | 8.335 | Tipo de alojamiento, código postal y localidad |
+| viviendas_uso_turistico.csv | declaraciones_actividad_viviendas_uso_turistico | 1.164 | Localidad |
+| festivos_locales.csv | festivos_regionales_locales | 338 | Municipio, entidad y fecha |
+| festivos_regionales.csv | festivos_regionales_locales | 12 | Fecha y festividad |
+| demografia_cnae09.csv | demografia_empresarial_cnae09 | 6.432 | Serie de unidades empresariales por rama |
+| demografia_cnae25.csv | demografia_empresarial_cnae25 | 192 | Serie de unidades empresariales por rama |
+
+- No se copian la denominación de los alojamientos ni las direcciones.
+- `fuentes.json` guarda de cada fuente el título, la licencia, la fecha de última modificación y la fecha de descarga, sin alterarlas.
+- Las licencias de todos los ficheros publicados en el repositorio están en `datos/LICENCIAS.md`.
+
+<!-- fin:informe -->
 
 <!-- inicio:aplicacion -->
 ## Servicios que usa la aplicación web (app/app.py)
