@@ -70,10 +70,10 @@ licencia Creative Commons Attribution y descargados el 2026-11-10.
 |---|---|---|
 | [Centros educativos de la comunidad de Madrid](https://datos.comunidad.madrid/dataset/centros_educativos) | Dónde están los colegios e institutos: padres y niños que pasan a la entrada y a la salida | 2026-05-05 |
 | [Estadísticas de alumnos de centros educativos de la Comunidad de Madrid](https://datos.comunidad.madrid/dataset/spacm_estadisticas_alumnos) | Cuántos alumnos hay por municipio y enseñanza, para repartirlos entre los centros | 2026-07-22 |
-| [Estudiantes matriculados en estudios de Grado presenciales por universidad](https://datos.comunidad.madrid/dataset/1925489) | Estudiantes de grado por universidad, para repartirlos entre los campus | 2026-11-06 |
+| [Estudiantes matriculados en estudios de Grado presenciales por universidad](https://datos.comunidad.madrid/dataset/1925489) | Estudiantes de grado por universidad, para repartirlos entre los campus | 2026-11-12 |
 | [Estudiantes matriculados en estudios de máster presenciales por universidad](https://datos.comunidad.madrid/dataset/1925502) | Estudiantes de máster por universidad, para repartirlos entre los campus | 2026-11-05 |
-| [Centros, servicios y establecimientos sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Pacientes que van a centros sanitarios; código postal aproximado del punto | 2026-11-10 |
-| [Desfibriladores externos fuera del ámbito sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Sitios con mucha gente (grandes centros de trabajo, instalaciones deportivas, recintos) y su horario | 2026-11-10 |
+| [Centros, servicios y establecimientos sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Pacientes que van a centros sanitarios; código postal aproximado del punto | 2026-11-12 |
+| [Desfibriladores externos fuera del ámbito sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Sitios con mucha gente (grandes centros de trabajo, instalaciones deportivas, recintos) y su horario | 2026-11-12 |
 | [Viajeros subidos y bajados en trenes de cercanias por estaciones](https://datos.comunidad.madrid/dataset/1923861) | Viajeros por estación de Cercanías, para ajustar las estaciones grandes | 2026-11-05 |
 | [Secciones censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Límites de la Comunidad y de los municipios | 2025-02-07 |
 | [Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006)](https://datos.comunidad.madrid/dataset/gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006) | Gasto medio por persona en bares y restaurantes | 2026-11-05 |
@@ -90,12 +90,12 @@ Se completan con otras fuentes públicas:
 <!-- inicio:tabla-otras -->
 | Fuente | Licencia | Descarga |
 |---|---|---|
-| [INE. Atlas de distribución de renta de los hogares (ADRH), provincia de Madrid, por municipio, distrito y sección censal](https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608) | Reutilización libre citando la fuente | 2026-11-09 |
-| [INE. Cartografía digitalizada de secciones censales, seccionado a 1 de enero de 2025 (toda España)](https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout) | Reutilización libre citando la fuente | 2026-11-09 |
-| [Censo de locales, sus actividades y terrazas de hostelería y restauración](https://datos.madrid.es/dataset/200085-0-censo-locales) | Creative Commons Attribution 4.0 International (CC BY 4.0) | 2026-11-09 |
-| [OpenStreetMap: bares, pubs, cafeterías, restaurantes y comida rápida de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-09 |
-| [OpenStreetMap: recintos universitarios (amenity=university) de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-10 |
-| [Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y demanda diaria de viajeros por modo](https://datos.crtm.es/) | [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso) | 2026-11-10 |
+| [INE. Atlas de distribución de renta de los hogares (ADRH), provincia de Madrid, por municipio, distrito y sección censal](https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608) | Reutilización libre citando la fuente | 2026-11-12 |
+| [INE. Cartografía digitalizada de secciones censales, seccionado a 1 de enero de 2025 (toda España)](https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout) | Reutilización libre citando la fuente | 2026-11-12 |
+| [Censo de locales, sus actividades y terrazas de hostelería y restauración](https://datos.madrid.es/dataset/200085-0-censo-locales) | Creative Commons Attribution 4.0 International (CC BY 4.0) | 2026-11-12 |
+| [OpenStreetMap: bares, pubs, cafeterías, restaurantes y comida rápida de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-12 |
+| [OpenStreetMap: recintos universitarios (amenity=university) de la Comunidad de Madrid (API Overpass)](https://www.openstreetmap.org/copyright) | Open Database License (ODbL) 1.0 | 2026-11-12 |
+| [Consorcio Regional de Transportes de Madrid (CRTM): estaciones y paradas de Metro, Metro Ligero, Cercanías y autobuses interurbanos y urbanos, y demanda diaria de viajeros por modo](https://datos.crtm.es/) | [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso) | 2026-11-12 |
 | [CartoCiudad: geocodificador de direcciones (Instituto Geográfico Nacional)](https://www.cartociudad.es/web/portal/directorio-de-servicios/geoprocesamiento) | CC BY 4.0 | no se descarga |
 | [OpenStreetMap: teselas del mapa base](https://www.openstreetmap.org/copyright) | Datos con Open Database License (ODbL) 1.0 | no se descarga |
 <!-- fin:tabla-otras -->

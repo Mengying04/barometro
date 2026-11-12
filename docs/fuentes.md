@@ -5,15 +5,15 @@
 
 Conjuntos descargados del [Portal de Datos Abiertos de la Comunidad de Madrid](https://datos.comunidad.madrid) con `src/descargar_datos.py`.
 
-Fecha de descarga: 2026-11-10.
+Fecha de descarga: 2026-11-12.
 
 Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se regeneran ejecutando el script.
 
 | Título | Ficha | Licencia | Última modificación | Formatos | Filas (CSV) |
 |---|---|---|---|---|---|
 | Centros educativos de la comunidad de Madrid | [centros_educativos](https://datos.comunidad.madrid/dataset/centros_educativos) | Creative Commons Attribution | 2026-05-05 | CSV, JSON | 7.757 |
-| Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-10 | CSV, JSON | 46.155 |
-| Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-10 | CSV, JSON | 13.680 |
+| Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 46.148 |
+| Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 13.680 |
 | Oficinas de farmacia | [oficinas_farmacia](https://datos.comunidad.madrid/dataset/oficinas_farmacia) | Creative Commons Attribution | 2026-11-09 | CSV, JSON | 2.957 |
 | Alojamientos turísticos de la Comunidad de Madrid | [alojamientos_turisticos](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Creative Commons Attribution | 2026-11-09 | CSV, JSON | 8.335 |
 | Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas | [declaraciones_actividad_viviendas_uso_turistico](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Creative Commons Attribution | 2026-10-14 | CSV, JSON, ZIP | 1.164 |
@@ -24,7 +24,7 @@ Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se r
 | Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2025) | [demografia_empresarial_cnae25](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae25) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 573 |
 | Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2009) | [demografia_empresarial_cnae09](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae09) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 37.345 |
 | Estadísticas de alumnos de centros educativos de la Comunidad de Madrid | [spacm_estadisticas_alumnos](https://datos.comunidad.madrid/dataset/spacm_estadisticas_alumnos) | Creative Commons Attribution | 2026-07-22 | CSV, JSON | 11.479 + 19.664 + 22.693 + 12.031 + 8.963 + 1.781 + 3.154 + 5.311 + 17.885 + 5.311 + 31.679 + 991 + 7.611 + 6.054 + 5.700 + 399 + 10.705 + 16.567 + 4.631 + 9.377 |
-| Estudiantes matriculados en estudios de Grado presenciales por universidad | [1925489](https://datos.comunidad.madrid/dataset/1925489) | Creative Commons Attribution | 2026-11-06 | CSV, JSON | 198 |
+| Estudiantes matriculados en estudios de Grado presenciales por universidad | [1925489](https://datos.comunidad.madrid/dataset/1925489) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 198 |
 | Estudiantes matriculados en estudios de máster presenciales por universidad | [1925502](https://datos.comunidad.madrid/dataset/1925502) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 220 |
 | Viajeros subidos y bajados en trenes de cercanias por estaciones | [1923861](https://datos.comunidad.madrid/dataset/1923861) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 540 |
 
@@ -34,6 +34,7 @@ Los recuentos corresponden a la fecha de descarga. Varios conjuntos se reemplaza
 
 ### Discrepancias entre el CSV y la API de datos (datastore_search)
 
+- desfibriladores_externos_fuera_ambito_sanitario/desfibriladores_externos_fuera_ambito_sanitario.csv: CSV 13680 filas ≠ datastore 5739
 - festivos_regionales_locales/festivos_regionales.csv: CSV 12 filas ≠ datastore 24
 
 <!-- fin:portal -->
@@ -48,7 +49,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/ine_adrh/`
 - **Enlace:** https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608
 - **Licencia:** Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))
-- **Fecha de descarga:** 2026-11-09
+- **Fecha de descarga:** 2026-11-12
 - **Versión de los datos:** Años 2015–2024 (último disponible: **2024**); tablas actualizadas el 2026-10-15
 - **Ficheros:**
   - 31097.csv (Indicadores de renta media y mediana): 300.660 filas
@@ -61,7 +62,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/ine_seccionado/`
 - **Enlace:** https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout (fichero https://www.ine.es/prodyser/cartografia/seccionado_2025.zip)
 - **Licencia:** Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))
-- **Fecha de descarga:** 2026-11-09
+- **Fecha de descarga:** 2026-11-12
 - **Versión de los datos:** Seccionado a 1 de enero de 2025
 - **Ficheros:**
   - seccionado_2025.zip: shapefile `España_Seccionado2025_ETRS89H30/SECC_CE_20250101.shp` (ETRS89 / UTM 30N, EPSG:25830); capa.txt: ruta del .shp dentro del ZIP
@@ -73,12 +74,12 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/madrid_censo_locales/`
 - **Enlace:** https://datos.madrid.es/dataset/200085-0-censo-locales
 - **Licencia:** Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid»
-- **Fecha de descarga:** 2026-11-09
-- **Versión de los datos:** Actualización diaria; ficheros del 2026-11-09
+- **Fecha de descarga:** 2026-11-12
+- **Versión de los datos:** Actualización diaria; ficheros del 2026-11-12
 - **Ficheros:**
-  - locales.csv (Locales; original `200085-0-censo-locales_2_20261109_063056.csv`): 203.794 filas
-  - actividades.csv (Actividades; original `200085-0-censo-locales_4_20261109_063752.csv`): 225.892 filas
-  - terrazas.csv (Terrazas; original `200085-0-censo-locales_5_20261109_064136.csv`): 6.614 filas
+  - locales.csv (Locales; original `200085-0-censo-locales_2_20261112_063053.csv`): 203.799 filas
+  - actividades.csv (Actividades; original `200085-0-censo-locales_4_20261112_063804.csv`): 225.898 filas
+  - terrazas.csv (Terrazas; original `200085-0-censo-locales_5_20261112_064152.csv`): 6.615 filas
   - estructura_ds_ficherocla.pdf (Censo de Locales y Actividades. Contenido y estructura del fichero)
   - estructura_ds_ficherocla_terrazas.pdf (Terrazas de hostelería y restauración. Contenido y estructura del fichero)
 - No se descargan las copias JSON/XML (mismo contenido) ni el fichero «Locales con información de licencia».
@@ -88,10 +89,10 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/osm_hosteleria/`
 - **Enlace:** https://www.openstreetmap.org/copyright
 - **Licencia:** Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright
-- **Fecha de descarga:** 2026-11-09
-- **Versión de los datos:** Datos OSM a 2026-11-09T18:22:32Z
+- **Fecha de descarga:** 2026-11-12
+- **Versión de los datos:** Datos OSM a 2026-11-12T20:31:36Z
 - **Ficheros:**
-  - osm_hosteleria.json: 15.665 elementos (restaurant 7.675, bar 2.343, cafe 2.225, fast_food 1.792, pub 1.630); 5.753 con etiqueta `cuisine`
+  - osm_hosteleria.json: 15.666 elementos (restaurant 7.675, bar 2.343, cafe 2.226, fast_food 1.792, pub 1.630); 5.755 con etiqueta `cuisine`
   - consulta.overpassql: consulta usada
 - Se incluye `amenity=pub` porque en España muchos bares están etiquetados así; se puede filtrar después.
 - Nodos con `lat`/`lon`; vías y relaciones con su punto central (`center`).
@@ -102,10 +103,10 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/osm_universidades/`
 - **Enlace:** https://www.openstreetmap.org/copyright
 - **Licencia:** Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright
-- **Fecha de descarga:** 2026-11-10
-- **Versión de los datos:** Datos OSM a 2026-11-10T10:36:21Z
+- **Fecha de descarga:** 2026-11-12
+- **Versión de los datos:** Datos OSM a 2026-11-12T20:33:36Z
 - **Ficheros:**
-  - osm_universidades.json: 164 elementos (node 42, relation 12, way 110), con geometría completa (`out geom`)
+  - osm_universidades.json: 166 elementos (node 42, relation 13, way 111), con geometría completa (`out geom`)
   - consulta.overpassql: consulta usada
 - Se usan para ubicar los campus y repartir entre ellos los estudiantes de cada universidad (src/procesar_perfil.py). Unos elementos son campus enteros y otros, facultades o edificios sueltos; no se conserva más que el nombre del centro, el operador y la geometría.
 - Una base de datos derivada que se publique debe mantener la licencia ODbL.
@@ -115,7 +116,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/crtm_paradas/`
 - **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro, https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos; demanda: https://datos.crtm.es/datasets/crtm::crtm-evolucion-demanda-diaria (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)
 - **Licencia:** [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. Obligaciones: mostrar **«Powered by CRTM»** con enlace a [crtm.es](http://www.crtm.es/) en webs y apps; **garantizar que la información mostrada esté siempre actualizada** (volver a ejecutar este script); citar al CRTM como fuente indicando si son datos en bruto o explotados; conservar los metadatos de fecha de actualización; no sugerir que el CRTM patrocina o apoya el producto
-- **Fecha de descarga:** 2026-11-10
+- **Fecha de descarga:** 2026-11-12
 - **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027; crtm_demanda_diaria.xlsx: publicado el 2026-10-28
 - **Ficheros:**
   - metro_estaciones.geojson (Metro: estaciones (capa de red)): 293 estaciones
@@ -150,11 +151,11 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 |---|---|---|---|
 | secciones_censales | 4.518 polígonos | 4.518 | — |
 | centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
-| centros_sanitarios | 15.906 centros | 15.737 | sin coordenadas: 169 |
+| centros_sanitarios | 15.902 centros | 15.732 | sin coordenadas: 170 |
 | desfibriladores | 13.680 filas | 13.679 | fila duplicada exacta: 1 |
 | farmacias | 2.957 filas | 2.953 | sin coordenadas: 4 |
-| hosteleria_osm | 15.665 elementos | 15.665 | — |
-| hosteleria_madrid_capital | 21.596 locales | 17.143 | local cerrado: 1790; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2036; sin coordenadas: 67 |
+| hosteleria_osm | 15.666 elementos | 15.666 | — |
+| hosteleria_madrid_capital | 21.600 locales | 17.146 | local cerrado: 1793; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2034; sin coordenadas: 67 |
 
 **secciones_censales**
 
@@ -166,7 +167,7 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 
 **centros_sanitarios**
 
-- 46155 filas (una por servicio) agrupadas en 15906 centros por `centro_nro_registro`; `servicios` separa los servicios con « | ».
+- 46148 filas (una por servicio) agrupadas en 15902 centros por `centro_nro_registro`; `servicios` separa los servicios con « | ».
 - 0 centros con tipo o coordenadas distintos entre sus filas (se toma el primero).
 - No se conserva la dirección postal ni el NIF; el original no trae nombre del centro.
 
@@ -189,7 +190,7 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 
 - Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas) sin catering ni comedores colectivos (562), que no compiten con un bar abierto al público. `categoria` distingue restauración (561) y bares (563). No incluye alojamiento (55) ni discotecas (93).
 - 142 locales con catering o comedor colectivo y además otra actividad de hostelería se conservan, sin el epígrafe 562.
-- Coordenadas: local 16007, edificio (estimación) 641, agrupación 495, sin coordenadas 67.
+- Coordenadas: local 16010, edificio (estimación) 641, agrupación 495, sin coordenadas 67.
 - `tiene_terraza`: terraza en situación «Abierta» en el fichero de terrazas. 412 id_local del fichero de terrazas no están entre los locales de hostelería abiertos.
 - No se conserva el rótulo (puede ser un nombre de persona).
 
@@ -212,15 +213,15 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - 3202 centros con alumnos de la estadística; 539 con peso típico por tipo (idiomas, música, adultos…); 110 sin alumnos (equipos de orientación, oficinas).
 - 11 centros de Madrid capital sin distrito reconocible.
 
-**campus_universitarios** (164 elementos OSM → 98)
+**campus_universitarios** (166 elementos OSM → 100)
 
 - Descartados por no es un centro de estudios (residencia, museo, oficinas, instituto…): 13
 - Ubicación: elementos `amenity=university` de OpenStreetMap (polígonos; los puntos se tratan como un círculo de 1 ha).
-- Asignación a universidad: 78 por su nombre u operador, 25 por estar dentro del recinto de una universidad; el resto son «otros» centros de estudios superiores con 300 estudiantes al día (**supuesto**).
-- Estudiantes: Grado + máster presenciales por universidad, año 2026 de las tablas 1925489 y 1925502 del portal (datos provisionales): 323.345 de 331.029 colocados en algún campus.
+- Asignación a universidad: 80 por su nombre u operador, 25 por estar dentro del recinto de una universidad; el resto son «otros» centros de estudios superiores con 300 estudiantes al día (**supuesto**).
+- Estudiantes: Grado + máster presenciales por universidad, año 2026 de las tablas 1925489 y 1925502 del portal (datos provisionales): 327.687 de 331.029 colocados en algún campus.
 - Reparto entre campus de la misma universidad (unidos si están a menos de 300 m): proporcional a la raíz cuadrada de la superficie (**estimación**, ver src/supuestos.py).
-- Campus por universidad: CEU 2 (11.361); Comillas 3 (13.067); ESIC 2 (2.762); Nebrija 5 (14.218); UAH 3 (19.695); UAM 3 (26.296); UAX 1 (16.197); UC3M 3 (20.537); UCJC 3 (14.244); UCM 8 (57.745); UEM 2 (24.988); UFV 1 (14.947); UNIE 1 (4.760); UPM 5 (35.377); URJC 6 (44.622); Villanueva 2 (2.529).
-- Universidades de la estadística sin ningún campus en OSM (sus estudiantes no se colocan): CUNEF, UDIT.
+- Campus por universidad: CEU 2 (11.361); CUNEF 2 (4.342); Comillas 3 (13.067); ESIC 2 (2.762); Nebrija 5 (14.218); UAH 3 (19.695); UAM 3 (26.296); UAX 1 (16.197); UC3M 3 (20.537); UCJC 3 (14.244); UCM 8 (57.745); UEM 2 (24.988); UFV 1 (14.947); UNIE 1 (4.760); UPM 5 (35.377); URJC 6 (44.622); Villanueva 2 (2.529).
+- Universidades de la estadística sin ningún campus en OSM (sus estudiantes no se colocan): UDIT.
 
 **desfibriladores_horario** (13.679 filas → 3.258)
 
