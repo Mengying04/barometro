@@ -48,10 +48,29 @@ a cada herramienta con los tres puntos de ejemplo. Resultado: todo correcto.
 - La salida de errores del servidor queda vacía: no aparecen puntos ni direcciones.
 - La aplicación web da los mismos textos que antes de mover el buscador.
 
+### Prueba dentro de Claude Code
+
+Con `claude -p`, el servidor cargado desde un fichero de configuración
+(`--mcp-config`) y la pregunta de ejemplo del README («Quiero abrir un bar en la
+Plaza de la Constitución 1 de Fuenlabrada. ¿Qué me conviene ofrecer y a qué horas?»):
+
+- el servidor aparece como conectado, con sus cuatro herramientas;
+- el asistente llamó primero a `buscar_direccion` y, con las coordenadas que devolvió,
+  a `recomendar_local`, `perfil_por_horas` e `informe_de_zona`, sin errores;
+- la respuesta empezó diciendo que es una orientación con estimaciones y no una
+  garantía, avisó de que el buscador puede situar un portal cercano, no nombró
+  locales ni dio precios en euros, y terminó con las fuentes y «Powered by CRTM».
+
+### Instalación
+
+Con `mcp==2.3.0` añadido, sigue habiendo paquetes de todas las dependencias para
+Python 3.12 y 3.13 (comprobado pidiéndolos a PyPI), y `pip check` no encuentra
+conflictos.
+
 ## Limitaciones
 
-- **No se ha probado dentro de Claude Desktop ni de Claude Code,** solo con el cliente
-  de prueba del SDK.
+- **No se ha probado en Claude Desktop,** solo en Claude Code y con el cliente de
+  prueba del SDK. La configuración es la misma (un comando y un argumento).
 - Las respuestas son largas (13 a 35 kB de texto por llamada).
 - `mcp` queda en `requirements.txt`, así que Streamlit Community Cloud también lo
-  instalará, aunque la aplicación no lo use. No se ha comprobado ese despliegue.
+  instalará, aunque la aplicación no lo use. No se ha vuelto a desplegar con él.

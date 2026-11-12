@@ -53,8 +53,8 @@ cómo mantenerla.
    anteriores: la instalación fallaría. No hace falta escribir ningún secreto.
 5. Pulsa **Deploy**. La primera vez tarda unos minutos, porque instala las
    dependencias.
-6. Cuando arranque, copia la dirección y sustituye el marcador del `README.md`
-   (`https://DIRECCION-DE-LA-DEMO.streamlit.app`, bajo el comentario `DEMO`).
+6. Cuando arranque, copia la dirección y ponla en el `README.md`, en la línea
+   «Demo». Hecho el 2026-11-12: <https://barometro-madrid.streamlit.app/>.
 
 La versión de Python se elige al crear la aplicación. Si te equivocas, lo más sencillo
 es borrarla y crearla de nuevo.
