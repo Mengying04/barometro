@@ -7,8 +7,7 @@ hay más gente y qué bares hay ya cerca.
 
 Prototipo para el datathon **DATAMAD 2026** de la Comunidad de Madrid.
 
-<!-- DEMO: sustituir la dirección de abajo por la de la aplicación publicada -->
-**▶ Demo:** <https://DIRECCION-DE-LA-DEMO.streamlit.app>
+**▶ Demo:** <https://barometro-madrid.streamlit.app/>
 
 ![Vista Resumen de BARómetro para el campus de Vicálvaro](docs/capturas/portatil-vicalvaro-resumen-inicio.png)
 
@@ -214,6 +213,46 @@ python src/recomendaciones.py 40.4046 -3.6106    # las cuatro respuestas
 ```
 
 Los pasos para publicarla están en [`docs/despliegue.md`](docs/despliegue.md).
+
+## Servidor MCP: BARómetro desde un asistente
+
+[`mcp/servidor.py`](mcp/servidor.py) es un servidor MCP (Model Context Protocol) que
+funciona en local. Permite que un asistente como Claude consulte BARómetro con cuatro
+herramientas, que llaman a las mismas funciones que la aplicación:
+
+| Herramienta | Qué devuelve |
+|---|---|
+| `recomendar_local(lat, lon)` | Las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
+| `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable y sábado |
+| `informe_de_zona(lat, lon)` | Los seis bloques del informe |
+| `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad |
+
+Cada respuesta lleva el aviso de que es una orientación, las fuentes con su licencia y
+fecha y «Powered by CRTM». No da nombres de locales ni guarda lo que se consulta.
+
+**Claude Code**, desde la carpeta del repositorio:
+
+```bash
+claude mcp add barometro -- /ruta/a/barometro/.venv/bin/python /ruta/a/barometro/mcp/servidor.py
+```
+
+**Claude Desktop**, en `claude_desktop_config.json` (Ajustes → Desarrollador):
+
+```json
+{
+  "mcpServers": {
+    "barometro": {
+      "command": "/ruta/a/barometro/.venv/bin/python",
+      "args": ["/ruta/a/barometro/mcp/servidor.py"]
+    }
+  }
+}
+```
+
+Ejemplo de pregunta: *«Quiero abrir un bar en la Plaza de la Constitución 1 de
+Fuenlabrada. ¿Qué me conviene ofrecer y a qué horas?»*
+
+Para probarlo sin asistente: `python mcp/probar_cliente.py`.
 
 ## Uso de inteligencia artificial
 

@@ -25,13 +25,10 @@ from __future__ import annotations
 
 import functools
 import html
-import json
 import os
 import re
 import sys
 import time
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -44,9 +41,12 @@ import shapely  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit_folium import st_folium  # noqa: E402
 
+import fuentes  # noqa: E402
 import informe_local as I  # noqa: E402
 import perfil_horario as P  # noqa: E402
 import supuestos as S  # noqa: E402
+from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
+                         geocodificar)
 from recomendaciones import recomendar  # noqa: E402
 
 AVISO = ("Orientación a partir de datos abiertos y supuestos explícitos, no garantías. "
@@ -71,10 +71,6 @@ COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": 
 COLOR_TIPO = {"bar": "#c4302b", "restaurante": "#1c3f73", "cafeteria": "#8a5a2b",
               "comida_rapida": "#4d4d4d"}
 DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana"}
-# Geocodificador de CartoCiudad (IGN). Condiciones de uso y licencia en docs/fuentes.md.
-CARTOCIUDAD = "https://www.cartociudad.es/geocoder/api/geocoder"
-AGENTE = "BARometro-datamad2026/0.1"
-
 # ------------------------------------------------------------------------ medidas
 # Cronómetro opcional (BAROMETRO_MEDIR=1): escribe en la terminal cuántas veces se ejecuta
 # la página y cuánto tarda cada parte. Nunca escribe direcciones ni puntos.
@@ -250,81 +246,10 @@ def calcular(lat: float, lon: float) -> dict:
     return {"perfil": perfil, "informe": inf, "rec": rec}
 
 
-# ----------------------------------------------------------------- geocodificación
-# Tipos de resultado que se aceptan. Se descartan «toponimo» y «poi»: son nombres de
-# comercios y lugares que pueden incluir nombres de personas.
-TIPOS_GEOCODER = {"portal", "callejero", "carretera", "poblacion", "municipio", "Codpost",
-                  "codpost"}
-ATRIBUCION_CARTOCIUDAD = ("Direcciones: CartoCiudad, IGN · CC BY 4.0 "
-                          "[www.scne.es/productos.html#CartoCiudad]"
-                          "(https://www.scne.es/productos.html#CartoCiudad)")
-
-
-def _cartociudad(metodo: str, **params) -> object:
-    q = urllib.parse.urlencode(params)
-    req = urllib.request.Request(f"{CARTOCIUDAD}/{metodo}?{q}",
-                                 headers={"User-Agent": AGENTE})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read().decode("utf-8"))
-
-
-def geocodificar(texto: str) -> list[dict]:
-    """Candidatos de CartoCiudad para una dirección de la provincia de Madrid. La
-    dirección se envía a CartoCiudad y no se guarda en ningún sitio."""
-    datos = _cartociudad("candidates", q=texto, limit=10, provincia_filter="Madrid")
-    out = []
-    for c in datos or []:
-        if c.get("type") not in TIPOS_GEOCODER:
-            continue
-        via = c.get("tip_via") if c.get("type") == "callejero" else None
-        etiqueta = " ".join(x for x in (via, c.get("address")) if x)
-        if c.get("muni") and c["muni"] not in etiqueta:
-            etiqueta += f", {c['muni']}"
-        out.append({"texto": etiqueta, "tipo": c["type"], "id": c.get("id"),
-                    "q": c.get("address"), "lat": c.get("lat"), "lon": c.get("lng")})
-    return out
-
-
-def coordenadas(cand: dict) -> tuple[float, float] | None:
-    """Las calles y poblaciones vienen sin coordenadas: se piden con «find»."""
-    if cand["lat"] and cand["lon"]:
-        return float(cand["lat"]), float(cand["lon"])
-    d = _cartociudad("find", q=cand["q"], type=cand["tipo"], id=cand["id"])
-    if isinstance(d, dict) and d.get("lat") and d.get("lng"):
-        return float(d["lat"]), float(d["lng"])
-    return None
-
-
 # ------------------------------------------------------------------- fuentes.md
-@st.cache_data
-def leer_fuentes() -> dict:
-    """Fuentes, enlaces, licencias y fechas tal como están en docs/fuentes.md."""
-    texto = (RAIZ / "docs" / "fuentes.md").read_text(encoding="utf-8")
-
-    def bloque(clave):
-        m = re.search(rf"<!-- inicio:{clave} -->(.*?)<!-- fin:{clave} -->", texto, re.S)
-        return m.group(1) if m else ""
-
-    portal = bloque("portal")
-    descarga = re.search(r"Fecha de descarga:\s*([\d-]+)", portal)
-    filas = []
-    for linea in portal.splitlines():
-        celdas = [c.strip() for c in linea.strip().strip("|").split("|")]
-        if len(celdas) == 6 and celdas[1].startswith("["):
-            filas.append({"Conjunto": celdas[0], "Ficha": celdas[1], "Licencia": celdas[2],
-                          "Última modificación": celdas[3]})
-
-    def secciones(txt):
-        out = []
-        for trozo in re.split(r"\n### ", txt)[1:]:
-            titulo, _, resto = trozo.partition("\n")
-            campos = dict(re.findall(r"- \*\*([^:*]+):\*\*\s*(.+)", resto))
-            out.append({"titulo": titulo.strip(), **campos})
-        return out
-
-    return {"portal": filas, "portal_descarga": descarga.group(1) if descarga else "?",
-            "externas": secciones(bloque("externas")),
-            "aplicacion": secciones(bloque("aplicacion"))}
+# El buscador de direcciones (src/direcciones.py) y el lector de docs/fuentes.md
+# (src/fuentes.py) se comparten con el servidor MCP.
+leer_fuentes = st.cache_data(fuentes.leer_fuentes)
 
 
 # ------------------------------------------------------------------- formato
