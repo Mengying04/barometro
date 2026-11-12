@@ -252,6 +252,17 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Sábado: Conc. por carretera 562.112 viajeros / 641.943 pasos → 1.8 personas por paso; EMT 1.037.032 viajeros / 656.740 pasos → 3.2 personas por paso; Metro de Madrid 1.744.264 viajeros / 93.200 pasos → 37.4 personas por paso; Renfe Cercanías 441.096 viajeros / 15.615 pasos → 56.5 personas por paso
 - Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
+**lineas_paradas** (32.723 pares parada-línea-sentido → 32.723)
+
+- Por cada parada, línea y sentido: vehículos que paran en el laborable típico (`vehiculos_lab`), con los mismos días y los mismos viajes que `salidas_paradas` (se comprueba que cada parada suma lo mismo que su `total_lab`). Sin geometría: se cruza con `salidas_paradas` por `red` y `stop_id`.
+- `linea` es el nombre corto de la línea (`route_short_name`); `id_linea` la distingue de otras con el mismo nombre (urbanos de distintos municipios). En Cercanías, que no trae sentido, cada `route_id` hace de sentido.
+- metro: 12 líneas con servicio el 2026-05-13; sin servicio ese día en el GTFS (no salen): 3
+- metro_ligero: 4 líneas con servicio el 2026-11-19
+- cercanias: 11 líneas con servicio el 2026-11-12; sin servicio ese día en el GTFS (no salen): C9
+- emt: 234 líneas con servicio el 2026-11-19; sin servicio ese día en el GTFS (no salen): 172SF, SE721, SE730, SE766
+- interurbanos: 287 líneas con servicio el 2026-11-26; 67 líneas sin servicio ese día en el GTFS (no salen)
+- urbanos: 97 líneas con servicio el 2026-11-26; sin servicio ese día en el GTFS (no salen): 3A, I1, SE
+
 <!-- fin:perfil -->
 
 <!-- inicio:informe -->

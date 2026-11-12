@@ -852,3 +852,94 @@ PERIODO_LECTIVO = {
 CONFIANZA_A_RECOMENDACION = {"alta": "alta", "media": "media", "orientativa": "baja"}
 # Cuántas comprobaciones en persona se proponen como máximo y como mínimo.
 COMPROBACIONES = (5, 8)
+
+
+# #########################################################################################
+# NIVEL DE MOVIMIENTO, ACCESOS Y ENTORNO (src/movimiento.py y bloques «accesos» y «entorno»
+# de src/informe_local.py). No cambian el perfil por horas ni las recomendaciones: solo
+# añaden contexto. Todo ESTIMACIÓN.
+# #########################################################################################
+
+# ------------------------------------------------------------- nivel de movimiento
+# Se compara la gente que pasa en un día laborable (suma de las 24 horas del perfil) con la
+# de una muestra de referencia: un punto interior de cada sección censal con vecinos
+# (datos/procesados/referencia_movimiento.parquet, 4.518 sitios). Las secciones tienen una
+# población parecida (unas 1.500 personas), así que la muestra representa «sitios
+# habitados». Limitación: en las secciones muy grandes (campo, urbanizaciones dispersas;
+# un 12 % de las secciones mide más de 1 km²) el punto interior puede caer lejos de las
+# casas, y el perfil reparte a los vecinos por igual en toda la sección. Por eso el 10 %
+# más bajo de la muestra tiene menos de unas 430 personas al día.
+#
+# Cinco niveles según la parte de la muestra por la que pasa menos gente (0 a 1). Los
+# cortes son una elección: el 10 % de abajo y el 10 % de arriba son los extremos, y el 40 %
+# central es «medio». Con los datos de noviembre de 2026 equivalen a unas 430, 6.000,
+# 15.000 y 25.000 personas al día.
+MOVIMIENTO_NIVELES = [
+    (0.10, "Muy poco paso"),
+    (0.30, "Poco paso"),
+    (0.70, "Paso medio"),
+    (0.90, "Mucho paso"),
+    (1.01, "Muchísimo paso"),     # 1.01 para que el máximo de la muestra también entre
+]
+# Suelo absoluto: con menos de 500 personas en todo el día (una cada dos minutos en las
+# horas de día, a 300 m a la redonda) el nivel es «Muy poco paso» aunque la muestra de
+# referencia cambie. Un bar de paso necesita bastante más que eso.
+MOVIMIENTO_MINIMO_PASOS = 500
+# Aviso cuando el nivel es «Muy poco paso»: el modelo solo ve gente que pasa andando.
+MOVIMIENTO_AVISO_MUY_POCO = (
+    "Aquí casi no pasa gente andando. BARómetro mide el negocio de paso; un local al que "
+    "se va a propósito o en coche no se puede valorar con estos datos.")
+
+# ------------------------------------------------------------------ cómo se llega
+# Dos distancias: el radio del análisis (RADIO_M, unos 4 minutos andando) y 800 m, unos
+# 10 minutos andando (a 4,5-5 km/h), que es lo que se suele aceptar para ir andando a una
+# estación de tren o de metro. ESTIMACIÓN.
+ACCESOS_RADIO_LEJOS_M = 800
+ACCESOS_MINUTOS_LEJOS = 10
+# Redes del GTFS del CRTM → modo que se muestra. Los autobuses urbanos de Madrid (EMT) y
+# los de otros municipios se juntan en «Autobús urbano».
+ACCESOS_MODOS = {
+    "metro": "Metro",
+    "cercanias": "Cercanías",
+    "metro_ligero": "Metro Ligero",
+    "emt": "Autobús urbano",
+    "urbanos": "Autobús urbano",
+    "interurbanos": "Autobús interurbano",
+}
+# Modos sobre raíles: mucha capacidad y frecuencia; pesan más que el autobús en el nivel.
+ACCESOS_MODOS_RAIL = ("Metro", "Cercanías", "Metro Ligero")
+# Vehículos al día de una línea en un radio: por cada línea y sentido se toma la parada del
+# radio con más vehículos (un autobús que para en tres paradas seguidas cuenta una vez) y
+# se suman los sentidos. Día laborable típico del GTFS.
+# Nivel de comunicación (elección razonada, ESTIMACIÓN):
+#  - «Muy bien comunicado»: Metro, Cercanías o Metro Ligero a menos de 300 m, o al menos
+#    600 autobuses al día a menos de 300 m (entre todas las líneas y sentidos, uno cada
+#    minuto y medio durante 16 horas);
+#  - «Bien comunicado»: Metro, Cercanías o Metro Ligero a menos de 800 m, o al menos 200
+#    autobuses al día a menos de 300 m (uno cada 5 minutos entre todas las líneas y
+#    sentidos; con una sola línea, uno cada 10 minutos por sentido);
+#  - «Poco transporte»: hay alguna parada a menos de 800 m, pero no llega a lo anterior;
+#  - «Sin transporte cerca»: ninguna parada con servicio a menos de 800 m.
+ACCESOS_BUS_MUY_BIEN = 600
+ACCESOS_BUS_BIEN = 200
+ACCESOS_NIVELES = ["Sin transporte cerca", "Poco transporte", "Bien comunicado",
+                   "Muy bien comunicado"]
+# Cuántos nombres de línea se escriben como máximo por modo (el resto se cuenta).
+ACCESOS_LINEAS_MAX = 8
+
+# --------------------------------------------------------------- entorno a 1 km
+# Contexto a 1 km: unos 12 minutos andando. Distingue un punto aislado de uno que está en
+# el borde de un barrio. Es solo contexto: las recomendaciones siguen usando RADIO_M.
+ENTORNO_RADIO_M = 1000
+ENTORNO_MINUTOS = 12   # a 5 km/h
+# Tipo de entorno según los vecinos (ESTIMACIÓN; la población se reparte por igual en la
+# superficie de cada sección censal):
+#  - «aislado»: menos de 1.000 vecinos a 1 km (menos que una sección censal);
+#  - «borde»: hay vecinos a 1 km, pero en los 300 m vive menos de la mitad de lo que
+#    tocaría si estuvieran repartidos por igual en todo el círculo de 1 km (a 300 m le
+#    corresponde el 9 % de la superficie), o menos de 300 personas (la quinta parte de
+#    una sección censal; en un barrio hay miles);
+#  - «dentro»: el resto.
+ENTORNO_AISLADO_VECINOS = 1000
+ENTORNO_BORDE_FRACCION = 0.5
+ENTORNO_POCOS_VECINOS_CERCA = 300

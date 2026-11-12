@@ -1,7 +1,8 @@
 """BARómetro: cliente MCP de prueba para mcp/servidor.py.
 
 Arranca el servidor por stdio, como haría Claude Desktop, y llama a cada herramienta con
-los tres puntos de ejemplo. Comprueba que cada respuesta trae el aviso, las fuentes con
+los tres puntos de ejemplo, con una calle sin número y con un punto aislado de campo.
+Comprueba que cada respuesta trae el aviso, las fuentes con
 licencia y fecha y «Powered by CRTM», que el resultado es el mismo que da la función de
 src/ llamada directamente, y que un punto de fuera de la Comunidad da un error claro.
 
@@ -25,6 +26,8 @@ EJEMPLOS = {"Campus de Vicálvaro": (40.4046, -3.6106),
             "Plaza Mayor de Griñón": (40.212861, -3.852623)}
 DIRECCIONES = ["Paseo de los Artilleros 38, Madrid", "Plaza de la Constitución 1, Fuenlabrada",
                "Plaza Mayor 1, Griñón"]
+SIN_NUMERO = "Paseo de los Artilleros, Madrid"     # una calle entera
+CAMPO = (40.2000, -3.8900)   # punto aislado de campo, entre Griñón y Cubas de la Sagra
 FUERA = (39.8628, -4.0273)   # Toledo
 fallos: list[str] = []
 
@@ -63,6 +66,7 @@ def comunes(nombre: str, d: dict) -> None:
 async def main() -> int:
     import informe_local as I
     import perfil_horario as P
+    from movimiento import nivel_movimiento
     from recomendaciones import recomendar
 
     servidor = StdioServerParameters(command=sys.executable,
@@ -90,15 +94,20 @@ async def main() -> int:
                 comprobar(json.dumps(r[k], sort_keys=True, default=str)
                           == json.dumps(rec[k], sort_keys=True, default=str),
                           f"recomendar_local: «{k}» no coincide con recomendar()")
+            mov = nivel_movimiento(perfil)
+            comprobar(r["nivel_de_movimiento"] == json.loads(json.dumps(mov)),
+                      "recomendar_local: el nivel de movimiento no coincide")
             una = r["a_quien"]["recomendaciones"][0]
             comprobar(all(k in una for k in ("texto", "porque", "confianza", "base")),
                       "recomendar_local: falta porqué, confianza o base")
             print(f"   recomendar_local: {una['texto']} [{una['confianza']}, {una['base']}] · "
                   f"{len(r['riesgos'])} riesgos · {len(r['comprobar_en_persona'])} "
-                  f"comprobaciones · {len(r['fuentes'])} fuentes")
+                  f"comprobaciones · {len(r['fuentes'])} fuentes · {mov['nombre']}")
 
             p = datos(await cliente.call_tool("perfil_por_horas", args))
             comunes("perfil_por_horas", p)
+            comprobar(p["nivel_de_movimiento"]["nombre"] == mov["nombre"],
+                      "perfil_por_horas: el nivel de movimiento no coincide")
             for dia, etiqueta in (("laborable", "laborable"), ("fin_de_semana", "sabado")):
                 esperado = perfil["franjas"].loc[dia]["total"]
                 for franja, total in esperado.items():
@@ -115,9 +124,13 @@ async def main() -> int:
             comprobar(json.dumps(z["bloques"], sort_keys=True, default=str)
                       == json.dumps(inf["bloques"], sort_keys=True, default=str),
                       "informe_de_zona: los bloques no coinciden con informe_local()")
-            comprobar(len(z["bloques"]) == 6, "informe_de_zona: no hay seis bloques")
+            comprobar([b["clave"] for b in z["bloques"]] == [
+                "competencia", "mercado", "precios", "turismo", "festivos", "sector",
+                "accesos", "entorno"], "informe_de_zona: no están los ocho bloques")
             print(f"   informe_de_zona: {z['municipio']} · {len(z['bloques'])} bloques · "
                   f"{z['bloques'][0]['resumen'][:70]}…")
+            print(f"   accesos: {z['bloques'][6]['datos']['nivel']} · entorno: "
+                  f"{z['bloques'][7]['datos']['tipo']}")
 
         print("\n== buscar_direccion")
         for texto in DIRECCIONES:
@@ -131,6 +144,41 @@ async def main() -> int:
                   f"{primero['direccion']} ({primero['lat']}, {primero['lon']})"
                   if primero else "ninguno")
             comprobar(primero is not None, f"buscar_direccion: sin resultados para «{texto}»")
+            comprobar(primero and primero["es_portal_exacto"] and "aviso" not in primero,
+                      f"buscar_direccion: «{texto}» no da un portal exacto el primero")
+            exactos = [x["es_portal_exacto"] for x in b["resultados"]]
+            comprobar(exactos == sorted(exactos, reverse=True),
+                      "buscar_direccion: los portales no van primero")
+
+        print("\n== calle sin número")
+        b = datos(await cliente.call_tool("buscar_direccion", {"texto": SIN_NUMERO}))
+        comunes("buscar_direccion", b)
+        for x in b["resultados"]:
+            print(f"   {x['direccion']} · {x['precision']} · exacto={x['es_portal_exacto']} · "
+                  f"{x.get('aviso', '')[:60]}")
+        comprobar(b["resultados"] and b["portales_exactos"] == 0
+                  and all(x["precision"] == "calle" and "aviso" in x for x in b["resultados"]),
+                  "calle sin número: no avisa de que es una calle entera")
+        comprobar("No calcules" in b["nota"], "calle sin número: la nota no pide el número")
+        comprobar(all("PASEO PASEO" not in x["direccion"].upper()
+                      and x["direccion"] != x["direccion"].upper()
+                      and "Madrid" in x["direccion"] for x in b["resultados"]),
+                  "calle sin número: la dirección no está limpia")
+
+        print("\n== punto aislado de campo")
+        r = datos(await cliente.call_tool("recomendar_local",
+                                          {"lat": CAMPO[0], "lon": CAMPO[1]}))
+        m = r["nivel_de_movimiento"]
+        print(f"   {m['nombre']} (~{m['pasos_laborable']} personas al día): {m['frase']}")
+        comprobar(m["muy_poco_paso"] and m["nombre"] == "Muy poco paso"
+                  and "casi no pasa gente andando" in (m["aviso"] or ""),
+                  "campo: no sale «Muy poco paso» con su aviso")
+        z = datos(await cliente.call_tool("informe_de_zona",
+                                          {"lat": CAMPO[0], "lon": CAMPO[1]}))
+        acc, ent = z["bloques"][6]["datos"], z["bloques"][7]["datos"]
+        print(f"   accesos: {acc['nivel']} · entorno: {ent['tipo']} "
+              f"(~{ent['vecinos']} vecinos a 1 km)")
+        comprobar(ent["tipo"] == "aislado", "campo: el entorno no sale aislado")
 
         print("\n== punto fuera de la Comunidad de Madrid")
         for h in ("recomendar_local", "perfil_por_horas", "informe_de_zona"):

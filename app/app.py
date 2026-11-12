@@ -2,19 +2,25 @@
 
 Muestra, para un punto de la Comunidad de Madrid, el perfil por horas, el informe del local
 y las recomendaciones. No repite cálculos: solo llama a perfil_horario(), informe_local() y
-recomendar() (src/), además de dos consultas de informe_local para saber en qué municipio
-cae el punto y qué locales del radio se dibujan en el mapa.
+recomendar() (src/), a nivel_movimiento() para situar el punto frente al resto de la
+Comunidad, y a dos consultas de informe_local para saber en qué municipio cae el punto y
+qué locales del radio se dibujan en el mapa.
 
 Hay dos vistas, con un selector arriba:
-  - «Resumen» (por defecto), para un hostelero sin conocimientos técnicos: un titular,
-    cuatro tarjetas con pregunta y respuesta corta, el mapa, la gente por horas, tres
-    avisos y tres comprobaciones, con palabras de la calle y números redondos;
+  - «Resumen» (por defecto), para un hostelero sin conocimientos técnicos: el nivel de
+    movimiento de la zona, un titular, cuatro tarjetas con pregunta y respuesta corta, el
+    mapa, la gente por horas, cómo se llega, tres avisos y tres comprobaciones, con
+    palabras de la calle y números redondos;
   - «Informe completo», con todo lo técnico: confianza, dato o estimación, porqués con
     cifras, mercado, riesgos, comprobaciones, fuentes y fechas.
 El resumen solo traduce lo que ya devuelven recomendar() e informe_local(): no calcula nada.
 
 Arranque (desde la raíz del repositorio):
     streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+
+Una dirección que no es un portal concreto (una calle sin número, un municipio…) no se
+calcula: se enseña en el mapa y se pregunta «¿Es aquí?»; solo se calcula al confirmar o al
+tocar el mapa.
 
 Privacidad: las direcciones y los puntos que introduce el usuario solo viven en la memoria
 de su sesión; no se escriben en ficheros, registros ni en la URL. Las estadísticas de uso
@@ -46,7 +52,8 @@ import informe_local as I  # noqa: E402
 import perfil_horario as P  # noqa: E402
 import supuestos as S  # noqa: E402
 from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
-                         geocodificar)
+                         geocodificar, texto_candidato)
+from movimiento import nivel_movimiento, referencia  # noqa: E402
 from recomendaciones import recomendar  # noqa: E402
 
 AVISO = ("Orientación a partir de datos abiertos y supuestos explícitos, no garantías. "
@@ -142,6 +149,24 @@ h1, h2, h3, h4 {letter-spacing: -0.01em;}
 .donde {font-size:1rem; color:#4a4038; margin:0.6rem 0 0 0;}
 .titular {font-size:2.1rem; font-weight:700; line-height:1.2; color:#1f1b16;
           margin:0.2rem 0 1.2rem 0;}
+.mov {margin:0.5rem 0 0.9rem 0; max-width:46rem;}
+.mov-cab {font-size:1rem; color:#4a4038;}
+.mov-cab b {font-size:1.35rem; font-weight:700; color:#1f1b16; margin-right:0.5rem;}
+.mov-escala {display:grid; grid-template-columns:repeat(5, 1fr); gap:0.3rem;
+             margin:0.45rem 0 0.35rem 0;}
+.mov-escala div {text-align:center; font-size:0.8rem; line-height:1.2; color:#5c5248;}
+.mov-escala i {display:block; height:0.7rem; border-radius:0.35rem; background:#e3dcd1;
+               margin-bottom:0.25rem;}
+.mov-escala i.si {background:#9c3d1b;}
+.mov-escala div.aqui {color:#1f1b16; font-weight:700;}
+.mov-frase {font-size:1.05rem; color:#1f1b16;}
+.poco-paso {font-size:1.1rem; line-height:1.45; color:#1f1b16; background:#fbefc9;
+            border-left:4px solid #c98a2b; padding:0.7rem 1rem; margin:0 0 1rem 0;}
+.confirma {font-size:1.25rem; font-weight:700; color:#1f1b16; margin:0.8rem 0 0.2rem 0;}
+.confirma-pie {font-size:1.05rem; color:#4a4038; margin:0 0 0.6rem 0;}
+.llegar {font-size:1.15rem; line-height:1.5; margin:0.2rem 0 0.6rem 0;}
+.llegar b {font-weight:700;}
+.llegar div {padding:0.35rem 0;}
 .seccion {font-size:1.45rem; font-weight:700; line-height:1.25; color:#1f1b16;
           margin:1.6rem 0 0.6rem 0;}
 
@@ -198,6 +223,7 @@ div[data-testid="stMetric"] {padding:0;}
   .block-container {padding-left: 1rem; padding-right: 1rem;}
   .respuesta, .apoyo {min-height:0;}
   .cifra {font-size:2.2rem;}
+  .mov-escala div {font-size:0.7rem;}
 }
 @media print {header, .stButton, iframe {display:none !important;}}
 </style>
@@ -218,6 +244,8 @@ def cargar_datos() -> bool:
     I.capas()
     I.locales()
     I.renta_comunidad()
+    I.transporte()
+    referencia()
     return True
 
 
@@ -243,7 +271,7 @@ def calcular(lat: float, lon: float) -> dict:
     perfil = P.perfil_horario(lat, lon)
     inf = I.informe_local(lat, lon, perfil=perfil)
     rec = recomendar(lat, lon, perfil=perfil, inf=inf)
-    return {"perfil": perfil, "informe": inf, "rec": rec}
+    return {"perfil": perfil, "informe": inf, "rec": rec, "mov": nivel_movimiento(perfil)}
 
 
 # ------------------------------------------------------------------- fuentes.md
@@ -397,8 +425,10 @@ def competencia_alta(rec: dict) -> bool:
     return any(r["texto"].startswith("Competencia alta") for r in rec["riesgos"])
 
 
-def titular_calle(rec: dict) -> str:
+def titular_calle(rec: dict, mov: dict) -> str:
     """Una sola idea, doce palabras como mucho."""
+    if mov["muy_poco_paso"]:
+        return "Muy poco paso: por aquí casi no pasa gente andando"
     of = lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)])
     if not of:
         return "Por aquí pasa poca gente"
@@ -728,9 +758,60 @@ def grafico_resumen(perfil: dict, rec: dict, dia: str) -> list[tuple[str, str]]:
     return [(nombres[t], colores[t]) for t in orden]
 
 
+def escala_movimiento(mov: dict) -> str:
+    """Nivel de movimiento de la zona: nombre, escala de cinco niveles y comparación."""
+    celdas = "".join(
+        f"<div class='{'aqui' if i == mov['nivel'] else ''}'>"
+        f"<i class='{'si' if i <= mov['nivel'] else ''}'></i>{html.escape(n)}</div>"
+        for i, n in enumerate(mov["niveles"], 1))
+    return ("<div class='mov'><div class='mov-cab'>"
+            f"<b>{html.escape(mov['nombre'])}</b><span class='etiqueta'>Estimación</span>"
+            "</div>"
+            f"<div class='mov-escala' role='img' aria-label='Nivel {mov['nivel']} de 5: "
+            f"{html.escape(mov['nombre'])}'>{celdas}</div>"
+            f"<div class='mov-frase'>Por aquí {html.escape(mov['frase'])}.</div></div>")
+
+
+MODO_CALLE = {"Metro": "metro", "Cercanías": "tren de Cercanías",
+              "Metro Ligero": "metro ligero", "Autobús urbano": "autobús urbano",
+              "Autobús interurbano": "autobús interurbano"}
+ENTORNO_CALLE = {
+    "aislado": "Es un sitio aislado: casi no vive nadie cerca.",
+    "borde": "Está en el borde de un barrio: justo al lado vive poca gente, pero un poco "
+             "más lejos sí.",
+    "dentro": "Está dentro de una zona con vecinos."}
+
+
+def frases_llegar(inf: dict) -> list[str]:
+    """Cómo se llega y qué hay un poco más lejos, en dos o tres frases sencillas. Solo
+    traduce los bloques «accesos» y «entorno» del informe."""
+    a = bloque_inf(inf, "accesos")["datos"]
+    e = bloque_inf(inf, "entorno")["datos"]
+    cerca = [MODO_CALLE[m] for m in a["cerca"]]
+    lejos = [MODO_CALLE[m] for m in a["lejos"] if m not in a["cerca"]]
+    lejos_txt = f"A unos {S.ACCESOS_MINUTOS_LEJOS} minutos andando"
+    if cerca:
+        transporte = (f"A menos de 4 minutos andando hay {lista_y(cerca)}."
+                      + (f" {lejos_txt}, también {lista_y(lejos)}." if lejos else ""))
+    elif lejos:
+        transporte = (f"No hay paradas a menos de 4 minutos andando. {lejos_txt} hay "
+                      f"{lista_y(lejos)}.")
+    else:
+        transporte = f"No hay paradas ni a {S.ACCESOS_MINUTOS_LEJOS} minutos andando."
+    out = [f"<b>{html.escape(a['nivel'])}.</b> {transporte}"]
+    vecinos = (f"viven unas {redondo(e['vecinos'])} personas" if e["vecinos"] >= 20
+               else "no vive casi nadie")
+    locales = ("no hay ningún bar ni restaurante" if e["locales"] == 0 else
+               "hay 1 bar o restaurante" if e["locales"] == 1 else
+               f"hay {miles(e['locales'])} bares y restaurantes")
+    out.append(f"<b>A {e['minutos_andando']} minutos andando</b> {vecinos} y {locales}. "
+               f"{ENTORNO_CALLE[e['tipo']]}")
+    return out
+
+
 # ------------------------------------------------------------------ mapa y gráfico
-def construir_mapa(lat, lon, locs: pd.DataFrame | None) -> folium.Map:
-    zoom = 16 if lat is not None else 10
+def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16) -> folium.Map:
+    zoom = zoom if lat is not None else 10
     centro = (lat, lon) if lat is not None else CENTRO_MADRID
     # Zoom máximo 16: a partir de 17 las teselas de OpenStreetMap rotulan los nombres de
     # bares y comercios, y la aplicación no debe mostrar nombres de locales.
@@ -754,13 +835,15 @@ def construir_mapa(lat, lon, locs: pd.DataFrame | None) -> folium.Map:
     return m
 
 
-def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400) -> dict | None:
+def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400,
+         zoom: int = 16) -> dict | None:
     """Dibuja el mapa. El objeto del mapa se construye una sola vez por punto y se guarda
     en la sesión. Solo vuelve al servidor el último clic: mover el mapa o hacer zoom no
     provoca ninguna recarga."""
     guardado = st.session_state.get("mapa_obj")
-    if not guardado or guardado[0] != (lat, lon):
-        guardado = ((lat, lon), construir_mapa(lat, lon, locs))
+    clave = (lat, lon, zoom, locs is None)
+    if not guardado or guardado[0] != clave:
+        guardado = (clave, construir_mapa(lat, lon, locs, zoom))
         st.session_state["mapa_obj"] = guardado
     return st_folium(guardado[1], height=alto, use_container_width=True,
                      returned_objects=["last_clicked"], key="mapa")
@@ -809,6 +892,33 @@ def elegir_punto(lat: float, lon: float, ejemplo: str | None = None) -> None:
     st.session_state.pop("resultado", None)
     st.session_state["abierta"] = None
     st.session_state["todas_comprobaciones"] = False
+    st.session_state.pop("pendiente", None)
+
+
+# Zoom del mapa al enseñar un resultado del buscador que no es un portal.
+ZOOM_PENDIENTE = {"calle": 16, "localidad": 14, "municipio": 13, "codigo_postal": 14}
+QUE_ES = {"calle": "es una calle entera, sin número",
+          "localidad": "es una localidad entera, no una dirección",
+          "municipio": "es un municipio entero, no una dirección",
+          "codigo_postal": "es un código postal entero, no una dirección"}
+
+
+def dejar_pendiente(cand: dict, lat: float, lon: float) -> None:
+    """Un resultado que no es un portal concreto no se calcula: se guarda como pendiente
+    de confirmar y se borra el punto anterior."""
+    st.session_state["pendiente"] = {"lat": round(lat, 6), "lon": round(lon, 6),
+                                     "texto": cand["texto"], "precision": cand["precision"]}
+    st.session_state["punto"] = None
+    st.session_state["ejemplo"] = None
+    st.session_state.pop("resultado", None)
+    st.session_state["abierta"] = None
+
+
+def confirmar_pendiente() -> None:
+    p = st.session_state.get("pendiente")
+    if p:
+        elegir_punto(p["lat"], p["lon"])
+        st.session_state.pop("candidatos", None)
 
 
 def pedir_busqueda() -> None:
@@ -859,6 +969,18 @@ def metrica_bloque(b: dict) -> tuple[str, str, str]:
         return ("Empresas de distribución y hostelería, último año",
                 f"{d['variacion_anual_pct']:+.1f} %".replace(".", ","),
                 "Toda la Comunidad · la rama incluye comercio y transporte")
+    if k == "accesos":
+        modos = lista_y(list(d["cerca"])) if d["cerca"] else "ninguna parada"
+        return ("Transporte público", d["nivel"],
+                f"A menos de {d['radio_cerca_m']} m: {modos} · "
+                f"{sum(v['lineas'] for v in d['lejos'].values())} líneas a menos de "
+                f"{d['radio_lejos_m']} m")
+    if k == "entorno":
+        return (f"Vecinos a {d['radio_m'] // 1000} km (unos {d['minutos_andando']} min "
+                "andando)", f"≈{redondo(d['vecinos'])}",
+                f"{miles(d['locales'])} locales de hostelería a esa distancia · a "
+                f"{S.RADIO_M} m: ≈{redondo(d['vecinos_radio_analisis'])} vecinos y "
+                f"{d['locales_radio_analisis']} locales · solo contexto")
     return b["titulo"], "—", ""
 
 
@@ -896,6 +1018,15 @@ def tabla_bloque(b: dict) -> None:
     elif b["clave"] == "festivos":
         st.markdown("\n".join(f"- {p['fecha']} ({p['dia']}): {p['ambito']}"
                               for p in d["proximos"]) or "Sin festivos próximos.")
+    elif b["clave"] == "accesos" and d["lejos"]:
+        def celda(v):
+            return f"{v['lineas']} líneas · {miles(v['vehiculos_dia'])} vehículos" if v else "—"
+        st.dataframe(pd.DataFrame([
+            {"Modo": m, f"A menos de {d['radio_cerca_m']} m": celda(d["cerca"].get(m)),
+             f"A menos de {d['radio_lejos_m']} m": celda(v),
+             "Parada más cercana": f"{v['distancia_m']} m"}
+            for m, v in d["lejos"].items()]), hide_index=True, width="stretch")
+        st.caption("Vehículos en un día laborable típico, sumando los dos sentidos.")
 
 
 def bloque_mercado(b: dict) -> None:
@@ -1118,7 +1249,7 @@ elif cand:
     cc = st.columns([3.2, 1.2], vertical_alignment="bottom")
     with cc[0]:
         i = st.selectbox("Elige tu dirección", range(len(cand)),
-                         format_func=lambda k: cand[k]["texto"])
+                         format_func=lambda k: texto_candidato(cand[k]))
     with cc[1]:
         analizar = st.button("Ver esta dirección", type="primary", width="stretch")
     st.caption("La dirección se envía a CartoCiudad para situarla y no se guarda. "
@@ -1128,9 +1259,12 @@ elif cand:
             xy = coordenadas(cand[i])
         except Exception:
             xy = None
-        if xy:
+        if xy and cand[i]["exacto"]:
             elegir_punto(*xy)
             st.session_state.pop("candidatos", None)
+            st.rerun()
+        elif xy:   # una calle sin número, un municipio…: no se calcula hasta confirmar
+            dejar_pendiente(cand[i], *xy)
             st.rerun()
         else:
             st.error("No hemos podido situar esa dirección. Prueba con otra o toca el mapa.")
@@ -1142,6 +1276,7 @@ st.markdown(f"<div class='aviso'>{AVISO_SENCILLO if vista == 'Resumen' else AVIS
 # radio) se calcula una vez y se guarda en la sesión hasta que cambia el punto
 # (elegir_punto lo borra). No se guarda en disco ni en ninguna caché compartida.
 punto = st.session_state.get("punto")
+pendiente = None if punto else st.session_state.get("pendiente")
 res = st.session_state.get("resultado") if punto else None
 if punto and res is None:
     muni_nuevo = municipio_de(*punto)
@@ -1160,8 +1295,12 @@ muni = res["muni"] if res else None
 # ------------------------------------------------------------------- vista Resumen
 # Cada parte que cambia sola es un fragmento: al tocarla se vuelve a ejecutar solo ella.
 @fragmento("tarjetas")
-def parte_tarjetas(rec: dict, inf: dict) -> None:
-    """Las cuatro tarjetas y, debajo, la explicación de la que esté abierta."""
+def parte_tarjetas(rec: dict, inf: dict, atenuadas: bool = False) -> None:
+    """Las cuatro tarjetas y, debajo, la explicación de la que esté abierta. Con muy poco
+    paso se atenúan: sus respuestas valen poco si casi no pasa nadie."""
+    if atenuadas:
+        st.markdown("<style>[class*='st-key-tarjeta_'], .st-key-explicacion "
+                    "{opacity:0.5;}</style>", unsafe_allow_html=True)
     resp = respuestas(rec, inf)
     tarjetas_resumen(resp)
     abierta = st.session_state.get("abierta")
@@ -1170,9 +1309,9 @@ def parte_tarjetas(rec: dict, inf: dict) -> None:
 
 
 @fragmento("mapa")
-def parte_mapa(lat, lon, locs, alto: int) -> None:
+def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16) -> None:
     """El mapa. Un clic elige otro punto y, solo entonces, se recalcula la página."""
-    clic = (mapa(lat, lon, locs, alto=alto) or {}).get("last_clicked")
+    clic = (mapa(lat, lon, locs, alto=alto, zoom=zoom) or {}).get("last_clicked")
     if clic:
         nuevo = (round(clic["lat"], 6), round(clic["lng"], 6))
         if nuevo != st.session_state.get("ultimo_clic"):
@@ -1210,10 +1349,13 @@ def parte_comprobaciones(rec: dict) -> None:
 
 def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
     lugar = st.session_state.get("ejemplo") or "El punto que has elegido"
+    mov = res["mov"]
     st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} ({muni['nombre']})</div>"
-                f"<div class='titular'>{html.escape(titular_calle(rec))}</div>",
-                unsafe_allow_html=True)
-    parte_tarjetas(rec, inf)
+                + escala_movimiento(mov)
+                + f"<div class='titular'>{html.escape(titular_calle(rec, mov))}</div>"
+                + (f"<div class='poco-paso'>{html.escape(mov['aviso'])}</div>"
+                   if mov["muy_poco_paso"] else ""), unsafe_allow_html=True)
+    parte_tarjetas(rec, inf, mov["muy_poco_paso"])
 
     # ------------------------------------------------------- mapa y gente por horas
     cm, cg = st.columns([1, 1.25], gap="large")
@@ -1226,6 +1368,11 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
                     "mapa para mirar otro sitio.</div>", unsafe_allow_html=True)
     with cg:
         parte_grafico(perfil, rec)
+
+    # ------------------------------------------- cómo se llega y qué hay más lejos
+    st.markdown("<div class='seccion'>Cómo se llega y qué hay un poco más lejos</div>"
+                "<div class='llegar'>" + "".join(f"<div>{f}</div>" for f in frases_llegar(inf))
+                + "</div>", unsafe_allow_html=True)
 
     # --------------------------------------------------- avisos y comprobaciones
     st.markdown("<div class='seccion'>Ojo con esto</div><div class='lista-grande'>"
@@ -1266,6 +1413,22 @@ def vista_informe(rec: dict, perfil: dict, inf: dict) -> None:
     st.markdown(f"<div class='donde'>📍 {html.escape(lugar)} · {muni['nombre']} · radio de "
                 f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
                 unsafe_allow_html=True)
+    mov = res["mov"]
+    st.markdown(
+        f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5) "
+        "<span class='etiqueta'>Estimación</span><br>"
+        f"≈{redondo(mov['pasos_laborable'])} personas pasan cerca en un día laborable; "
+        f"{html.escape(mov['frase'])} (por encima del {100 * mov['posicion']:.0f} % de "
+        f"{miles(mov['sitios_referencia'])} sitios de referencia, cuya mediana es "
+        f"≈{redondo(mov['mediana_referencia'])})."
+        + (f"<br>⚠️ {html.escape(mov['aviso'])}" if mov["muy_poco_paso"] else ""),
+        unsafe_allow_html=True)
+    st.caption(
+        f"{mov['nota']} Por qué {S.RADIO_M} metros: es lo que se anda en unos 4 minutos, la "
+        "distancia a la que alguien se desvía para tomar algo de paso; por eso el perfil y "
+        f"las recomendaciones solo miran ese círculo. El transporte se mira además a "
+        f"{S.ACCESOS_RADIO_LEJOS_M} m y el entorno a {S.ENTORNO_RADIO_M // 1000} km, solo "
+        "como contexto (pestaña Mercado).")
     parte_informe(rec, perfil, inf)
 
 
@@ -1274,6 +1437,17 @@ if res and vista == "Resumen":
     vista_resumen(res["rec"], res["perfil"], res["informe"])
 elif res:
     vista_informe(res["rec"], res["perfil"], res["informe"])
+elif pendiente:
+    # Dirección que no es un portal: no se calcula nada hasta que se confirma el sitio.
+    st.markdown(
+        f"<div class='confirma'>¿Es aquí? Si no, toca el mapa en el sitio exacto.</div>"
+        f"<div class='confirma-pie'>«{html.escape(pendiente['texto'])}» "
+        f"{QUE_ES[pendiente['precision']]}. Hemos puesto el punto en un sitio cualquiera de "
+        "esa zona y todavía no hemos calculado nada. También puedes escribir la dirección "
+        "con el número del portal.</div>", unsafe_allow_html=True)
+    st.button("Sí, es aquí", type="primary", key="confirmar", on_click=confirmar_pendiente)
+    parte_mapa(pendiente["lat"], pendiente["lon"], None, 460,
+               ZOOM_PENDIENTE[pendiente["precision"]])
 elif vista == "Resumen":
     st.info("Escribe la dirección de tu local, prueba un ejemplo o toca el mapa.")
     parte_mapa(None, None, None, 460)

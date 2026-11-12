@@ -3,7 +3,8 @@
     from informe_local import informe_local
     inf = informe_local(40.4046, -3.6106)
     inf["bloques"]   # lista de bloques: competencia, mercado, precios, turismo, festivos,
-                     # sector; cada uno con sus fuentes, fechas y si es dato o estimación
+                     # sector, accesos (cómo se llega) y entorno (1 km); cada uno con sus
+                     # fuentes, fechas y si es dato o estimación
 
 Desde la terminal:
     python src/informe_local.py 40.4046 -3.6106          # texto en Markdown
@@ -624,6 +625,162 @@ def b_sector() -> dict:
          "Es un dato de toda la Comunidad, no de la zona."])
 
 
+# ------------------------------------------------------------------ 7. cómo se llega
+@lru_cache(maxsize=1)
+def transporte() -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
+    """Paradas con servicio (la misma capa que usa el perfil por horas) y sus líneas."""
+    from perfil_horario import capas as capas_perfil
+    paradas = capas_perfil()["paradas"][["red", "stop_id", "total_lab", "geometry"]]
+    lineas = pd.read_parquet(PROC / "lineas_paradas.parquet")
+    return paradas, lineas
+
+
+def accesos_en(punto, radio: float) -> dict:
+    """Modos que paran a menos de `radio` metros: líneas, vehículos al día en laborable
+    y distancia a la parada más cercana. En Metro y Metro Ligero la distancia es al acceso
+    más cercano de la estación."""
+    paradas, lineas = transporte()
+    p = en_radio(paradas, punto, radio)
+    p = p.assign(distancia_m=p.distance(punto))
+    x = lineas.merge(p[["red", "stop_id", "distancia_m"]], on=["red", "stop_id"])
+    x["modo"] = x["red"].map(S.ACCESOS_MODOS)
+    out = {}
+    for modo in dict.fromkeys(S.ACCESOS_MODOS.values()):
+        m = x[x["modo"] == modo]
+        if m.empty:
+            continue
+        # Por línea y sentido, la parada con más vehículos; luego se suman los sentidos.
+        veh = int(m.groupby(["red", "id_linea", "sentido"])["vehiculos_lab"].max().sum())
+        nombres = m.drop_duplicates(["red", "id_linea"])["linea"]
+        # Primero las líneas con número, de menor a mayor; después las que llevan letras.
+        orden = sorted(set(nombres), key=lambda s: (not s.isdigit(),
+                                                    int(re.sub(r"\D", "", s) or 0), s))
+        out[modo] = {"lineas": int(len(nombres)), "nombres_lineas": orden,
+                     "vehiculos_dia": veh, "paradas": int(m[["red", "stop_id"]]
+                                                          .drop_duplicates().shape[0]),
+                     "distancia_m": int(round(m["distancia_m"].min(), -1))}
+    return out
+
+
+def nivel_accesos(cerca: dict, lejos: dict) -> str:
+    """Nivel de comunicación (ver supuestos.ACCESOS_*). ESTIMACIÓN."""
+    rail = lambda d: any(m in d for m in S.ACCESOS_MODOS_RAIL)
+    bus = sum(v["vehiculos_dia"] for m, v in cerca.items() if m not in S.ACCESOS_MODOS_RAIL)
+    if rail(cerca) or bus >= S.ACCESOS_BUS_MUY_BIEN:
+        return "Muy bien comunicado"
+    if rail(lejos) or bus >= S.ACCESOS_BUS_BIEN:
+        return "Bien comunicado"
+    return "Poco transporte" if lejos else "Sin transporte cerca"
+
+
+def _lineas_txt(v: dict) -> str:
+    n = v["nombres_lineas"]
+    if v["lineas"] > S.ACCESOS_LINEAS_MAX or len(n) != v["lineas"]:
+        return f"{v['lineas']} líneas"
+    return ("línea " if len(n) == 1 else "líneas ") + ", ".join(n)
+
+
+def _texto_modos(d: dict) -> str:
+    return "; ".join(f"{m} a {v['distancia_m']} m ({_lineas_txt(v)}, "
+                     f"{miles(v['vehiculos_dia'])} vehículos al día)"
+                     for m, v in d.items()) or "ninguna parada con servicio"
+
+
+def _texto_corto(d: dict) -> str:
+    return ", ".join(f"{m} ({v['lineas']} {'línea' if v['lineas'] == 1 else 'líneas'}, "
+                     f"{miles(v['vehiculos_dia'])} vehículos al día)" for m, v in d.items())
+
+
+def b_accesos(punto, radio: float) -> dict:
+    lejos_m = S.ACCESOS_RADIO_LEJOS_M
+    cerca, lejos = accesos_en(punto, radio), accesos_en(punto, lejos_m)
+    nivel = nivel_accesos(cerca, lejos)
+    dias = json.loads((PROC / "salidas_paradas_dias.json").read_text(encoding="utf-8"))
+    return bloque(
+        "accesos", "Cómo se llega: transporte público", MIXTO,
+        [fuente_externa("crtm_paradas", "horarios GTFS de un laborable típico")],
+        f"**{nivel}**. A menos de {radio:.0f} m: {_texto_modos(cerca)}. "
+        + (f"A menos de {lejos_m} m (unos {S.ACCESOS_MINUTOS_LEJOS} minutos andando), en "
+           f"total: {_texto_corto(lejos)}." if lejos else
+           f"Tampoco a menos de {lejos_m} m."),
+        {"nivel": nivel, "niveles": S.ACCESOS_NIVELES, "radio_cerca_m": int(radio),
+         "radio_lejos_m": lejos_m, "cerca": cerca, "lejos": lejos,
+         "dias_laborables_usados": {r: d["laborable"] for r, d in dias.items()}},
+        [f"Líneas y vehículos (**dato** procesado): paradas con servicio del GTFS del "
+         f"Consorcio Regional de Transportes a menos de {radio:.0f} m y de {lejos_m} m "
+         f"(unos {S.ACCESOS_MINUTOS_LEJOS} minutos andando), en un laborable típico. En Metro "
+         "y Metro Ligero se mide hasta el acceso más cercano de la estación. Datos del CRTM "
+         "explotados, no en bruto.",
+         "Vehículos al día: de cada línea y sentido se cuenta la parada del radio con más "
+         "vehículos y se suman los sentidos, para no contar el mismo autobús en varias "
+         "paradas seguidas.",
+         f"Nivel (**estimación**, src/supuestos.py): «Muy bien comunicado» con Metro, "
+         f"Cercanías o Metro Ligero a menos de {radio:.0f} m o al menos "
+         f"{S.ACCESOS_BUS_MUY_BIEN} autobuses al día a esa distancia; «Bien comunicado» con "
+         f"uno de esos modos a menos de {lejos_m} m o al menos {S.ACCESOS_BUS_BIEN} "
+         f"autobuses al día a menos de {radio:.0f} m; «Poco transporte» si solo hay algo "
+         "menos que eso; «Sin transporte cerca» si no hay ninguna parada.",
+         "No dice cuánta gente usa cada parada (no hay datos por estación de Metro ni por "
+         "parada de autobús) ni cómo se llega en coche o si hay aparcamiento: no hay datos "
+         "abiertos para eso. Los horarios de Metro son de 2025 y solo salen las líneas con "
+         "servicio el día elegido: puede faltar alguna (ver docs/fuentes.md).",
+         "Los autobuses urbanos de municipios distintos de Madrid son «datos parciales» "
+         "según el propio CRTM: puede faltar alguna línea."])
+
+
+# ----------------------------------------------------------------- 8. entorno a 1 km
+def b_entorno(punto, radio: float, muni: dict, pr: dict) -> dict:
+    lejos_m = S.ENTORNO_RADIO_M
+    madrid = muni["cod"] == "28079"
+    fuente = "censo" if madrid else "osm"
+    pob_cerca = pr["poblacion"]
+    pob_lejos = poblacion_y_renta(punto, lejos_m)["poblacion"]
+    loc_cerca = int(len(en_radio(locales()[fuente], punto, radio)))
+    loc_lejos = int(len(en_radio(locales()[fuente], punto, lejos_m)))
+    reparto_igual = pob_lejos * (radio / lejos_m) ** 2
+    if pob_lejos < S.ENTORNO_AISLADO_VECINOS:
+        tipo, frase = "aislado", "Punto aislado: apenas vive gente ni siquiera a 1 km"
+    elif (pob_cerca < S.ENTORNO_BORDE_FRACCION * reparto_igual
+          or pob_cerca < S.ENTORNO_POCOS_VECINOS_CERCA):
+        tipo, frase = "borde", ("En el borde de una zona habitada: cerca vive poca gente, "
+                                "pero a 1 km hay bastante más")
+    else:
+        tipo, frase = "dentro", "Dentro de una zona habitada"
+    nombre_fuente = ("Censo de locales del Ayuntamiento de Madrid" if madrid
+                     else "OpenStreetMap")
+    minutos = S.ENTORNO_MINUTOS
+    return bloque(
+        "entorno", f"Qué hay un poco más lejos: {lejos_m / 1000:.0f} km a la redonda",
+        MIXTO,
+        [fuente_externa("ine_adrh", "población 2024"),
+         fuente_externa("madrid_censo_locales" if madrid else "osm_hosteleria")],
+        f"**{frase}**. A {lejos_m / 1000:.0f} km (unos {minutos} minutos andando) viven "
+        f"~{miles(redondeo(pob_lejos))} personas y hay {miles(loc_lejos)} "
+        f"{'local' if loc_lejos == 1 else 'locales'} de hostelería; a {radio:.0f} m, "
+        f"~{miles(redondeo(pob_cerca))} vecinos y {loc_cerca} "
+        f"{'local' if loc_cerca == 1 else 'locales'}.",
+        {"tipo": tipo, "radio_m": lejos_m, "minutos_andando": minutos,
+         "vecinos": round(pob_lejos), "locales": loc_lejos,
+         "vecinos_radio_analisis": round(pob_cerca), "locales_radio_analisis": loc_cerca,
+         "vecinos_si_reparto_igual": round(reparto_igual),
+         "fuente_locales": nombre_fuente},
+        [f"**Solo es contexto**: el perfil por horas y las recomendaciones siguen usando "
+         f"{radio:.0f} m. Sirve para distinguir un punto aislado de uno que está en el "
+         "borde de un barrio.",
+         "Vecinos (**estimación**): población del INE (2024) de cada sección censal, en "
+         "proporción a la superficie de la sección que cae dentro del círculo. En secciones "
+         "grandes de campo la gente no está repartida por igual.",
+         f"Tipo de entorno (**estimación**, src/supuestos.py): «aislado» con menos de "
+         f"{miles(S.ENTORNO_AISLADO_VECINOS)} vecinos a {lejos_m / 1000:.0f} km; «borde» "
+         f"si en los {radio:.0f} m vive menos de la mitad de lo que tocaría con los vecinos "
+         f"repartidos por igual en el círculo grande (aquí, ~{miles(redondeo(reparto_igual))}"
+         f") o menos de {S.ENTORNO_POCOS_VECINOS_CERCA} personas; «dentro» en el resto de "
+         "casos.",
+         f"Locales: {nombre_fuente}"
+         + ("." if madrid else " (mapa colaborativo: puede faltar alguno).")
+         + " No se dan sus nombres."])
+
+
 # ------------------------------------------------------------------------ principal
 def municipio(punto) -> dict:
     secc = capas()["secciones"]
@@ -654,7 +811,7 @@ def informe_local(lat: float, lon: float, radio: float = S.RADIO_M,
         "fecha_informe": date.today().isoformat(),
         "bloques": [b_competencia(punto, radio, muni), b_mercado(punto, radio, pr),
                     b_precios(pr, rc, perfil), b_turismo(punto, muni), b_festivos(muni),
-                    b_sector()],
+                    b_sector(), b_accesos(punto, radio), b_entorno(punto, radio, muni, pr)],
     }
 
 

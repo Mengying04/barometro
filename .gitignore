@@ -238,6 +238,8 @@ datos/procesados/*
 !datos/procesados/desfibriladores_horario.parquet
 !datos/procesados/salidas_paradas.parquet
 !datos/procesados/salidas_paradas_dias.json
+!datos/procesados/lineas_paradas.parquet
+!datos/procesados/referencia_movimiento.parquet
 !datos/procesados/campus_universitarios.parquet
 !datos/procesados/hosteleria_madrid_capital.parquet
 !datos/procesados/hosteleria_osm.parquet

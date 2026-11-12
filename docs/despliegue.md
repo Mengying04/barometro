@@ -14,7 +14,7 @@ cómo mantenerla.
 | Requisito del servicio | Medida | ¿Cabe? |
 |---|---|---|
 | Ningún fichero de más de 100 MB | El mayor es `secciones_censales.parquet`, de 4,9 MB | Sí |
-| Tamaño de los datos | 13,2 MB en 18 ficheros de `datos/procesados/`; la carpeta `.git` del clon ocupa unos 22 MB | Sí |
+| Tamaño de los datos | 13,6 MB en 20 ficheros de `datos/procesados/`; la carpeta `.git` del clon ocupa unos 22 MB | Sí |
 | Alrededor de 1 GB de memoria | El servidor usa unos **400 MB** después de cargar los datos, calcular los tres ejemplos y abrir el Informe completo (pico de 411 MB) | Sí, con margen |
 | Arranque sin descargas | Un clon limpio, sin `datos/originales`, instala y arranca | Sí |
 
@@ -95,6 +95,7 @@ es borrarla y crearla de nuevo.
   python src/procesar.py
   python src/procesar_perfil.py
   python src/procesar_informe.py
+  python src/movimiento.py --generar
   python src/tablas_readme.py --escribir
   ```
 

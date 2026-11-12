@@ -2,8 +2,8 @@
 
 **BARómetro ayuda a quien tiene o quiere abrir un bar o restaurante en la Comunidad de
 Madrid a decidir qué ofrecer, a quién, a qué hora y a qué precios, según la zona.** Se
-escribe la dirección del local y, con datos abiertos, se ve quién pasa por allí, cuándo
-hay más gente y qué bares hay ya cerca.
+escribe la dirección del local y, con datos abiertos, se ve cuánto movimiento tiene la
+zona, quién pasa por allí, cuándo hay más gente, cómo se llega y qué bares hay ya cerca.
 
 Prototipo para el datathon **DATAMAD 2026** de la Comunidad de Madrid.
 
@@ -31,6 +31,8 @@ y las fuentes.
 | **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones… | No modela el domingo aparte ni la gente que va a un local a propósito |
 | **¿A qué precios?** Económicos, medios o altos, según la zona y quién pasa | No dice si un local concreto es bueno o malo: **no muestra nombres de locales** |
 | Qué bares y restaurantes hay ya en 300 metros, avisos y qué comprobar en persona | **No garantiza nada** |
+| **¿Pasa mucha o poca gente?** Cinco niveles, de «Muy poco paso» a «Muchísimo paso», frente al resto de la Comunidad | **No valora un local al que se va a propósito o en coche:** solo mide el negocio de paso |
+| **¿Cómo se llega?** Redes, líneas y vehículos al día a menos de 300 y de 800 metros, y vecinos y locales a 1 km | No sabe cuánta gente usa cada parada ni si hay aparcamiento |
 
 > **Es una orientación, no una garantía.** Toda cifra de personas es una estimación con
 > supuestos explícitos. Cada respuesta lleva su fiabilidad y la aplicación termina
@@ -40,11 +42,20 @@ Lo que dice la aplicación en los tres puntos de prueba:
 
 | | Campus de Vicálvaro | Centro de Fuenlabrada | Plaza Mayor de Griñón |
 |---|---|---|---|
+| Movimiento | Mucho paso | Muchísimo paso | Poco paso |
 | Titular | Buena zona para desayunos y menú del día | Zona de desayunos, con mucha competencia cerca | Aquí encajan sobre todo desayunos y meriendas |
 | Quién pasa | Vecinos y universitarios | Viajeros y vecinos | Vecinos y familias con niños |
 | Cuándo | De 8 a 10 y a las 14 | De 7 a 10 | A las 8, a las 14 y a las 16 |
 | Locales en 300 m | 27 (censo del Ayuntamiento) | 25 (OpenStreetMap) | 2 (OpenStreetMap) |
 | Precios | Económicos | Económicos | Medios |
+| Cómo se llega | Muy bien comunicado | Muy bien comunicado | Poco transporte |
+| A 1 km | ≈46.000 vecinos y 124 locales | ≈78.000 vecinos y 212 locales | ≈4.000 vecinos y 8 locales |
+
+Si se escribe una calle sin número, un municipio o un código postal, la aplicación no
+calcula: enseña el punto en el mapa, pregunta «¿Es aquí? Si no, toca el mapa en el sitio
+exacto» y espera a que se confirme. En un punto por el que casi no pasa nadie (por
+ejemplo, el kilómetro 18 de la M-404, en Griñón) lo dice arriba del todo y atenúa las
+respuestas.
 
 ## Datos
 
@@ -112,11 +123,16 @@ flowchart LR
    datos de contacto. El resultado va a `datos/procesados/`.
 3. **Perfil por horas.** Se dibuja un círculo de 300 metros alrededor del punto y se
    estima cuánta gente pasa cada hora y de qué tipo. Lo que está más cerca pesa más.
-4. **Informe del local.** Seis bloques: competencia, gasto de los vecinos, precios,
-   turismo, festivos y salud del sector.
-5. **Recomendaciones.** Combinan lo anterior. Cada una lleva su porqué, su confianza
+4. **Informe del local.** Ocho bloques: competencia, gasto de los vecinos, precios,
+   turismo, festivos, salud del sector, cómo se llega en transporte público (a 300 y a
+   800 metros) y qué hay a 1 km. Los dos últimos son solo contexto: las recomendaciones
+   siguen usando 300 metros.
+5. **Nivel de movimiento.** La gente que pasa en un día laborable se compara con la de
+   un punto interior de cada una de las 4.518 secciones censales de la Comunidad, y el
+   resultado se da en cinco niveles.
+6. **Recomendaciones.** Combinan el perfil y el informe. Cada una lleva su porqué, su confianza
    (alta, media o baja) y si es un dato o una estimación.
-6. **Aplicación.** Una vista «Resumen» en lenguaje sencillo y un «Informe completo»
+7. **Aplicación.** Una vista «Resumen» en lenguaje sencillo y un «Informe completo»
    con todo lo técnico.
 
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
@@ -139,6 +155,13 @@ cada uno con su comentario.
   números y se corrigieron siete resultados que no tenían sentido.
 - **Sin nombres.** Se ha comprobado que ningún fichero publicado contiene nombres de
   personas ni de locales.
+- **Direcciones.** Solo se calcula con un portal con número o con un punto confirmado
+  en el mapa. Probado con una calle sin número, un municipio y un portal exacto.
+- **Líneas de transporte.** En cada una de las 14.401 paradas, los vehículos por línea
+  suman exactamente los que ya usaba el perfil por horas.
+- **Sin cambios en lo anterior.** Al añadir el nivel de movimiento, los accesos y el
+  entorno, el perfil, las recomendaciones y los seis bloques anteriores del informe de
+  los tres puntos quedaron idénticos.
 - **Despliegue.** Los tres puntos dan exactamente el mismo resultado desde un clon
   limpio del repositorio con Python 3.12, sin datos originales.
 
@@ -150,6 +173,27 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 - **Todo lo que es «gente» es una estimación.** Sirve para comparar horas y tipos de
   cliente entre sí, no como recuento real.
 - **Gente que pasa no es gente que entra.** Pasar de una a otra es un supuesto.
+- **Solo se mide el negocio de paso.** Un local al que se va a propósito o en coche
+  (un restaurante de carretera, un asador de fin de semana) no se puede valorar con
+  estos datos. Si el nivel es «Muy poco paso», la aplicación lo avisa y atenúa sus
+  respuestas.
+- **El nivel de movimiento compara estimaciones con estimaciones.** La referencia es un
+  punto interior de cada sección censal. En las secciones grandes de campo ese punto
+  puede caer lejos de las casas, y el modelo reparte a los vecinos por igual en toda la
+  sección: por eso el 10 % más bajo de la referencia son sitios casi vacíos, y un
+  pueblo pequeño puede salir con menos paso del que tiene.
+- **«Cómo se llega» solo cuenta transporte público.** No hay datos abiertos de
+  aparcamiento ni de tráfico. Cuenta líneas y vehículos, no viajeros. En el GTFS de
+  Metro (de 2025) la línea 3 no tiene servicio el día usado, así que no aparece ni
+  aporta viajeros; pasa lo mismo con la C9 de Cercanías y con algunas líneas de
+  autobús. Los autobuses urbanos de fuera de Madrid son «datos parciales» según el
+  propio Consorcio.
+- **El contexto a 1 km es solo contexto.** Reparte a los vecinos por igual en la
+  superficie de cada sección censal y, fuera de Madrid capital, cuenta los locales de
+  OpenStreetMap, al que le faltan.
+- **Una calle sin número no se calcula hasta confirmar el punto.** El punto que propone
+  CartoCiudad para una calle es su centro, no el local. Con un portal, CartoCiudad
+  puede situar uno cercano y no el exacto.
 - **No hay datos abiertos de entradas por estación de Metro ni por parada de
   autobús:** todas las paradas de una red reciben la misma gente por vehículo. Los
   horarios de Metro publicados son de 2025.
@@ -184,7 +228,7 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 Hace falta Python 3.12, 3.13 o 3.14.
 
 **Arrancar la aplicación** (el repositorio ya trae los datos procesados que necesita,
-13 MB):
+14 MB):
 
 ```bash
 git clone https://github.com/Mengying04/barometro.git
@@ -202,7 +246,12 @@ python src/descargar_externas.py    # INE, Ayuntamiento, OpenStreetMap y CRTM
 python src/procesar.py              # capas limpias y situadas en el mapa
 python src/procesar_perfil.py       # alumnos, campus, horarios y transporte
 python src/procesar_informe.py      # tablas pequeñas del informe
+python src/movimiento.py --generar  # referencia del nivel de movimiento (medio minuto)
 ```
+
+`procesar_perfil.py` no cambia los resultados si los datos no cambian, salvo en un caso:
+elige el laborable y el sábado típicos a partir de la fecha del día. Para añadir solo las
+líneas por parada sin tocar lo demás: `python src/procesar_perfil.py lineas`.
 
 **Consultar un punto desde la terminal:**
 
@@ -210,6 +259,7 @@ python src/procesar_informe.py      # tablas pequeñas del informe
 python src/perfil_horario.py 40.4046 -3.6106     # quién pasa y cuándo
 python src/informe_local.py 40.4046 -3.6106      # contexto de mercado
 python src/recomendaciones.py 40.4046 -3.6106    # las cuatro respuestas
+python src/movimiento.py 40.4046 -3.6106         # nivel de movimiento de la zona
 ```
 
 Los pasos para publicarla están en [`docs/despliegue.md`](docs/despliegue.md).
@@ -222,10 +272,10 @@ herramientas, que llaman a las mismas funciones que la aplicación:
 
 | Herramienta | Qué devuelve |
 |---|---|
-| `recomendar_local(lat, lon)` | Las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
-| `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable y sábado |
-| `informe_de_zona(lat, lon)` | Los seis bloques del informe |
-| `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad |
+| `recomendar_local(lat, lon)` | El nivel de movimiento y las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
+| `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable y sábado, y el nivel de movimiento |
+| `informe_de_zona(lat, lon)` | Los ocho bloques del informe, con cómo se llega y qué hay a 1 km |
+| `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad. Dice si es un portal exacto o una calle entera, con un aviso |
 
 Cada respuesta lleva el aviso de que es una orientación, las fuentes con su licencia y
 fecha y «Powered by CRTM». No da nombres de locales ni guarda lo que se consulta.
@@ -275,6 +325,10 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 - Usar entradas por estación de Metro y viajeros por parada de autobús, si se
   publican.
 - Modelar el domingo y usar un calendario escolar oficial.
+- Valorar el local al que se va a propósito o en coche: aparcamiento, tráfico de la
+  carretera y de dónde viene la gente, si aparecen datos abiertos.
+- Elegir mejor el punto de referencia de las secciones grandes, con datos de dónde
+  están las viviendas (Catastro).
 - Sustituir el reparto de estudiantes entre campus por datos de cada universidad.
 - Añadir precios reales de cartas, si aparece una fuente abierta.
 - Actualizar los datos de forma automática: la licencia del CRTM pide mantenerlos al

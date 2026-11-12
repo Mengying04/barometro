@@ -9,6 +9,10 @@ src/, sin repetir cálculos:
   - informe_de_zona(lat, lon)    → informe_local()
   - buscar_direccion(texto)      → geocodificar() y coordenadas() (CartoCiudad)
 
+recomendar_local y perfil_por_horas añaden el nivel de movimiento de la zona
+(nivel_movimiento(), src/movimiento.py). buscar_direccion dice si cada resultado es un
+portal exacto o una calle o zona entera, con un aviso.
+
 Arranque (lo lanza el cliente MCP; no hace falta arrancarlo a mano):
     python mcp/servidor.py
 
@@ -65,7 +69,10 @@ servidor = MCPServer(
         "BARómetro orienta sobre qué vender, a quién, a qué hora y a qué precio en un bar o "
         "restaurante de la Comunidad de Madrid, con datos abiertos. Si el usuario da una "
         "dirección, usa primero buscar_direccion para obtener las coordenadas y después "
-        "recomendar_local. Presenta siempre los resultados como una orientación con "
+        "recomendar_local. Si buscar_direccion no devuelve un portal exacto (una calle sin "
+        "número, un municipio…), no calcules: pide antes el número o que confirmen el "
+        "sitio. Mira primero el nivel de movimiento de la zona: si es «Muy poco paso», "
+        "dilo con claridad antes de recomendar nada. Presenta siempre los resultados como una orientación con "
         "estimaciones, nunca como una garantía, y menciona las fuentes y «Powered by CRTM». "
         "No hay nombres de locales ni precios en euros."),
     log_level="WARNING")
@@ -80,11 +87,13 @@ def _modulos():
         import direcciones
         import fuentes
         import informe_local
+        import movimiento
         import perfil_horario
         import recomendaciones
         import supuestos
     return {"direcciones": direcciones, "fuentes": fuentes, "informe": informe_local,
-            "perfil": perfil_horario, "rec": recomendaciones, "supuestos": supuestos}
+            "perfil": perfil_horario, "rec": recomendaciones, "supuestos": supuestos,
+            "movimiento": movimiento}
 
 
 def _municipio(lat: float, lon: float) -> dict:
@@ -182,6 +191,11 @@ def _calcular(lat: float, lon: float, que: str) -> tuple[dict, dict, dict | None
     return muni, perfil, inf, rec
 
 
+def _movimiento(perfil: dict) -> dict:
+    """Nivel de movimiento de la zona frente al resto de la Comunidad (estimación)."""
+    return _modulos()["movimiento"].nivel_movimiento(perfil)
+
+
 # ------------------------------------------------------------------ herramientas
 @servidor.tool(title="Recomendaciones para un local")
 def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
@@ -200,14 +214,22 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
     representa el fin de semana (el domingo no se modela). Analiza un círculo de 300
     metros alrededor del punto.
 
+    Trae también «nivel_de_movimiento»: cuánta gente pasa en un día laborable frente a
+    los sitios habitados de la Comunidad, en cinco niveles (de «Muy poco paso» a
+    «Muchísimo paso»), con una frase de comparación. Es una estimación. Si es «Muy poco
+    paso», empieza por ahí y da su «aviso»: BARómetro mide el negocio de paso y un local
+    al que se va a propósito o en coche no se puede valorar con estos datos; las cuatro
+    respuestas valen entonces muy poco.
+
     Es una orientación con estimaciones, no una garantía: no estima la facturación ni da
     precios en euros, y no nombra locales. Si el punto está fuera de la Comunidad de
     Madrid, devuelve un error."""
-    muni, _, inf, rec = _calcular(lat, lon, "recomendar")
+    muni, perfil, inf, rec = _calcular(lat, lon, "recomendar")
     contenido = {k: rec[k] for k in ("radio_m", "a_quien", "a_que_hora", "que_vender",
                                      "a_que_precio", "riesgos", "comprobar_en_persona")}
     return _respuesta(
-        {"municipio": muni["nombre"], "fecha": rec["fecha"], **contenido},
+        {"municipio": muni["nombre"], "fecha": rec["fecha"],
+         "nivel_de_movimiento": _movimiento(perfil), **contenido},
         _unir(_fuentes_informe(inf), _fuentes(PORTAL_PERFIL, EXTERNAS_PERFIL)))
 
 
@@ -224,7 +246,9 @@ def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
     Devuelve, para «laborable» y «sabado», las personas que pasan en cada franja
     (primera hora de la mañana, media mañana, mediodía, media tarde, tarde-noche y noche)
     por tipo de cliente y en total, el total de cada hora de 0 a 23 y la confianza de
-    cada tipo de cliente, separada en horario y cantidad. La unidad es el «paso»: una
+    cada tipo de cliente, separada en horario y cantidad. Incluye
+    «nivel_de_movimiento»: el total del día laborable situado frente a los sitios
+    habitados de la Comunidad, en cinco niveles (estimación). La unidad es el «paso»: una
     persona que pasa a menos de 300 metros en esa franja; quien entra y sale de un sitio
     cuenta dos veces.
 
@@ -251,6 +275,7 @@ def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
         for f in perfil["confianza"].itertuples()]
     return _respuesta(
         {"municipio": muni["nombre"], "radio_m": int(perfil["radio_m"]),
+         "nivel_de_movimiento": _movimiento(perfil),
          "unidad": "personas que pasan cerca en la franja (estimación)",
          "nota": "«sabado» representa el fin de semana; el domingo no se modela aparte.",
          "horas_de_cada_franja": {k: [f"{h:02d}:00" for h in v]
@@ -262,13 +287,18 @@ def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
 
 @servidor.tool(title="Informe de la zona")
 def informe_de_zona(lat: float, lon: float) -> dict[str, Any]:
-    """Contexto de mercado alrededor de un punto de la Comunidad de Madrid, en seis
-    bloques: competencia, mercado potencial, precios, turismo, festivos y sector.
+    """Contexto de mercado alrededor de un punto de la Comunidad de Madrid, en ocho
+    bloques: competencia, mercado potencial, precios, turismo, festivos, sector, accesos
+    (cómo se llega en transporte público) y entorno (qué hay a 1 km).
 
     Úsala cuando la pregunta sea sobre la zona y no sobre qué ofrecer: cuántos bares y
     restaurantes hay ya en 300 metros y si son muchos o pocos para el municipio, cuánto
     gastan los vecinos en restauración, si la zona es de precios económicos, medios o
-    altos, cuánto turismo hay, qué festivos vienen y cómo va el sector. Necesita la
+    altos, cuánto turismo hay, qué festivos vienen, cómo va el sector, qué transporte
+    público para a menos de 300 y de 800 metros (redes, líneas y vehículos al día, con un
+    nivel de «Muy bien comunicado» a «Sin transporte cerca») y cuántos vecinos y locales
+    hay a 1 km, para distinguir un punto aislado de uno en el borde de un barrio. Los
+    800 m y el kilómetro son solo contexto: lo demás se calcula a 300 metros. Necesita la
     latitud y la longitud en grados decimales (WGS84).
 
     Cada bloque trae un resumen, sus datos, sus notas, sus fuentes y su «caracter»: si
@@ -293,10 +323,16 @@ def buscar_direccion(texto: str) -> dict[str, Any]:
     coordenadas. Escribe la calle, el número y el municipio, por ejemplo «Plaza de la
     Constitución 1, Fuenlabrada». Solo busca en la provincia de Madrid.
 
-    Devuelve una lista de candidatos con su dirección, su tipo y sus coordenadas. Si hay
-    varios, pregunta al usuario cuál es el suyo antes de seguir. Puede proponer números
-    de portal cercanos y no el exacto. No busca por nombre de comercio: los resultados
-    que son nombres de establecimientos o de lugares se descartan.
+    Devuelve una lista de candidatos, con los portales exactos primero. Cada uno trae su
+    dirección, sus coordenadas, su «precision» (portal, calle, localidad, municipio o
+    codigo_postal) y «es_portal_exacto». Solo un portal con número es un punto concreto.
+    Si el resultado es una calle entera, una localidad, un municipio o un código postal,
+    lleva un «aviso»: sus coordenadas son un punto cualquiera de esa zona y NO debes
+    calcular con ellas; pide antes al usuario el número del portal o que confirme el
+    sitio exacto. Si hay varios candidatos, pregunta cuál es el suyo antes de seguir.
+    Puede proponer números de portal cercanos y no el exacto. No busca por nombre de
+    comercio: los resultados que son nombres de establecimientos o de lugares se
+    descartan.
 
     La dirección se envía a CartoCiudad para situarla y no se guarda."""
     texto = (texto or "").strip()
@@ -315,17 +351,27 @@ def buscar_direccion(texto: str) -> dict[str, Any]:
         except Exception:
             xy = None
         if xy:
-            resultados.append({"direccion": c["texto"], "tipo": c["tipo"],
-                               "lat": round(xy[0], 6), "lon": round(xy[1], 6)})
+            r = {"direccion": c["texto"], "tipo": c["tipo"], "precision": c["precision"],
+                 "es_portal_exacto": c["exacto"],
+                 "lat": round(xy[0], 6), "lon": round(xy[1], 6)}
+            if not c["exacto"]:
+                r["aviso"] = f"{c['precision_texto'].capitalize()}. {d.AVISO_NO_EXACTO}"
+            resultados.append(r)
+    exactos = sum(r["es_portal_exacto"] for r in resultados)
     return {
         "aviso": ("Comprueba que la dirección es la que buscas. Las coordenadas son una "
                   "aproximación: CartoCiudad puede proponer un portal cercano. Lo que se "
                   "calcule con ellas será una orientación con estimaciones, no una "
                   "garantía."),
         "resultados": resultados,
+        "portales_exactos": exactos,
         "nota": ("Sin resultados en la provincia de Madrid: prueba a escribir la dirección "
                  "de otra forma." if not resultados else
-                 "Usa lat y lon con recomendar_local, perfil_por_horas o informe_de_zona."),
+                 "Ningún resultado es un portal exacto: son calles o zonas enteras. No "
+                 "calcules todavía; pide el número del portal o que confirmen el sitio."
+                 if not exactos else
+                 "Usa lat y lon de un portal exacto con recomendar_local, perfil_por_horas "
+                 "o informe_de_zona. Los resultados con «aviso» no son un punto concreto."),
         "privacidad": "La dirección se ha enviado a CartoCiudad para situarla y no se guarda.",
         "fuentes": _fuentes([], [], ["CartoCiudad"]),
         "atribucion": ("Direcciones: CartoCiudad, IGN · CC BY 4.0 "

@@ -44,6 +44,8 @@ y la sección censal de cada punto.
 | `secciones_censales.parquet` | INE (cartografía de secciones censales de 2025 y Atlas de distribución de renta de los hogares, 2024); límites municipales del portal de la Comunidad de Madrid | Reutilización citando al **INE**; los límites, **CC BY 4.0** (Comunidad de Madrid) |
 | `salidas_paradas.parquet` | CRTM (paradas, horarios GTFS y demanda diaria); viajeros de Cercanías por estación del portal de la Comunidad de Madrid | **Licencia del CRTM**, con las mismas condiciones; los viajeros por estación, **CC BY 4.0** (Comunidad de Madrid) |
 | `salidas_paradas_dias.json` | CRTM: días del calendario GTFS usados como laborable y sábado típicos | **Licencia del CRTM** |
+| `lineas_paradas.parquet` | CRTM (horarios GTFS): por parada, línea y sentido, vehículos que paran en el laborable típico | **Licencia del CRTM**, con las mismas condiciones |
+| `referencia_movimiento.parquet` | Elaboración propia: gente que pasa en un laborable (estimación del perfil por horas) en un punto interior de cada sección censal. Se calcula con todos los ficheros anteriores del perfil | Las de sus fuentes a la vez: **CC BY 4.0** (Comunidad de Madrid), **INE**, **ODbL 1.0** (campus de OpenStreetMap) y **licencia del CRTM**, con todas las citas |
 | `informe/gasto_restauracion.csv` | Portal de la Comunidad de Madrid (gasto medio de los hogares) | **CC BY 4.0** (Comunidad de Madrid) |
 | `informe/ipc.csv` | Portal de la Comunidad de Madrid (IPC por grupo, base 2025) | **CC BY 4.0** (Comunidad de Madrid) |
 | `informe/alojamientos_turisticos.csv` | Portal de la Comunidad de Madrid (alojamientos turísticos): solo tipo, código postal y localidad | **CC BY 4.0** (Comunidad de Madrid) |
@@ -61,7 +63,8 @@ comerciales. Pide lo siguiente, y así se cumple:
 - **Citar al CRTM e indicar si los datos son en bruto o explotados.** Son datos
   **explotados**: `salidas_paradas.parquet` no contiene horarios, sino el número de
   vehículos que paran en cada parada por hora y una estimación de personas por
-  vehículo, calculada con la demanda diaria de cada red.
+  vehículo, calculada con la demanda diaria de cada red. `lineas_paradas.parquet`
+  tampoco: solo cuántos vehículos de cada línea paran en cada parada en un día.
 - **«Powered by CRTM» con enlace** en webs y aplicaciones: está en el pie de la
   aplicación y en la pestaña de fuentes.
 - **Conservar las fechas de actualización:** están en `informe/fuentes.json` (entrada
@@ -70,7 +73,8 @@ comerciales. Pide lo siguiente, y así se cumple:
   datos de forma periódica. Los de este repositorio se descargaron el 2026-11-10.
 - **No sugerir que el CRTM patrocina o apoya el proyecto:** no lo hace.
 - **Compartir los datos con el mismo tipo de licencia:** quien reutilice
-  `salidas_paradas.parquet` debe respetar estas mismas condiciones.
+  `salidas_paradas.parquet`, `lineas_paradas.parquet` o `referencia_movimiento.parquet`
+  debe respetar estas mismas condiciones.
 
 ## Fechas de los datos
 
