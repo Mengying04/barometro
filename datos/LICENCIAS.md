@@ -69,8 +69,10 @@ comerciales. Pide lo siguiente, y así se cumple:
   aplicación y en la pestaña de fuentes.
 - **Conservar las fechas de actualización:** están en `informe/fuentes.json` (entrada
   `crtm_paradas`), en `salidas_paradas_dias.json` y en `docs/fuentes.md`.
-- **Mantener la información actualizada:** hay que volver a descargar y procesar los
-  datos de forma periódica. Los de este repositorio se descargaron el 2026-11-10.
+- **Mantener la información actualizada:** un flujo semanal de GitHub Actions
+  (`.github/workflows/actualizar-datos.yml`) vuelve a descargar y procesar los datos y
+  propone los cambios, que la autora revisa y acepta. Los de este repositorio se
+  descargaron el 2026-11-10.
 - **No sugerir que el CRTM patrocina o apoya el proyecto:** no lo hace.
 - **Compartir los datos con el mismo tipo de licencia:** quien reutilice
   `salidas_paradas.parquet`, `lineas_paradas.parquet` o `referencia_movimiento.parquet`

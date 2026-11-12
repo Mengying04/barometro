@@ -1,0 +1,256 @@
+# BARómetro: actualización semanal de los datos.
+#
+# Descarga las fuentes, las procesa, regenera la referencia de movimiento y las tablas del
+# README, pasa la comprobación de calidad (src/comprobar_datos.py) y, solo si todo va bien y
+# hay datos nuevos, abre una propuesta de cambios (pull request) para que la autora la revise.
+#
+# - Nunca sube nada a la rama principal: los cambios van a la rama «datos/actualizacion-automatica»
+#   y solo entran en la principal si la autora acepta la propuesta.
+# - No usa ningún secreto configurado. Solo el permiso temporal que GitHub da a cada ejecución
+#   (GITHUB_TOKEN), y con lo mínimo: el trabajo que descarga y procesa solo puede leer el
+#   repositorio; el que abre la propuesta puede escribir una rama y una propuesta, nada más.
+# - Respeta a los servidores de las fuentes: una descarga detrás de otra (nunca en paralelo),
+#   una pausa entre fuentes y reintentos con espera creciente.
+#
+# Por qué cada semana: la licencia del Consorcio Regional de Transportes de Madrid pide
+# mantener la información actualizada (datos/LICENCIAS.md), y los horarios de Cercanías que
+# publica solo cubren unas semanas.
+#
+# Cómo revisar y aceptar la propuesta: docs/despliegue.md, «Actualización automática».
+
+name: Actualizar datos
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"      # los lunes a las 04:17 UTC (de madrugada en Madrid)
+  workflow_dispatch:           # y a mano, desde la pestaña «Actions»
+
+# Por defecto, solo lectura. Cada trabajo pide lo suyo.
+permissions:
+  contents: read
+
+# Nunca dos actualizaciones a la vez.
+concurrency:
+  group: actualizar-datos
+  cancel-in-progress: false
+
+env:
+  RAMA: datos/actualizacion-automatica
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  datos:
+    name: Descargar, procesar y comprobar
+    runs-on: ubuntu-24.04
+    # Medido el 2026-11-12: unos 4 minutos de descarga y procesado. El límite da margen a las
+    # esperas de los reintentos (hasta 25 minutos en el peor caso).
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      cambios: ${{ steps.cambios.outputs.cambios }}
+    steps:
+      - name: Copiar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preparar Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0   # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Resumen de los tres ejemplos, antes
+        run: python src/resumen_ejemplos.py > "$RUNNER_TEMP/antes.md"
+
+      - name: Descargar el portal de la Comunidad de Madrid
+        run: |
+          # Hasta 2 intentos, con 2 minutos de espera (el script ya reintenta cada fichero).
+          for intento in 1 2; do
+            if python src/descargar_datos.py; then exit 0; fi
+            if [ "$intento" -lt 2 ]; then
+              echo "::warning::La descarga del portal ha fallado; se reintenta en 2 minutos."
+              sleep 120
+            fi
+          done
+          echo "::error::No se ha podido descargar el portal de la Comunidad de Madrid."
+          exit 1
+
+      - name: Descargar las fuentes externas (una detrás de otra)
+        run: |
+          # INE, Ayuntamiento de Madrid, OpenStreetMap y CRTM. Cada fuente, hasta 3 intentos
+          # con espera creciente (1 y 3 minutos), y una pausa de 20 segundos entre fuentes.
+          for fuente in ine ine_secc madrid osm osm_uni crtm; do
+            espera=60
+            hecho=no
+            for intento in 1 2 3; do
+              if python src/descargar_externas.py "$fuente"; then hecho=si; break; fi
+              if [ "$intento" -lt 3 ]; then
+                echo "::warning::La fuente «$fuente» ha fallado (intento $intento); se reintenta en $espera segundos."
+                sleep "$espera"
+                espera=$((espera * 3))
+              fi
+            done
+            if [ "$hecho" = no ]; then
+              echo "::error::No se ha podido descargar la fuente «$fuente»."
+              exit 1
+            fi
+            sleep 20
+          done
+          du -sh datos/originales
+
+      - name: Procesar
+        run: |
+          python src/procesar.py
+          python src/procesar_perfil.py
+          python src/procesar_informe.py
+
+      - name: Regenerar la referencia de movimiento y las tablas del README
+        run: |
+          python src/movimiento.py --generar
+          python src/tablas_readme.py --escribir
+
+      - name: Comprobación de calidad (si falla, el flujo se detiene aquí)
+        run: python src/comprobar_datos.py --markdown | tee "$RUNNER_TEMP/calidad.md"
+
+      - name: Si la calidad falla, dejar el informe a la vista
+        if: failure()
+        run: |
+          if [ -s "$RUNNER_TEMP/calidad.md" ]; then
+            { echo "## La comprobación de calidad ha detenido el flujo"; echo; cat "$RUNNER_TEMP/calidad.md"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Resumen de los tres ejemplos, después
+        run: python src/resumen_ejemplos.py > "$RUNNER_TEMP/despues.md"
+
+      - name: Ver si hay datos nuevos
+        id: cambios
+        run: |
+          # El registro de fuentes (informe/fuentes.json) lleva la fecha de descarga y cambia
+          # siempre: solo se propone un cambio si cambia algún fichero de datos de verdad.
+          git status --porcelain -- datos/procesados | grep -v 'informe/fuentes.json' > "$RUNNER_TEMP/datos.txt" || true
+          if [ -s "$RUNNER_TEMP/datos.txt" ]; then
+            echo "cambios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cambios=false" >> "$GITHUB_OUTPUT"
+            echo "Los datos procesados son idénticos a los del repositorio: no se abre ninguna propuesta." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Escribir el texto de la propuesta
+        run: |
+          {
+            echo "Actualización automática de los datos, descargados el $(date -u +%F)."
+            echo
+            echo "La licencia del Consorcio Regional de Transportes de Madrid pide mantener la"
+            echo "información actualizada; por eso este flujo se ejecuta cada semana. **Nada entra"
+            echo "en la rama principal hasta que aceptes esta propuesta.**"
+            echo
+            echo "## Los tres ejemplos"
+            echo
+            echo "Antes (datos del repositorio):"
+            echo
+            cat "$RUNNER_TEMP/antes.md"
+            echo
+            echo "Después (datos nuevos):"
+            echo
+            cat "$RUNNER_TEMP/despues.md"
+            echo
+            echo "Si la huella de un punto cambia, algo de su resultado ha cambiado. Es lo"
+            echo "esperado cuando cambian los datos; mira que las cifras sigan siendo razonables."
+            echo
+            echo "## Comprobación de calidad"
+            echo
+            cat "$RUNNER_TEMP/calidad.md"
+            echo
+            echo "## Ficheros que cambian"
+            echo
+            echo '```'
+            git status --short -- datos/procesados docs/fuentes.md README.md
+            echo '```'
+            echo
+            echo "## Antes de aceptar"
+            echo
+            echo "- [ ] Los tres ejemplos siguen teniendo sentido (tabla de arriba)."
+            echo "- [ ] \`docs/fuentes.md\` no trae avisos nuevos de descarga."
+            echo "- [ ] Poner la fecha nueva en \`datos/LICENCIAS.md\` y en la frase de «Datos» del README (se escriben a mano)."
+            echo "- [ ] Si cambian los resultados de los ejemplos, actualizar su tabla del README."
+            echo
+            echo "Cómo revisar y aceptar: \`docs/despliegue.md\`, «Actualización automática»."
+          } > "$RUNNER_TEMP/propuesta.md"
+          cat "$RUNNER_TEMP/propuesta.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Empaquetar los ficheros que cambian
+        if: steps.cambios.outputs.cambios == 'true'
+        run: |
+          # Solo lo que el repositorio publica: datos procesados permitidos en .gitignore,
+          # docs/fuentes.md y README.md. Los datos originales no salen de esta máquina.
+          git ls-files --modified --others --exclude-standard -- datos/procesados docs/fuentes.md README.md > "$RUNNER_TEMP/lista.txt"
+          mkdir "$RUNNER_TEMP/paquete"
+          tar -czf "$RUNNER_TEMP/paquete/datos-nuevos.tar.gz" --files-from "$RUNNER_TEMP/lista.txt"
+          cp "$RUNNER_TEMP/propuesta.md" "$RUNNER_TEMP/paquete/"
+
+      - name: Guardar el paquete para el siguiente trabajo
+        if: steps.cambios.outputs.cambios == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with:
+          name: datos-nuevos
+          path: ${{ runner.temp }}/paquete
+          retention-days: 7
+          if-no-files-found: error
+
+  propuesta:
+    name: Abrir la propuesta de cambios
+    needs: datos
+    # Solo si lo anterior ha ido bien (descarga, procesado y calidad) y hay datos nuevos.
+    if: needs.datos.outputs.cambios == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write          # para subir la rama de la propuesta (no la principal)
+      pull-requests: write     # para abrir o actualizar la propuesta
+    steps:
+      - name: Copiar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+
+      - name: Recuperar el paquete
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333   # v8.0.2
+        with:
+          name: datos-nuevos
+          path: ${{ runner.temp }}/paquete
+
+      - name: Subir la rama y abrir la propuesta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.ref_name }}
+          PRINCIPAL: ${{ github.event.repository.default_branch }}
+        run: |
+          # Seguro: esta rama nunca puede ser la principal ni la rama de partida.
+          if [ "$RAMA" = "$PRINCIPAL" ] || [ "$RAMA" = "$BASE" ]; then
+            echo "::error::La rama de la propuesta no puede ser la principal."
+            exit 1
+          fi
+          tar -xzf "$RUNNER_TEMP/paquete/datos-nuevos.tar.gz"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$RAMA"
+          git add -- datos/procesados docs/fuentes.md README.md
+          if git diff --cached --quiet; then
+            echo "No hay nada que proponer."
+            exit 0
+          fi
+          git commit --message "Actualización automática de los datos ($(date -u +%F))"
+          # La rama es solo de este flujo: cada semana se rehace desde la principal.
+          git push --force origin "HEAD:refs/heads/$RAMA"
+          numero=$(gh pr list --head "$RAMA" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$numero" ]; then
+            gh pr edit "$numero" --body-file "$RUNNER_TEMP/paquete/propuesta.md"
+            echo "Propuesta #$numero actualizada." >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh pr create --base "$BASE" --head "$RAMA" \
+              --title "Actualización automática de los datos ($(date -u +%F))" \
+              --body-file "$RUNNER_TEMP/paquete/propuesta.md"
+          fi

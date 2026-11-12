@@ -49,8 +49,26 @@ def _json(url: str, datos: bytes | None = None, timeout: int = 120):
         return json.load(r)
 
 
+_MESES_EN = {m: i for i, m in enumerate(
+    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
+
+
 def _fecha_ms(ms) -> str:
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat() if ms else "?"
+    """Fecha (AAAA-MM-DD) de una marca de tiempo en milisegundos. El servicio del INE da a
+    veces la fecha como texto («Thu Oct 15 09:00:00 CEST 2026») en vez de en milisegundos:
+    se aceptan las dos formas (visto el 2026-11-12; antes fallaba toda la descarga del INE)."""
+    if not ms:
+        return "?"
+    if isinstance(ms, str):
+        if ms.strip().isdigit():
+            ms = int(ms)
+        else:
+            t = ms.split()
+            try:
+                return date(int(t[-1]), _MESES_EN[t[1]], int(t[2])).isoformat()
+            except (KeyError, ValueError, IndexError):
+                return "?"
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
 
 
 def _guardar_json(obj, ruta: Path) -> None:

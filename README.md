@@ -107,6 +107,27 @@ en el repositorio están en [`datos/LICENCIAS.md`](datos/LICENCIAS.md).
 
 No se usan datos de Google Maps, Idealista ni otras webs que prohíben su extracción.
 
+### Los datos se actualizan cada semana
+
+Un flujo de GitHub Actions
+([`.github/workflows/actualizar-datos.yml`](.github/workflows/actualizar-datos.yml))
+vuelve a descargar todas las fuentes cada lunes de madrugada, las procesa, regenera la
+referencia del nivel de movimiento y las dos tablas de arriba, y pasa una comprobación
+de calidad ([`src/comprobar_datos.py`](src/comprobar_datos.py)).
+
+- **Por qué:** la licencia del Consorcio Regional de Transportes de Madrid pide mantener
+  la información actualizada, y los horarios de Cercanías que publica solo cubren unas
+  semanas. De paso se renuevan los locales, los centros y los precios.
+- **Nada se publica solo.** Si todo va bien y hay datos nuevos, el flujo abre una
+  propuesta de cambios (*pull request*) que la autora revisa y acepta. Nunca escribe en
+  la rama principal.
+- **Si algo se sale de lo esperado, se detiene:** una capa con muchas más o muchas
+  menos filas, una columna de nombres, teléfonos o correos, una población total que no
+  cuadra o una red de transporte sin servicio.
+- No usa secretos, descarga las fuentes una detrás de otra y reintenta con espera.
+
+Cómo se revisa y se acepta la propuesta: [`docs/despliegue.md`](docs/despliegue.md).
+
 ## Cómo funciona
 
 ```mermaid
@@ -173,6 +194,11 @@ cada uno con su comentario.
   los tres puntos quedaron idénticos.
 - **Despliegue.** Los tres puntos dan exactamente el mismo resultado desde un clon
   limpio del repositorio con Python 3.12, sin datos originales.
+- **Contenedor.** La imagen de Docker, construida desde un clon limpio, da en los tres
+  puntos la misma huella que el entorno de trabajo, y la aplicación enseña lo mismo.
+- **Calidad de los datos.** `src/comprobar_datos.py` hace 37 comprobaciones sobre los
+  datos publicados (filas, columnas prohibidas, población, transporte y posición). Se
+  probó también con datos estropeados a propósito: los detecta y se detiene.
 
 Cada paso está explicado, con sus pruebas y sus cifras, en
 [`docs/registro/`](docs/registro/).
@@ -256,6 +282,16 @@ python -m pip install -r requirements.txt
 streamlit run app/app.py
 ```
 
+**O con Docker,** sin instalar Python (la imagen lleva los mismos datos procesados y no
+descarga nada):
+
+```bash
+docker build -t barometro .
+docker run --rm -p 8501:8501 barometro
+```
+
+Después se abre <http://localhost:8501>.
+
 **Rehacer los datos desde cero** (descarga unos 700 MB de las fuentes):
 
 ```bash
@@ -265,7 +301,13 @@ python src/procesar.py              # capas limpias y situadas en el mapa
 python src/procesar_perfil.py       # alumnos, campus, horarios y transporte
 python src/procesar_informe.py      # tablas pequeñas del informe
 python src/movimiento.py --generar  # referencia del nivel de movimiento (medio minuto)
+python src/tablas_readme.py --escribir  # tablas de datos de este README
+python src/comprobar_datos.py       # comprobación de calidad: se detiene si algo no cuadra
+python src/resumen_ejemplos.py      # los tres puntos de prueba, con su huella
 ```
+
+Todo junto tarda unos 4 minutos (medido el 2026-11-12). Es lo mismo que hace cada semana
+el flujo de actualización.
 
 `procesar_perfil.py` no cambia los resultados si los datos no cambian, salvo en un caso:
 elige el laborable y el sábado típicos a partir de la fecha del día. Para añadir solo las
@@ -349,8 +391,6 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
   están las viviendas (Catastro).
 - Sustituir el reparto de estudiantes entre campus por datos de cada universidad.
 - Añadir precios reales de cartas, si aparece una fuente abierta.
-- Actualizar los datos de forma automática: la licencia del CRTM pide mantenerlos al
-  día.
 - Probar la aplicación con hosteleros y ajustar el lenguaje.
 
 ## Autora y licencias

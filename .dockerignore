@@ -1,0 +1,50 @@
+# Lo que no entra en la imagen de Docker. La imagen solo lleva el código, la configuración
+# de Streamlit y los datos procesados que el repositorio publica (los de .gitignore).
+
+# Control de versiones, entornos virtuales y cachés
+.git
+.gitignore
+.github
+.venv
+.venv-*
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+
+# Datos originales: no se redistribuyen ni hacen falta para arrancar
+datos/originales
+
+# Datos procesados: solo los que la aplicación necesita (misma lista que .gitignore)
+datos/procesados/*
+!datos/procesados/secciones_censales.parquet
+!datos/procesados/centros_educativos_alumnos.parquet
+!datos/procesados/centros_sanitarios.parquet
+!datos/procesados/desfibriladores_horario.parquet
+!datos/procesados/salidas_paradas.parquet
+!datos/procesados/salidas_paradas_dias.json
+!datos/procesados/lineas_paradas.parquet
+!datos/procesados/referencia_movimiento.parquet
+!datos/procesados/campus_universitarios.parquet
+!datos/procesados/hosteleria_madrid_capital.parquet
+!datos/procesados/hosteleria_osm.parquet
+!datos/procesados/informe
+
+# Secretos y configuración local (no hay secretos, pero por si aparecen)
+.streamlit/secrets.toml
+.env
+.env.*
+*.pem
+*.key
+
+# Lo que la aplicación no usa al funcionar
+docs/capturas
+docs/registro
+mcp
+.claude
+.devcontainer
+.DS_Store
+**/.DS_Store
+Dockerfile
+.dockerignore
