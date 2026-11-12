@@ -1,6 +1,10 @@
 // BARómetro: componente de la portada (buscador grande, ejemplos y «Usar mi ubicación») y de
-// la barra fija del resultado (logotipo, dirección analizada, «Buscar otra», vistas e índice
-// de secciones). Se monta con st.components.v2 desde app/app.py, sin iframe.
+// la barra fija del resultado (logotipo, campo con la dirección analizada, vistas e índice de
+// secciones). Se monta con st.components.v2 desde app/app.py, sin iframe.
+//
+// En la barra, el campo enseña la dirección analizada y se edita directamente: al pulsarlo
+// se selecciona el texto, al escribir salen las sugerencias y se busca al elegir una, con
+// Intro o con el botón. Si se sale sin buscar (Escape o un clic fuera), vuelve la dirección.
 //
 // El navegador NO llama a CartoCiudad: manda al servidor lo que se escribe (con espera entre
 // pulsaciones y un mínimo de letras) y el servidor devuelve las sugerencias ya filtradas
@@ -41,15 +45,15 @@ if (!window.__bmEnlaces) {
   });
 }
 
-function campoHTML(d, conCerrar) {
+function campoHTML(d, enBarra) {
   return (
-    ico("lupa") +
+    ico(enBarra ? "pin" : "lupa") +
     `<input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
         role="combobox" aria-autocomplete="list" aria-expanded="false"
-        aria-label="Dirección del local"
+        aria-label="${enBarra ? "Dirección analizada. Escribe otra para cambiarla" : "Dirección del local"}"
         placeholder="${window.innerWidth < 480 ? d.placeholder_corto : d.placeholder}">` +
-    (conCerrar
-      ? '<button type="button" class="bm-cerrar" aria-label="Cerrar el buscador">✕</button>'
+    (enBarra
+      ? `<button type="button" class="bm-ir" aria-label="Buscar">${ico("lupa")}<span>Buscar</span></button>`
       : '<button type="button" class="bm-ir">Buscar</button>') +
     '<div class="bm-lista" role="listbox" hidden></div>'
   );
@@ -82,22 +86,14 @@ function construir(d) {
     raiz.innerHTML =
       '<header class="bm-top">' +
       `<button type="button" class="bm-logo" title="Volver al inicio" aria-label="BARómetro: volver al inicio">${d.logo}<b>BARómetro</b></button>` +
-      `<div class="bm-dir">${ico("pin")}<span class="bm-dir-t"></span>` +
-      `<button type="button" class="bm-otra">${ico("lupa")}Buscar otra</button></div>` +
       `<div class="bm-campo">${campoHTML(d, true)}</div>` +
       '<div class="bm-fila2"><nav class="bm-vistas" aria-label="Vista"></nav>' +
       `<div class="bm-menu"><button type="button" aria-expanded="false">${ico("lista")}Secciones</button>` +
       '<div class="bm-menu-lista" hidden></div></div></div>' +
       "</header>" +
-      '<nav class="bm-indice" aria-label="Secciones del informe"></nav>' +
-      '<div class="bm-aviso-barra" role="status" hidden></div>';
+      '<nav class="bm-indice" aria-label="Secciones del informe"></nav>';
     raiz.querySelector(".bm-logo").addEventListener("click", () =>
       raiz._api.setTriggerValue("inicio", true));
-    raiz.querySelector(".bm-otra").addEventListener("click", () => {
-      raiz.classList.add("buscando");
-      raiz.querySelector("input").focus();
-    });
-    raiz.querySelector(".bm-cerrar").addEventListener("click", () => cerrarBusqueda(raiz));
     const menu = raiz.querySelector(".bm-menu");
     menu.firstElementChild.addEventListener("click", () => {
       const lista = menu.querySelector(".bm-menu-lista");
@@ -112,11 +108,17 @@ function construir(d) {
 
   const input = raiz.querySelector("input");
   const lista = raiz.querySelector(".bm-lista");
-  raiz._s = { abierto: false, activa: 0, reloj: null, irN: null, enviando: false };
+  const enBarra = d.modo === "barra";
+  const campo = raiz.querySelector(".bm-campo");
+  raiz._s = { abierto: false, activa: 0, reloj: null, irN: null, enviando: false,
+              editado: false, msgVisto: "" };
 
   input.addEventListener("input", () => {
     const s = raiz._s;
     s.abierto = true;
+    s.editado = true;
+    s.msg = "";
+    s.msgVisto = raiz._d.mensaje || "";
     s.activa = 0;
     clearTimeout(s.reloj);
     const texto = input.value.trim();
@@ -125,39 +127,65 @@ function construir(d) {
     }
     pintar(raiz);
   });
-  input.addEventListener("focus", () => { raiz._s.abierto = true; pintar(raiz); });
+  input.addEventListener("focus", () => {
+    raiz._s.abierto = true;
+    // En la barra, al entrar se selecciona la dirección: lo que se escriba la sustituye.
+    if (enBarra && !raiz._s.editado) input.select();
+    pintar(raiz);
+  });
+  // Salir del campo con el teclado (tabulador) sin buscar: vuelve la dirección analizada.
+  campo.addEventListener("focusout", (ev) => {
+    if (enBarra && !campo.contains(ev.relatedTarget)) restaurar(raiz);
+  });
   input.addEventListener("keydown", (ev) => {
     const s = raiz._s;
     const n = lista.querySelectorAll(".bm-op").length;
     if (ev.key === "ArrowDown" && n) { s.activa = (s.activa + 1) % n; ev.preventDefault(); pintar(raiz); }
     else if (ev.key === "ArrowUp" && n) { s.activa = (s.activa + n - 1) % n; ev.preventDefault(); pintar(raiz); }
     else if (ev.key === "Enter") { ev.preventDefault(); buscarOElegir(raiz); }
-    else if (ev.key === "Escape") { s.abierto = false; cerrarBusqueda(raiz); pintar(raiz); }
+    else if (ev.key === "Escape") {
+      s.abierto = false;
+      if (enBarra) { restaurar(raiz); input.blur(); } else pintar(raiz);
+    }
   });
   const ir = raiz.querySelector(".bm-ir");
-  if (ir) ir.addEventListener("click", () => { input.focus(); buscarOElegir(raiz); });
+  if (ir) {
+    // El botón no debe quitar el foco del campo (en la barra, eso desharía lo escrito).
+    ir.addEventListener("mousedown", (ev) => ev.preventDefault());
+    ir.addEventListener("click", () => { input.focus(); buscarOElegir(raiz); });
+  }
   // Un clic en una sugerencia no debe quitar el foco del campo antes de elegir.
   lista.addEventListener("mousedown", (ev) => ev.preventDefault());
   document.addEventListener("click", (ev) => {
     if (!raiz.isConnected) return;
-    if (!raiz.querySelector(".bm-campo").contains(ev.target)) { raiz._s.abierto = false; pintar(raiz); }
+    if (!campo.contains(ev.target)) {
+      raiz._s.abierto = false;
+      if (enBarra) restaurar(raiz); else pintar(raiz);
+    }
     const menu = raiz.querySelector(".bm-menu");
     if (menu && !menu.contains(ev.target)) menu.querySelector(".bm-menu-lista").hidden = true;
   });
   return raiz;
 }
 
-function cerrarBusqueda(raiz) {
-  if (!raiz.classList.contains("bm-barra")) return;
-  raiz.classList.remove("buscando");
-  raiz.querySelector("input").value = "";
-  raiz._s.abierto = false;
+// Barra: deja el campo como estaba, con la dirección analizada (si no se está enviando).
+function restaurar(raiz) {
+  const s = raiz._s;
+  if (s.enviando) return;
+  clearTimeout(s.reloj);
+  s.editado = false;
+  s.abierto = false;
+  s.msg = "";
+  s.msgVisto = raiz._d.mensaje || "";   // el aviso, si lo había, se da por leído
   pintar(raiz);
 }
 
 function buscarOElegir(raiz) {
   const s = raiz._s, d = raiz._d;
-  const texto = raiz.querySelector("input").value.trim();
+  const input = raiz.querySelector("input");
+  const texto = input.value.trim();
+  // Barra sin tocar: el botón solo lleva al campo, con la dirección seleccionada.
+  if (d.modo === "barra" && !s.editado) { input.select(); return; }
   if (texto.length < d.minimo) { s.abierto = true; pintar(raiz); return; }
   if (d.q === texto && d.sugerencias.length) { elegir(raiz, s.activa); return; }
   if (d.q !== texto) {            // sin esperar: se pide ya
@@ -209,12 +237,25 @@ function pintar(raiz) {
   const d = raiz._d, s = raiz._s;
   const input = raiz.querySelector("input");
   const lista = raiz.querySelector(".bm-lista");
+  const enBarra = d.modo === "barra";
+  // Barra: mientras no se escribe, el campo enseña la dirección analizada.
+  if (enBarra && !s.editado && !s.enviando && input.value !== d.direccion) {
+    const dentro = document.activeElement === input;
+    input.value = d.direccion;
+    if (dentro) input.select();
+  }
+  if (enBarra) input.title = d.direccion;
   const texto = input.value.trim();
+  const aviso = s.msg || (d.mensaje !== s.msgVisto ? d.mensaje : "") || "";
 
-  // ---- lista de sugerencias
+  // ---- lista de sugerencias (en la barra, también el sitio de los avisos)
   lista.innerHTML = "";
-  let visible = s.abierto && texto.length > 0 && !s.enviando;
-  if (visible && texto.length < d.minimo) {
+  let visible = s.abierto && texto.length > 0 && !s.enviando && (!enBarra || s.editado);
+  if (enBarra && aviso && !visible) {
+    lista.appendChild(crear("div", "bm-nota bm-nota-aviso", ""));
+    lista.lastChild.textContent = aviso;
+    visible = true;
+  } else if (visible && texto.length < d.minimo) {
     lista.appendChild(crear("div", "bm-nota", "Sigue escribiendo: calle, número y municipio."));
   } else if (visible && d.q !== texto) {
     lista.appendChild(crear("div", "bm-nota",
@@ -243,16 +284,15 @@ function pintar(raiz) {
   lista.hidden = !visible;
   input.setAttribute("aria-expanded", String(visible));
 
-  // ---- mensajes
-  const msg = raiz.querySelector(".bm-msg, .bm-aviso-barra");
-  const t = s.msg || d.mensaje || "";
-  msg.textContent = t;
-  msg.hidden = !t;
+  // ---- mensajes (portada: bajo el buscador)
+  const msg = raiz.querySelector(".bm-msg");
+  if (msg) {
+    msg.textContent = aviso;
+    msg.hidden = !aviso;
+  }
 
-  if (d.modo !== "barra") return;
+  if (!enBarra) return;
   // ---- barra del resultado
-  raiz.querySelector(".bm-dir-t").textContent = d.direccion;
-  raiz.querySelector(".bm-dir-t").title = d.direccion;
   const vistas = raiz.querySelector(".bm-vistas");
   vistas.innerHTML = "";
   vistas.parentElement.style.display = d.vistas.length ? "" : "none";
@@ -294,6 +334,12 @@ export default function (componente) {
   }
   raiz._api = { setStateValue, setTriggerValue };
   raiz._d = data;
+  // Si el servidor contesta con un aviso (no se pudo situar la dirección), se puede volver a
+  // buscar: el campo deja de estar «enviando».
+  if (data.mensaje && data.mensaje !== raiz._s.msgVisto) {
+    raiz._s.enviando = false;
+    raiz._s.editado = false;
+  }
   pintar(raiz);
 
   if (data.modo === "barra") {

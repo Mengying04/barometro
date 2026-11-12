@@ -68,7 +68,9 @@ es borrarla y crearla de nuevo.
 - [ ] Al pulsar una tarjeta se abre su explicación a todo el ancho.
 - [ ] El buscador de la portada sugiere direcciones al escribir, por ejemplo «Plaza
       de la Constitución 1, Fuenlabrada», y al elegir una se ve el resultado.
-- [ ] Al bajar, la barra superior sigue visible, con la dirección y «Buscar otra».
+- [ ] Al bajar, la barra superior sigue visible, con la dirección. Al pulsar sobre ella se
+      puede escribir otra: salen las sugerencias por encima del contenido y se busca al
+      elegir una, con Intro o con el botón.
 - [ ] El Informe completo muestra todas sus secciones, el índice salta entre ellas y
       «Fuentes y licencias» muestra las fechas.
 - [ ] En el pie se ven «Powered by CRTM», OpenStreetMap y CartoCiudad.

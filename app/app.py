@@ -11,8 +11,8 @@ Pantallas:
     buscador grande con sugerencias mientras se escribe; debajo, los tres ejemplos, «Usar mi
     ubicación» y tres cifras calculadas de los datos. Más abajo, «Cómo funciona» y «Fuentes
     y licencias».
-  - Resultado, sobre fondo claro y con una barra superior fija (logotipo, dirección
-    analizada, «Buscar otra» y el cambio de vista):
+  - Resultado, sobre fondo claro y con una barra superior fija (logotipo, un campo con la
+    dirección analizada que se edita directamente para buscar otra, y el cambio de vista):
       · «Resumen» (por defecto), para un hostelero sin conocimientos técnicos: el nivel de
         movimiento con su aguja, un titular, cuatro tarjetas con pregunta y respuesta, el
         mapa, la gente por horas, cómo se llega, avisos y comprobaciones;
@@ -90,9 +90,48 @@ PRINCIPAL = "#9c3d1b"
 COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": "#1baf7a",
                  "padres_ninos": "#eda100", "pacientes": "#e87ba4", "trabajadores": "#008300",
                  "deporte_eventos": "#6250d6"}
-# Tipos de local en el mapa: tonos oscuros y distintos de los de cliente.
-COLOR_TIPO = {"bar": "#c4302b", "restaurante": "#1c3f73", "cafeteria": "#8a5a2b",
-              "comida_rapida": "#4d4d4d"}
+# Tipos de local: cuatro colores bien separados también con daltonismo (comprobados por pares
+# con el validador de paletas: diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia) y,
+# además, una forma distinta por tipo. Los mismos en el mapa, la leyenda y el informe.
+COLOR_TIPO = {"bar": "#0072B2", "restaurante": "#D55E00", "cafeteria": "#009E73",
+              "comida_rapida": "#B5338A"}
+FORMA_TIPO = {  # en una rejilla de 16: círculo, cuadrado, triángulo y rombo
+    "bar": "<circle cx='8' cy='8' r='6'/>",
+    "restaurante": "<rect x='2.4' y='2.4' width='11.2' height='11.2' rx='1.6'/>",
+    "cafeteria": "<path d='M8 1.6L14.8 13.8H1.2z'/>",
+    "comida_rapida": "<path d='M8 0.9L15.1 8L8 15.1L0.9 8z'/>"}
+# Transporte: un icono discreto por modo, en gris oscuro (no compite con los locales). Son
+# dibujos propios (una letra o un autobús en una ficha), no los logotipos de las redes.
+TINTA_MODO = "#3b342c"
+MODO_ICONO = {"metro": "Metro", "cercanias": "Cercanías", "metro_ligero": "Metro Ligero",
+              "emt": "Autobús", "urbanos": "Autobús", "interurbanos": "Autobús"}
+LETRA_MODO = {"Metro": "M", "Cercanías": "C", "Metro Ligero": "ML"}
+
+
+def marca_tipo(tipo: str, px: int = 16) -> str:
+    """La marca de un tipo de local (forma y color), como SVG suelto: vale para el mapa
+    (que va en un marco aparte, sin la hoja de estilos) y para las leyendas."""
+    return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
+            f"viewBox='0 0 16 16' fill='{COLOR_TIPO.get(tipo, '#999999')}' stroke='#ffffff' "
+            f"stroke-width='1.4' stroke-linejoin='round'>"
+            f"{FORMA_TIPO.get(tipo, FORMA_TIPO['bar'])}</svg>")
+
+
+def icono_modo(modo: str, px: int = 18) -> str:
+    """La ficha de un modo de transporte: M, C o ML, o un autobús."""
+    letra = LETRA_MODO.get(modo)
+    dentro = (f"<text x='10' y='13.6' text-anchor='middle' font-family='Arial, Helvetica, "
+              f"sans-serif' font-weight='700' font-size='{8 if len(letra) > 1 else 10.5}' "
+              f"fill='{TINTA_MODO}' stroke='none'>{letra}</text>" if letra else
+              "<rect x='5.6' y='4.6' width='8.8' height='9' rx='2' fill='none'/>"
+              "<path d='M5.6 9.6h8.8M7.6 13.6v1.6M12.4 13.6v1.6' fill='none'/>")
+    return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
+            f"viewBox='0 0 20 20' stroke='{TINTA_MODO}' stroke-width='1.5' "
+            "stroke-linecap='round' stroke-linejoin='round'>"
+            f"<rect x='1.2' y='1.2' width='17.6' height='17.6' rx='5' fill='#ffffff'/>"
+            f"{dentro}</svg>")
+
+
 DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana"}
 # ------------------------------------------------------------------------ medidas
 # Cronómetro opcional (BAROMETRO_MEDIR=1): escribe en la terminal cuántas veces se ejecuta
@@ -261,6 +300,21 @@ def locales_del_radio(lat: float, lon: float, cod_municipio: str) -> pd.DataFram
     fuente = "censo" if cod_municipio == "28079" else "osm"
     loc = I.en_radio(I.locales()[fuente], shapely.Point(x, y), S.RADIO_M)
     return pd.DataFrame({"lat": loc["lat"], "lon": loc["lon"], "tipo": loc["tipo_local"]})
+
+
+def paradas_del_radio(lat: float, lon: float) -> pd.DataFrame:
+    """Posición y modo de las paradas con servicio del radio (la misma capa que usan el
+    perfil y el bloque «accesos»); sin nombres. En Metro y Metro Ligero, cada acceso de la
+    estación que cae dentro del círculo. Solo sirve para dibujarlas en el mapa."""
+    x, y = I._A_UTM.transform(lon, lat)
+    punto = shapely.Point(x, y)
+    par = I.en_radio(I.transporte()[0], punto, S.RADIO_M)[["red", "geometry"]]
+    par = par.explode(index_parts=False)
+    par = par[par.distance(punto) <= S.RADIO_M]
+    lons, lats = I._A_UTM.transform(par.geometry.x.to_numpy(), par.geometry.y.to_numpy(),
+                                    direction="INVERSE")
+    return pd.DataFrame({"lat": lats, "lon": lons, "modo": par["red"].map(MODO_ICONO).to_numpy()}
+                        ).drop_duplicates().reset_index(drop=True)
 
 
 def calcular(lat: float, lon: float) -> dict:
@@ -511,7 +565,7 @@ def tarjetas_resumen(resp: dict) -> None:
     if abierta:   # la tarjeta abierta se marca con el color de acento
         st.markdown(f"<style>.st-key-tarjeta_{abierta} {{outline:2px solid {TEJA};}}</style>",
                     unsafe_allow_html=True)
-    for col, (clave, t) in zip(st.columns(4, gap="small"), resp.items()):
+    for col, (clave, t) in zip(st.columns(4), resp.items()):
         with col, st.container(border=True, key=f"tarjeta_{clave}"):
             st.markdown(
                 f"<div class='pregunta'>{ico(ICONO_PREGUNTA[clave])}{t['pregunta']}</div>"
@@ -840,8 +894,51 @@ def frases_llegar(inf: dict) -> list[str]:
     return out
 
 
+ORDEN_MODOS = ("Metro", "Cercanías", "Metro Ligero")
+MAX_LINEAS_VISTAS = 4
+
+
+def linea_llegar(inf: dict) -> str:
+    """Cómo se llega, de un vistazo: una línea por modo con su icono, sus líneas principales
+    y la distancia a la parada más cercana, y el número de líneas de autobús. Solo enseña lo
+    que ya trae el bloque «accesos» del informe (a menos de ACCESOS_RADIO_LEJOS_M metros)."""
+    lejos = bloque_inf(inf, "accesos")["datos"]["lejos"]
+    filas = []
+    for modo in ORDEN_MODOS:
+        v = lejos.get(modo)
+        if not v:
+            continue
+        n = v["nombres_lineas"]
+        lineas = "".join(f"<span class='linea'>{html.escape(x)}</span>"
+                         for x in n[:MAX_LINEAS_VISTAS])
+        if len(n) > MAX_LINEAS_VISTAS:
+            lineas += f"<span class='linea'>+{len(n) - MAX_LINEAS_VISTAS}</span>"
+        filas.append(f"<div>{icono_modo(modo, 22)}<span class='m-nombre'>{modo}</span>"
+                     f"{lineas}<span class='lejos'>a {miles(v['distancia_m'])} m</span></div>")
+    buses = [v for m, v in lejos.items() if m not in ORDEN_MODOS]
+    if buses:
+        n = sum(v["lineas"] for v in buses)
+        filas.append(f"<div>{icono_modo('Autobús', 22)}<span class='m-nombre'>Autobús</span>"
+                     f"<span>{n} {'línea' if n == 1 else 'líneas'}</span><span class='lejos'>"
+                     f"a {miles(min(v['distancia_m'] for v in buses))} m</span></div>")
+    if not filas:
+        return ""
+    return ("<div class='modos'>" + "".join(filas) + "</div><div class='modos-pie'>Paradas a "
+            f"menos de {S.ACCESOS_RADIO_LEJOS_M} m (unos {S.ACCESOS_MINUTOS_LEJOS} minutos "
+            "andando) y distancia a la más cercana. El detalle está en el Informe completo."
+            "</div>")
+
+
 # ------------------------------------------------------------------ mapa y gráfico
-def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16) -> folium.Map:
+def marcador(lat: float, lon: float, svg: str, px: int) -> folium.Marker:
+    """Una marca del mapa (un SVG propio), sin ventana, sin nombre y sin atrapar los clics."""
+    return folium.Marker((lat, lon), interactive=False, keyboard=False,
+                         icon=folium.DivIcon(html=svg, icon_size=(px, px),
+                                             icon_anchor=(px // 2, px // 2), class_name="bm-m"))
+
+
+def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16,
+                   paradas: pd.DataFrame | None = None) -> folium.Map:
     zoom = zoom if lat is not None else 10
     centro = (lat, lon) if lat is not None else CENTRO_MADRID
     # Zoom máximo 16: a partir de 17 las teselas de OpenStreetMap rotulan los nombres de
@@ -855,11 +952,13 @@ def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16) -> foliu
     if lat is not None:
         folium.Circle((lat, lon), radius=S.RADIO_M, color=PRINCIPAL, weight=2,
                       fill=True, fill_opacity=0.06, interactive=False).add_to(m)
+        if paradas is not None:   # debajo de los locales: fichas discretas, sin nombres
+            for f in paradas.itertuples():
+                px = 13 if f.modo == "Autobús" else 18
+                marcador(f.lat, f.lon, icono_modo(f.modo, px), px).add_to(m)
         if locs is not None:
-            for f in locs.itertuples():   # sin ventanas ni nombres: solo el tipo por color
-                folium.CircleMarker((f.lat, f.lon), radius=5, weight=1.5, color="#ffffff",
-                                    fill=True, fill_color=COLOR_TIPO.get(f.tipo, "#999999"),
-                                    fill_opacity=0.95, interactive=False).add_to(m)
+            for f in locs.itertuples():   # sin ventanas ni nombres: el tipo, por color y forma
+                marcador(f.lat, f.lon, marca_tipo(f.tipo, 16), 16).add_to(m)
         folium.CircleMarker((lat, lon), radius=9, weight=3, color="#ffffff",
                             fill=True, fill_color=PRINCIPAL, fill_opacity=1,
                             interactive=False).add_to(m)
@@ -867,14 +966,14 @@ def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16) -> foliu
 
 
 def mapa(lat, lon, locs: pd.DataFrame | None, alto: int = 400,
-         zoom: int = 16) -> dict | None:
+         zoom: int = 16, paradas: pd.DataFrame | None = None) -> dict | None:
     """Dibuja el mapa. El objeto del mapa se construye una sola vez por punto y se guarda
     en la sesión. Solo vuelve al servidor el último clic: mover el mapa o hacer zoom no
     provoca ninguna recarga."""
     guardado = st.session_state.get("mapa_obj")
     clave = (lat, lon, zoom, locs is None)
     if not guardado or guardado[0] != clave:
-        guardado = (clave, construir_mapa(lat, lon, locs, zoom))
+        guardado = (clave, construir_mapa(lat, lon, locs, zoom, paradas))
         st.session_state["mapa_obj"] = guardado
     return st_folium(guardado[1], height=alto, use_container_width=True,
                      returned_objects=["last_clicked"], key="mapa")
@@ -885,6 +984,20 @@ def leyenda(titulo: str, items: list[tuple[str, str]], extra: str = "") -> None:
         f"<div class='leyenda'><b>{titulo}</b>" + "".join(
             f"<span><i class='punto' style='background:{c}'></i>{n}</span>"
             for n, c in items) + extra + "</div>", unsafe_allow_html=True)
+
+
+def leyenda_mapa(paradas: pd.DataFrame | None = None, cuenta: dict | None = None) -> str:
+    """Leyenda de los locales (los cuatro tipos, con su forma y su color) y, si se dan, de las
+    paradas del mapa. Con «cuenta», cada tipo lleva su número (informe)."""
+    out = f"<div class='leyenda rejilla{' cuenta' if cuenta else ''}'>" + "".join(
+        f"<span>{marca_tipo(t)}{n}" + (f"<b>{miles(cuenta[t])}</b>" if cuenta else "")
+        + "</span>" for t, n in S.TIPOS_COMPETENCIA.items()) + "</div>"
+    modos = [m for m in (*ORDEN_MODOS, "Autobús")
+             if paradas is not None and (paradas["modo"] == m).any()]
+    if modos:
+        out += "<div class='leyenda rejilla modos-ley'>" + "".join(
+            f"<span>{icono_modo(m, 18)}{m}</span>" for m in modos) + "</div>"
+    return out
 
 
 def grafico_perfil(perfil: dict, rec: dict, dia: str) -> None:
@@ -1008,8 +1121,9 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
                          mayus(c["precision_texto"]) + ": confirmarás el sitio en el mapa"}
                         for c in sug["cands"]],
         "mensaje": st.session_state.pop("mensaje", ""),
-        "placeholder": "Escribe la dirección del local",
-        "placeholder_corto": "Dirección del local"}
+        "placeholder": "Escribe la dirección del local" if modo == "portada"
+        else "Escribe otra dirección",
+        "placeholder_corto": "Dirección del local" if modo == "portada" else "Otra dirección"}
     if modo == "portada":
         datos.update(ejemplos=list(EJEMPLOS), privacidad=PRIVACIDAD)
     else:
@@ -1165,13 +1279,18 @@ def bloque_mercado(b: dict) -> None:
             etiqueta, valor, frase = metrica_bloque(b)
         except (KeyError, TypeError, ValueError, IndexError):
             etiqueta, valor, frase = b["titulo"], "—", ""
+        # Competencia: los locales del radio por tipo, con las marcas del mapa.
+        por_tipo = b["datos"].get("comparacion_por_tipo", {}) if b["clave"] == "competencia" \
+            else {}
+        cuenta = ({t: por_tipo[t]["radio"] for t in S.TIPOS_COMPETENCIA}
+                  if all(t in por_tipo for t in S.TIPOS_COMPETENCIA) else None)
         st.markdown(
             f"<div class='caja-t'>{html.escape(b['titulo'])} <span class='etiqueta'>"
             f"{html.escape(b['caracter'].capitalize())}</span></div>"
             f"<div class='m-etq'>{html.escape(etiqueta)}</div>"
             f"<div class='m-valor'>{html.escape(valor)}</div>"
-            + (f"<div class='frase'>{html.escape(frase)}</div>" if frase else ""),
-            unsafe_allow_html=True)
+            + (f"<div class='frase'>{html.escape(frase)}</div>" if frase else "")
+            + (leyenda_mapa(cuenta=cuenta) if cuenta else ""), unsafe_allow_html=True)
         avisos = [n for n in b["notas"] if es_aviso(n)]
         with st.expander("Detalle, notas y fuentes" + (" · con avisos" if avisos else "")):
             st.markdown(b["resumen"])
@@ -1399,7 +1518,8 @@ if punto and res is None:
         with medir("cálculo"):
             t0 = time.perf_counter()
             res = {**calcular(*punto), "muni": muni_nuevo,
-                   "locs": locales_del_radio(*punto, muni_nuevo["cod"])}
+                   "locs": locales_del_radio(*punto, muni_nuevo["cod"]),
+                   "paradas": paradas_del_radio(*punto)}
             st.session_state["resultado"] = res
             st.session_state["segundos"] = time.perf_counter() - t0
         hueco.empty()
@@ -1433,9 +1553,10 @@ def parte_tarjetas(rec: dict, inf: dict, atenuadas: bool = False) -> None:
 
 
 @fragmento("mapa")
-def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16) -> None:
+def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16, paradas=None) -> None:
     """El mapa. Un clic elige otro punto y, solo entonces, se recalcula la página."""
-    clic = (mapa(lat, lon, locs, alto=alto, zoom=zoom) or {}).get("last_clicked")
+    clic = (mapa(lat, lon, locs, alto=alto, zoom=zoom, paradas=paradas)
+            or {}).get("last_clicked")
     if clic:
         nuevo = (round(clic["lat"], 6), round(clic["lng"], 6))
         if nuevo != st.session_state.get("ultimo_clic"):
@@ -1475,19 +1596,21 @@ def parte_comprobaciones(rec: dict) -> None:
 
 def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
     mov = res["mov"]
-    st.markdown(veredicto(lugar_analizado(), mov, titular_calle(rec, mov))
-                + ("<div style='height:1rem'></div>" + nota("aviso", html.escape(mov["aviso"]))
-                   if mov["muy_poco_paso"] else ""), unsafe_allow_html=True)
+    st.markdown(veredicto(lugar_analizado(), mov, titular_calle(rec, mov)),
+                unsafe_allow_html=True)
+    if mov["muy_poco_paso"]:
+        st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
     parte_tarjetas(rec, inf, mov["muy_poco_paso"])
 
     # ------------------------------------------------------- mapa y gente por horas
-    cm, cg = st.columns([1, 1.15], gap="medium")
+    cm, cg = st.columns(2)
     with cm, st.container(border=True, key="caja_mapa"):
         st.markdown("<div class='caja-t'>Los bares y restaurantes que ya hay cerca</div>"
-                    f"<div class='caja-s'>El círculo marca {S.RADIO_M} metros. Toca el mapa "
-                    "para mirar otro sitio.</div>", unsafe_allow_html=True)
-        parte_mapa(*punto, res["locs"], 380)
-        leyenda("", [(n, COLOR_TIPO[t]) for t, n in S.TIPOS_COMPETENCIA.items()])
+                    f"<div class='caja-s'>El círculo marca {S.RADIO_M} metros; también se ven "
+                    "las paradas de transporte. Toca el mapa para mirar otro sitio.</div>",
+                    unsafe_allow_html=True)
+        parte_mapa(*punto, res["locs"], 380, paradas=res.get("paradas"))
+        st.markdown(leyenda_mapa(res.get("paradas")), unsafe_allow_html=True)
     with cg, st.container(border=True, key="caja_grafico"):
         parte_grafico(perfil, rec)
 
@@ -1495,6 +1618,9 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
     transporte, entorno = frases_llegar(inf)
     st.markdown(f"<div class='seccion'>{ico('bus')}Cómo se llega y qué hay un poco más lejos"
                 "</div>", unsafe_allow_html=True)
+    modos = linea_llegar(inf)
+    if modos:   # con paradas cerca: el nivel y, en vez de la frase, la línea con iconos
+        transporte = f"<b>{html.escape(bloque_inf(inf, 'accesos')['datos']['nivel'])}</b>{modos}"
     st.markdown(f"<div class='llegar'><div>{ico('bus')}<span>{transporte}</span></div>"
                 f"<div>{ico('casa')}<span>{entorno}</span></div></div>",
                 unsafe_allow_html=True)
@@ -1554,8 +1680,9 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         seccion_perfil(rec, perfil)
 
         st.markdown(cabecera_seccion("mercado"), unsafe_allow_html=True)
-        for b in inf["bloques"]:
-            bloque_mercado(b)
+        with st.container(key="mercado"):   # dos columnas en portátil (app/estilo.css)
+            for b in inf["bloques"]:
+                bloque_mercado(b)
         st.markdown(cabecera_seccion("riesgos"), unsafe_allow_html=True)
         seccion_riesgos(rec, inf)
         st.markdown(cabecera_seccion("comprobar"), unsafe_allow_html=True)
@@ -1611,6 +1738,8 @@ if res or pendiente:   # resultado sobre fondo claro, con la barra fija arriba
 if res:
     parte_buscador("barra", lugar_analizado(), vista,
                    SECCIONES if vista == "Informe completo" else ())
+    if vista != "Resumen":   # el informe aprovecha el ancho: menos margen a los lados
+        st.markdown("<style>:root {--ancho:1400px;}</style>", unsafe_allow_html=True)
     if vista == "Resumen":   # solo se construye la vista que se está viendo
         st.markdown(orientacion(AVISO_SENCILLO), unsafe_allow_html=True)
         vista_resumen(res["rec"], res["perfil"], res["informe"])
