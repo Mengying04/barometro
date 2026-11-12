@@ -2,6 +2,9 @@
 
 Lo usan la aplicación web (app/app.py) y el servidor MCP (mcp/servidor.py), con los mismos
 filtros. La dirección se envía a CartoCiudad para situarla y no se guarda en ningún sitio.
+En la aplicación web el buscador sugiere direcciones mientras se escribe: lo escrito se
+envía a CartoCiudad (con una espera entre pulsaciones y un mínimo de letras, para no
+saturar el servicio) y tampoco se guarda.
 Condiciones de uso y licencia (CC BY 4.0) en docs/fuentes.md.
 
     from direcciones import geocodificar, coordenadas

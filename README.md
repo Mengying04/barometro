@@ -9,7 +9,9 @@ Prototipo para el datathon **DATAMAD 2026** de la Comunidad de Madrid.
 
 **▶ Demo:** <https://barometro-madrid.streamlit.app/>
 
-![Vista Resumen de BARómetro para el campus de Vicálvaro](docs/capturas/portatil-vicalvaro-resumen-inicio.png)
+![Portada de BARómetro: el buscador de direcciones](docs/capturas/portatil-portada.png)
+
+![Vista Resumen de BARómetro para el campus de Vicálvaro](docs/capturas/portatil-vicalvaro-resumen.png)
 
 ## El problema y a quién ayuda
 
@@ -132,8 +134,9 @@ flowchart LR
    resultado se da en cinco niveles.
 6. **Recomendaciones.** Combinan el perfil y el informe. Cada una lleva su porqué, su confianza
    (alta, media o baja) y si es un dato o una estimación.
-7. **Aplicación.** Una vista «Resumen» en lenguaje sencillo y un «Informe completo»
-   con todo lo técnico.
+7. **Aplicación.** Una portada con un buscador que sugiere direcciones mientras se
+   escribe, una vista «Resumen» en lenguaje sencillo y un «Informe completo» con todo
+   lo técnico.
 
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
 cada uno con su comentario.
@@ -226,8 +229,10 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 - **Sin nombres de personas ni de locales.** Los datos procesados no los guardan, el
   mapa no deja acercarse hasta leer rótulos y el buscador descarta nombres de
   comercios.
-- **La dirección que se escribe no se guarda.** Solo se envía a CartoCiudad (IGN)
-  para situarla en el mapa, y la aplicación lo dice.
+- **Lo que se escribe en el buscador no se guarda.** Se envía a CartoCiudad (IGN) para
+  sugerir direcciones mientras se escribe y situar la elegida, y la aplicación lo dice.
+- **La ubicación del navegador solo se usa si se pide.** «Usar mi ubicación» la pregunta
+  al navegador, solo vale si el usuario la acepta y tampoco se guarda.
 - **La aplicación no recoge estadísticas de uso.**
 - **Lenguaje de orientación,** nunca de garantía, y fiabilidad visible en cada
   respuesta.

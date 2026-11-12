@@ -66,18 +66,19 @@ es borrarla y crearla de nuevo.
       «Zona de desayunos, con mucha competencia cerca» y «Aquí encajan sobre todo
       desayunos y meriendas».
 - [ ] Al pulsar una tarjeta se abre su explicación a todo el ancho.
-- [ ] El buscador encuentra una dirección, por ejemplo «Plaza de la Constitución 1,
-      Fuenlabrada».
-- [ ] El Informe completo abre sus cinco pestañas y «Fuentes y licencias» muestra
-      las fechas.
+- [ ] El buscador de la portada sugiere direcciones al escribir, por ejemplo «Plaza
+      de la Constitución 1, Fuenlabrada», y al elegir una se ve el resultado.
+- [ ] Al bajar, la barra superior sigue visible, con la dirección y «Buscar otra».
+- [ ] El Informe completo muestra todas sus secciones, el índice salta entre ellas y
+      «Fuentes y licencias» muestra las fechas.
 - [ ] En el pie se ven «Powered by CRTM», OpenStreetMap y CartoCiudad.
 - [ ] En el móvil se lee bien.
 
 ## Qué necesita de internet
 
 - **El servidor** consulta el geocodificador de CartoCiudad (`www.cartociudad.es`)
-  cuando alguien busca una dirección. Si el servicio no dejara salir esa petición, el
-  buscador avisaría del fallo; los ejemplos y el clic en el mapa seguirían
+  mientras alguien escribe una dirección. Si el servicio no dejara salir esa petición,
+  el buscador avisaría del fallo; los ejemplos y «Usar mi ubicación» seguirían
   funcionando.
 - **El navegador de quien la usa** pide las teselas del mapa a
   `tile.openstreetmap.org`, la biblioteca del mapa a varias CDN y la tipografía a
@@ -127,6 +128,6 @@ es borrarla y crearla de nuevo.
 |---|---|---|
 | Error al instalar `numpy` o `pandas` | Versión de Python anterior a 3.12 | Crear la aplicación de nuevo con Python 3.12 |
 | `FileNotFoundError` en `datos/procesados/…` | Falta un fichero de datos en GitHub | Comprobar `.gitignore` y que el fichero se ha subido |
-| «Ahora no podemos buscar direcciones» | CartoCiudad no responde o el servicio bloquea la salida | Usar los ejemplos o el clic en el mapa; volver a probar más tarde |
+| «Ahora no podemos buscar direcciones» | CartoCiudad no responde o el servicio bloquea la salida | Usar los ejemplos o «Usar mi ubicación»; volver a probar más tarde |
 | El mapa sale en blanco | El navegador no llega a las teselas o a las CDN | Probar con otra red |
 | La aplicación se reinicia sola | Se ha quedado sin memoria | Mirar el registro del servicio; no debería pasar con 400 MB |

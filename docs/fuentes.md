@@ -302,10 +302,11 @@ No se descargan: la aplicación los consulta en el momento.
 
 - **Enlace:** https://www.cartociudad.es/web/portal/directorio-de-servicios/geoprocesamiento (servicio REST Geocoder: `https://www.cartociudad.es/geocoder/api/geocoder/candidates` y `.../find`)
 - **Licencia:** CC BY 4.0. Según las preguntas frecuentes oficiales (https://www.cartociudad.es/web/portal/faq, consultadas el 2026-11-10): «Se permite el uso libre y gratuito de los datos para cualquier propósito legítimo, incluido el comercial y la publicación», y «el acceso y uso de los servicios web de CartoCiudad son gratuitos en cualquier caso, siempre que se mencionen la autoría y propiedad del siguiente modo: «CC BY 4.0 www.scne.es/productos.html#CartoCiudad»». El aviso legal (https://www.cartociudad.es/web/portal/aviso-legal) pide un uso lícito y citar el origen. La aplicación muestra esa mención junto al buscador.
-- **Fecha de descarga:** no se descarga (consulta en el momento); condiciones revisadas el 2026-11-10
+- **Fecha de descarga:** no se descarga (consulta en el momento); condiciones revisadas el 2026-11-10 y el 2026-11-12
 - **Versión de los datos:** la vigente en el servicio en el momento de la consulta
-- Uso: convertir la dirección que escribe el usuario en coordenadas (`candidates` y, para calles sin coordenadas, `find`), solo en la provincia de Madrid (`provincia_filter=Madrid`).
-- Privacidad: la dirección se envía a CartoCiudad para geolocalizarla; la aplicación no la guarda. No se muestran resultados de tipo «topónimo» ni «punto de interés» (pueden ser nombres de comercios o de personas).
+- Uso: sugerir direcciones mientras el usuario escribe y convertir la elegida en coordenadas (`candidates` y, para calles sin coordenadas, `find`), solo en la provincia de Madrid (`provincia_filter=Madrid`).
+- Uso como autocompletado (revisado el 2026-11-12): las preguntas frecuentes y el aviso legal no fijan un límite de peticiones ni prohíben el autocompletado; `candidates` es el método del servicio pensado para proponer candidatos a partir de un texto incompleto. Para no saturarlo, la aplicación espera 350 ms entre pulsaciones, no pregunta con menos de 4 caracteres, pide 10 candidatos como mucho y no repite la última consulta. Las peticiones salen del servidor de la aplicación, con un `User-Agent` que la identifica. No hay garantía de disponibilidad: si el servicio falla, el buscador lo dice y se puede usar un ejemplo o la ubicación.
+- Privacidad: lo que se escribe en el buscador se envía a CartoCiudad para sugerir direcciones y situar la elegida; la aplicación no lo guarda. No se muestran resultados de tipo «topónimo» ni «punto de interés» (pueden ser nombres de comercios o de personas).
 
 ### OpenStreetMap: teselas del mapa base
 
