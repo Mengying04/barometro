@@ -234,34 +234,40 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - `cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).
 - No se guarda el texto libre de `horario_acceso` (ya está interpretado en `horario_tipo` y en las horas de apertura y cierre, y alguna vez nombra el establecimiento).
 
-**salidas_paradas** (14.401 paradas → 14.401)
+**salidas_paradas** (15.207 paradas → 15.207)
 
 - Pasos de vehículos (cada vez que un tren o autobús para en la parada) por hora, en un laborable típico (`lab_00`…`lab_23`) y un sábado típico (`sab_00`…`sab_23`). Las horas de más de 24:00 del GTFS se pasan a la madrugada (25:30 → 1).
-- Día típico: entre los martes, miércoles y jueves (y entre los sábados) de las 4 primeras semanas de vigencia a partir de hoy, el de número de viajes mediano (evita festivos y días especiales).
-- Metro: GTFS de mayo de 2025 (el más reciente publicado; su calendario terminó el 27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se supone que las frecuencias actuales son parecidas.
+- Día típico de cada red: entre los martes, miércoles y jueves (y entre los sábados) de las 4 primeras semanas de vigencia a partir de hoy, sin los días con menos del 80 % de los viajes del día mediano (festivos), el día en que circulan más líneas y, entre los empatados, el de número de viajes mediano. Antes se tomaba solo el de viajes mediano, y en interurbanos y urbanos caía en un día en que el GTFS deja sin servicio 21 líneas de la Sierra (su calendario de miércoles y jueves solo vale para un día suelto; el resto del año solo figuran los martes).
+- Viajes sin hora en cada parada (interurbanos y urbanos): son viajes reales, con su calendario y su hora de salida, en los que todas las paradas llevan la misma hora (la de salida o, si viene la hora de relleno 01:00:00, la que figura en el identificador del viaje). Antes se descartaban y sus líneas (480-499, 350-355, 665-667, urbanos de Pinto, Valdemoro, Arganda o Tres Cantos…) salían sin servicio. Ahora se cuentan: el número de vehículos es un **dato** y la hora en cada parada, una **estimación** (salida + orden de la parada × tiempo mediano entre paradas de los viajes con horario de la red).
+- `origen_pasos` dice si los pasos de la parada salen de los horarios del GTFS o de una línea reconstruida (estimación).
+- Metro: GTFS de mayo de 2025 (el más reciente publicado, comprobado el 2026-11-12: el fichero del CRTM no se ha modificado desde el 30/05/2025; su calendario terminó el 27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se supone que las frecuencias actuales son parecidas.
+- Cercanías, línea C9 (Cercedilla-Cotos): excluida. Está cerrada por obras de renovación desde mayo de 2024 (aviso de cierre: https://www.timeout.es/madrid/es/noticias/la-linea-de-cercanias-que-lleva-a-la-sierra-de-guadarrama-cierra-en-mayo-042924; consultado el 2026-11-12) y el GTFS solo le pone viajes 5 días sueltos del mes. Revisar cuando reabra (`GTFS_LINEAS_EXCLUIDAS` en src/supuestos.py).
 - Interurbanos y urbanos comparten `stops.txt`: cada red cuenta solo sus vehículos.
 - Geometría: la parada; en Metro y Metro Ligero, el conjunto de accesos de la estación (`location_type` 2 del GTFS), para medir la distancia a la salida más cercana a la calle.
-- metro: laborable 2026-05-13, sábado 2026-05-09 (viajes-plantilla de frequencies.txt expandidos); 254 con la posición de sus accesos; 272 paradas con servicio; 113.756 pasos en laborable
-- metro_ligero: laborable 2026-11-19, sábado 2026-11-21; 13 con la posición de sus accesos; 57 paradas con servicio; 12.507 pasos en laborable
-- cercanias: laborable 2026-11-12, sábado 2026-11-21; 93 paradas con servicio; 20.201 pasos en laborable
-- emt: laborable 2026-11-19, sábado 2026-11-21; 4935 paradas con servicio; 982.548 pasos en laborable
-- interurbanos: laborable 2026-11-26, sábado 2026-11-21; 5826 viajes de relleno descartados (todas las paradas a la misma hora); 6226 paradas con servicio; 691.865 pasos en laborable
-- urbanos: laborable 2026-11-26, sábado 2026-11-21; 1654 viajes de relleno descartados (todas las paradas a la misma hora); 2818 paradas con servicio; 200.362 pasos en laborable
+- metro: laborable 2026-05-13, sábado 2026-05-09 (viajes-plantilla de frequencies.txt expandidos); ese laborable circulan 12 de las 13 líneas del fichero; 271 con la posición de sus accesos; 290 paradas con servicio; 122.515 pasos en laborable
+- metro_ligero: laborable 2026-11-25, sábado 2026-11-21; ese laborable circulan 4 de las 4 líneas del fichero; 13 con la posición de sus accesos; 57 paradas con servicio; 12.507 pasos en laborable
+- cercanias: laborable 2026-11-12, sábado 2026-11-21; ese laborable circulan 11 de las 12 líneas del fichero; línea C9 excluida (sin servicio habitual: cerrada por obras); 93 paradas con servicio; 20.201 pasos en laborable
+- emt: laborable 2026-11-25, sábado 2026-11-21; ese laborable circulan 234 de las 238 líneas del fichero; 4935 paradas con servicio; 982.548 pasos en laborable
+- interurbanos: laborable 2026-11-24, sábado 2026-11-21; ese laborable circulan 335 de las 354 líneas del fichero; 5759 viajes de 68 líneas sin hora en cada parada, contados con la hora estimada (salida + 117 s por parada); 56 repetidos y 11 sin hora de salida, descartados; 6768 paradas con servicio; 880.577 pasos en laborable
+- urbanos: laborable 2026-11-24, sábado 2026-11-21; ese laborable circulan 110 de las 117 líneas del fichero; 1600 viajes de 24 líneas sin hora en cada parada, contados con la hora estimada (salida + 90 s por parada); 54 repetidos y 0 sin hora de salida, descartados; 3064 paradas con servicio; 240.476 pasos en laborable
+- metro: **línea 3 reconstruida (estimación)**. El GTFS trae sus andenes pero ningún viaje. En cada andén (18 propios y 1 de otra línea en la misma estación: EL CASAR) se ponen, hora a hora, los trenes de la estación mediana de las líneas 1, 2, 4, 5 (media de las cuatro): 461 trenes al día en laborable y 370 en sábado, sumando los dos sentidos.
 - Calibración con la demanda diaria del CRTM (2026-08-30 a 2026-10-25; mediana de martes a jueves y de sábados, sin festivos): personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las paradas de la red.
-- Laborable: Conc. por carretera 1.140.012 viajeros / 892.227 pasos → 2.6 personas por paso; EMT 1.768.702 viajeros / 982.548 pasos → 3.6 personas por paso; Metro de Madrid 2.520.976 viajeros / 113.756 pasos → 44.3 personas por paso; Renfe Cercanías 735.479 viajeros / 20.201 pasos → 72.8 personas por paso
-- Sábado: Conc. por carretera 562.112 viajeros / 641.943 pasos → 1.8 personas por paso; EMT 1.037.032 viajeros / 656.740 pasos → 3.2 personas por paso; Metro de Madrid 1.744.264 viajeros / 93.200 pasos → 37.4 personas por paso; Renfe Cercanías 441.096 viajeros / 15.615 pasos → 56.5 personas por paso
+- Laborable: Conc. por carretera 1.140.012 viajeros / 1.121.053 pasos → 2.0 personas por paso; EMT 1.768.702 viajeros / 982.548 pasos → 3.6 personas por paso; Metro de Madrid 2.520.976 viajeros / 122.515 pasos → 41.2 personas por paso; Renfe Cercanías 735.479 viajeros / 20.201 pasos → 72.8 personas por paso
+- Sábado: Conc. por carretera 562.112 viajeros / 828.493 pasos → 1.4 personas por paso; EMT 1.037.032 viajeros / 656.740 pasos → 3.2 personas por paso; Metro de Madrid 1.744.264 viajeros / 100.230 pasos → 34.8 personas por paso; Renfe Cercanías 441.096 viajeros / 15.615 pasos → 56.5 personas por paso
 - Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
-**lineas_paradas** (32.723 pares parada-línea-sentido → 32.723)
+**lineas_paradas** (36.484 pares parada-línea-sentido → 36.484)
 
 - Por cada parada, línea y sentido: vehículos que paran en el laborable típico (`vehiculos_lab`), con los mismos días y los mismos viajes que `salidas_paradas` (se comprueba que cada parada suma lo mismo que su `total_lab`). Sin geometría: se cruza con `salidas_paradas` por `red` y `stop_id`.
 - `linea` es el nombre corto de la línea (`route_short_name`); `id_linea` la distingue de otras con el mismo nombre (urbanos de distintos municipios). En Cercanías, que no trae sentido, cada `route_id` hace de sentido.
-- metro: 12 líneas con servicio el 2026-05-13; sin servicio ese día en el GTFS (no salen): 3
-- metro_ligero: 4 líneas con servicio el 2026-11-19
-- cercanias: 11 líneas con servicio el 2026-11-12; sin servicio ese día en el GTFS (no salen): C9
-- emt: 234 líneas con servicio el 2026-11-19; sin servicio ese día en el GTFS (no salen): 172SF, SE721, SE730, SE766
-- interurbanos: 287 líneas con servicio el 2026-11-26; 67 líneas sin servicio ese día en el GTFS (no salen)
-- urbanos: 97 líneas con servicio el 2026-11-26; sin servicio ese día en el GTFS (no salen): 3A, I1, SE
+- `estimada` vale verdadero en las líneas reconstruidas (línea 3 de Metro): sus vehículos son una **estimación** (ver `salidas_paradas`).
+- Las líneas que «no salen» no tienen viajes ese laborable: no tienen ninguno en el fichero, solo circulan en fin de semana o festivo, o están excluidas por obras (C9 de Cercanías).
+- metro: 13 líneas con servicio el 2026-05-13 (la 3, reconstruida: **estimación**)
+- metro_ligero: 4 líneas con servicio el 2026-11-25
+- cercanias: 11 líneas con servicio el 2026-11-12; no salen: C9
+- emt: 234 líneas con servicio el 2026-11-25; no salen: 172SF, SE721, SE730, SE766 (sin ningún viaje en el fichero: SE721, SE730, SE766)
+- interurbanos: 335 líneas con servicio el 2026-11-24; no salen: 196, 199A, 414, 635, 692, 720, 721, 722, 723, 724, 725, 726, 727, 728, 819, FS1, FS2, N702, N908 (sin ningún viaje en el fichero: 635, 720, 721, 722, 723, 724, 725, 726, 727, 728, N702, N908)
+- urbanos: 110 líneas con servicio el 2026-11-24; no salen: 3A, I1, SE (sin ningún viaje en el fichero: 3A, I1, SE)
 
 <!-- fin:perfil -->
 

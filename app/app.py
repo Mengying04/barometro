@@ -1026,7 +1026,12 @@ def tabla_bloque(b: dict) -> None:
              f"A menos de {d['radio_lejos_m']} m": celda(v),
              "Parada más cercana": f"{v['distancia_m']} m"}
             for m, v in d["lejos"].items()]), hide_index=True, width="stretch")
-        st.caption("Vehículos en un día laborable típico, sumando los dos sentidos.")
+        est = sorted({f"la línea {n} de {m}" for m, v in d["lejos"].items()
+                      for n in v.get("lineas_estimadas", [])})
+        st.caption("Vehículos en un día laborable típico, sumando los dos sentidos."
+                   + (f" Los de {lista_y(est)} son una estimación: no tiene viajes en los "
+                      "horarios publicados y se le pone la frecuencia media de líneas "
+                      "parecidas." if est else ""))
 
 
 def bloque_mercado(b: dict) -> None:

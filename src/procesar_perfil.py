@@ -12,7 +12,9 @@ Genera en datos/procesados/:
      normalizado y fusionados cuando son del mismo sitio.
   3. salidas_paradas.parquet: número de vehículos que pasan por cada parada en cada hora
      de un laborable típico y de un sábado típico, a partir de los GTFS del CRTM, y
-     personas que suben o bajan por vehículo calibradas con la demanda real.
+     personas que suben o bajan por vehículo calibradas con la demanda real. Incluye los
+     viajes sin hora por parada (hora estimada) y la línea 3 de Metro, que no tiene
+     viajes en el GTFS (reconstruida: estimación).
   4. lineas_paradas.parquet: qué líneas paran en cada parada y cuántos vehículos de cada
      una, en el mismo laborable típico (para el bloque «Cómo se llega» del informe).
 
@@ -570,6 +572,9 @@ def servicios_activos(cal: pd.DataFrame, cd: pd.DataFrame, dia: date) -> set[str
 
 
 def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame) -> dict:
+    """Día típico (laborable y sábado): {tipo: (viajes, día, líneas)}. Entre los martes,
+    miércoles y jueves (o los sábados) de la muestra, sin los días flojos (festivos), el
+    día en que circulan más líneas; entre los empatados, el de viajes mediano."""
     fechas = pd.concat([cal.get("start_date", pd.Series(dtype=str)),
                         cal.get("end_date", pd.Series(dtype=str)),
                         cd.get("date", pd.Series(dtype=str))]).dropna()
@@ -577,7 +582,6 @@ def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame) -> dic
     fin = pd.to_datetime(fechas.max()).date()
     largo = 7 * S.GTFS_SEMANAS_MUESTRA
     desde = max(ini, min(HOY, fin - timedelta(days=largo - 1)))
-    viajes = trips.groupby("service_id").size()
     cand = {"laborable": [], "sabado": []}
     for k in range(largo):
         dia = desde + timedelta(days=k)
@@ -586,13 +590,17 @@ def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame) -> dic
         tipo = "laborable" if dia.weekday() in (1, 2, 3) else \
             "sabado" if dia.weekday() == 5 else None
         if tipo:
-            n = int(viajes.reindex(list(servicios_activos(cal, cd, dia))).sum())
-            cand[tipo].append((n, dia))
+            t = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))]
+            cand[tipo].append((len(t), dia, t["linea_id"].nunique()))
     out = {}
     for tipo, lista in cand.items():
         lista = sorted(x for x in lista if x[0] > 0)
         if not lista:
             raise RuntimeError(f"Sin días con servicio de tipo {tipo}")
+        mediana = lista[(len(lista) - 1) // 2][0]
+        lista = [x for x in lista if x[0] >= S.GTFS_DIA_MINIMO_VIAJES * mediana]
+        mas = max(x[2] for x in lista)
+        lista = [x for x in lista if x[2] == mas]
         out[tipo] = lista[(len(lista) - 1) // 2]  # mediana (la inferior si son pares)
     return out
 
@@ -749,25 +757,78 @@ def calibrar(gdf: gpd.GeoDataFrame) -> list[str]:
     return notas
 
 
-def cargar_red(g: Gtfs) -> tuple:
-    """Calendario, viajes, horas de paso y frecuencias de un GTFS, sin los viajes de
-    relleno. Lo usan gtfs() y lineas() para contar exactamente los mismos viajes."""
+_HORA_EN_ID = r"_(\d{1,2}:\d{2}:\d{2})_"
+
+
+def cargar_red(g: Gtfs, red: str) -> tuple:
+    """Calendario, viajes, horas de paso y frecuencias de un GTFS. Lo usan gtfs() y
+    lineas() para contar exactamente los mismos viajes. Devuelve además un diccionario
+    con lo que se ha tenido que arreglar (viajes sin hora por parada, líneas excluidas)."""
     cal, cd = g.leer("calendar.txt"), g.leer("calendar_dates.txt")
     trips = g.leer("trips.txt", usecols=lambda c: c in {
         "trip_id", "service_id", "route_id", "direction_id"})
+    rutas = g.leer("routes.txt", usecols=["route_id", "route_short_name"])
+    arreglos = {}
+    # Líneas que hoy no circulan de forma habitual (ver supuestos.GTFS_LINEAS_EXCLUIDAS)
+    fuera = S.GTFS_LINEAS_EXCLUIDAS.get(red, ())
+    if fuera:
+        ids = set(rutas.loc[rutas["route_short_name"].str.strip().isin(fuera), "route_id"])
+        trips = trips[~trips["route_id"].isin(ids)]
+        arreglos["excluidas"] = list(fuera)
+    if "direction_id" not in trips:
+        trips = trips.assign(direction_id="")
+    # Línea de cada viaje: su route_id, salvo en Cercanías, que trae un route_id por
+    # sentido y variante de la misma línea (se usa el nombre corto: C1, C5…).
+    nombre = rutas.set_index("route_id")["route_short_name"].str.strip()
+    trips = trips.assign(linea_id=trips["route_id"].map(nombre) if red == "cercanias"
+                         else trips["route_id"])
+    arreglos["lineas_fichero"] = int((nombre if red == "cercanias"
+                                      else rutas["route_id"]).nunique())
     st = g.leer("stop_times.txt", usecols=["trip_id", "departure_time", "arrival_time",
-                                           "stop_id"])
+                                           "stop_id", "stop_sequence"])
+    st = st[st["trip_id"].isin(set(trips["trip_id"]))]
     hora = st["departure_time"].where(st["departure_time"].notna()
                                       & st["departure_time"].str.strip().ne(""),
                                       st["arrival_time"])
-    st = st.assign(seg=_segundos(hora.fillna("0:0:0")))[["trip_id", "stop_id", "seg"]]
-    # Viajes de relleno: interurbanos y urbanos traen viajes (servicio «9999_…») con
-    # todas las paradas a las 01:00:00. Se descartan los de 3 o más paradas que duran
-    # menos de un minuto: no son horarios reales.
+    st = st.assign(seg=_segundos(hora.fillna("0:0:0")), hora_txt=hora.str.strip(),
+                   orden=st["stop_sequence"].astype(int))
+    st["orden"] = st.groupby("trip_id")["orden"].rank(method="first").astype(int) - 1
+    # Viajes sin hora por parada: interurbanos y urbanos traen viajes de 3 o más paradas
+    # con todas a la misma hora (duran menos de un minuto). Son viajes reales: se
+    # conservan y se estima la hora de cada parada (ver supuestos.GTFS_HORAS_RELLENO).
     dur = st.groupby("trip_id")["seg"].agg(["min", "max", "size"])
-    relleno = set(dur.index[(dur["size"] >= 3) & (dur["max"] - dur["min"] < 60)])
-    st = st[~st["trip_id"].isin(relleno)]
-    trips = trips[~trips["trip_id"].isin(relleno)]
+    sin_hora = dur.index[(dur["size"] >= 3) & (dur["max"] - dur["min"] < 60)]
+    if len(sin_hora):
+        con = dur[~dur.index.isin(sin_hora) & (dur["size"] >= 3)]
+        salto = float(((con["max"] - con["min"]) / (con["size"] - 1)).median())
+        v = trips[trips["trip_id"].isin(sin_hora)].copy()
+        primera = st[st["orden"] == 0].set_index("trip_id")["hora_txt"]
+        v["en_st"] = v["trip_id"].map(primera)
+        v["en_id"] = v["trip_id"].str.extract(_HORA_EN_ID)[0]
+        relleno = v["en_st"].isin(S.GTFS_HORAS_RELLENO)
+        v["salida"] = v["en_st"].where(~relleno, v["en_id"])
+        sin_dato = set(v.loc[v["salida"].isna(), "trip_id"])
+        v = v[v["salida"].notna()]
+        v["salida_seg"] = _segundos(v["salida"])
+        # Repetidos: el mismo viaje (línea, sentido, servicio y salida) ya está con horario
+        ini = st[st["orden"] == 0].set_index("trip_id")["seg"]
+        normales = trips[~trips["trip_id"].isin(sin_hora)]
+        claves = set(zip(normales["route_id"], normales["direction_id"],
+                         normales["service_id"], normales["trip_id"].map(ini)))
+        rep = [k in claves for k in zip(v["route_id"], v["direction_id"],
+                                        v["service_id"], v["salida_seg"])]
+        repetidos = set(v.loc[rep, "trip_id"])
+        v = v[~v["trip_id"].isin(repetidos)]
+        quitar = sin_dato | repetidos
+        st = st[~st["trip_id"].isin(quitar)]
+        trips = trips[~trips["trip_id"].isin(quitar)]
+        salida = st["trip_id"].map(v.set_index("trip_id")["salida_seg"])
+        st["seg"] = np.where(salida.notna(), salida + st["orden"] * salto,
+                             st["seg"]).astype(int)
+        arreglos.update(sin_hora=len(v), sin_hora_lineas=int(v["route_id"].nunique()),
+                        salto_s=round(salto), sin_dato=len(sin_dato),
+                        repetidos=len(repetidos))
+    st = st[["trip_id", "stop_id", "seg"]]
     freq = g.leer("frequencies.txt")
     expandir = False
     if not freq.empty:
@@ -780,26 +841,86 @@ def cargar_red(g: Gtfs) -> tuple:
             freq = freq.assign(ini=_segundos(freq["start_time"]),
                                fin=_segundos(freq["end_time"]),
                                headway=freq["headway_secs"].astype(int))
-    return cal, cd, trips, st, freq, expandir, relleno
+    return cal, cd, trips, st, freq, expandir, arreglos
+
+
+def lineas_reconstruidas(g: Gtfs, red: str, trips: pd.DataFrame, st: pd.DataFrame,
+                         tabla: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Líneas sin ningún viaje en el GTFS (supuestos.GTFS_LINEAS_RECONSTRUIDAS; la línea 3
+    de Metro). ESTIMACIÓN: en cada uno de sus andenes y cada hora paran los trenes de una
+    línea parecida (media de las líneas modelo; de cada una, su estación mediana).
+    `tabla` son los pasos por parada y hora del día (salidas_por_hora). Devuelve
+    {línea: tabla de sus paradas × 24 horas}."""
+    out = {}
+    conf = S.GTFS_LINEAS_RECONSTRUIDAS.get(red, {})
+    if not conf:
+        return out
+    rutas = g.leer("routes.txt", usecols=["route_id", "route_short_name"])
+    rutas["linea"] = rutas["route_short_name"].str.strip()
+    paradas = g.leer("stops.txt", usecols=lambda c: c in {"stop_id", "stop_name",
+                                                         "location_type"})
+    lt = paradas.get("location_type", pd.Series("0", index=paradas.index)).fillna("0")
+    andenes = paradas[lt.str.strip().isin(["0", ""])]
+    usados = set(st["stop_id"])
+    por_ruta = st[["trip_id", "stop_id"]].drop_duplicates().merge(
+        trips[["trip_id", "route_id"]], on="trip_id")[["route_id", "stop_id"]] \
+        .drop_duplicates()
+    for linea, c in conf.items():
+        rid = rutas.loc[rutas["linea"] == linea, "route_id"]
+        if rid.empty or trips["route_id"].isin(set(rid)).any():
+            raise RuntimeError(f"{red}: la línea {linea} ya no está sin viajes en el GTFS; "
+                               "quitar de supuestos.GTFS_LINEAS_RECONSTRUIDAS")
+        libres = andenes[~andenes["stop_id"].isin(usados)]
+        if sorted(libres["stop_name"].str.strip()) != sorted(c["andenes"]):
+            raise RuntimeError(f"{red}: los andenes sin viajes no son los de la línea "
+                               f"{linea}: {sorted(libres['stop_name'])}")
+        extra = andenes[andenes["stop_name"].str.strip().isin(c["estaciones_extra"])
+                        & andenes["stop_id"].isin(usados)]
+        if len(extra) != len(c["estaciones_extra"]):
+            raise RuntimeError(f"{red}: estaciones extra de la línea {linea} no encontradas")
+        modelos = []
+        for m in c["modelo"]:
+            ids = set(rutas.loc[rutas["linea"] == m, "route_id"])
+            sus = set(por_ruta.loc[por_ruta["route_id"].isin(ids), "stop_id"])
+            modelos.append(tabla.reindex(sorted(sus), fill_value=0).median())
+        tipica = pd.concat(modelos, axis=1).mean(axis=1).round().astype(int)
+        ids = list(libres["stop_id"]) + list(extra["stop_id"])
+        t = pd.DataFrame([tipica.to_numpy()] * len(ids), index=pd.Index(ids, name="stop_id"),
+                         columns=tabla.columns)
+        t.attrs["route_id"] = rid.iloc[0]
+        out[linea] = t
+    return out
+
+
+def con_reconstruidas(tabla: pd.DataFrame, rec: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    for t in rec.values():
+        tabla = tabla.add(t, fill_value=0).astype(int)
+    tabla.index.name = "stop_id"
+    return tabla
 
 
 def gtfs() -> None:
     capa = "salidas_paradas"
     carpeta = ORIG / "crtm_paradas"
-    resultados, notas, dias_usados = [], [], {}
+    resultados, notas, notas_rec, dias_usados = [], [], [], {}
     for fichero, red in REDES.items():
         print(f"  · {fichero} …", flush=True)
         g = Gtfs(carpeta / fichero)
-        cal, cd, trips, st, freq, expandir, relleno = cargar_red(g)
+        cal, cd, trips, st, freq, expandir, arr = cargar_red(g, red)
         dias = elegir_dias(cal, cd, trips)
         dias_usados[red] = {k: v[1].isoformat() for k, v in dias.items()}
+        n_lineas = arr["lineas_fichero"]
         todas = g.leer("stops.txt", usecols=lambda c: c in {
             "stop_id", "stop_name", "stop_lat", "stop_lon", "location_type", "parent_station"})
         paradas = geometria_accesos(todas)
-        tablas = {}
-        for tipo, (_, dia) in dias.items():
+        tablas, estimadas = {}, {}
+        for tipo, (_, dia, _) in dias.items():
             tablas[tipo] = salidas_por_hora(g, servicios_activos(cal, cd, dia), trips, st,
                                             freq, expandir)
+            rec = lineas_reconstruidas(g, red, trips, st, tablas[tipo])
+            tablas[tipo] = con_reconstruidas(tablas[tipo], rec)
+            for linea, x in rec.items():
+                estimadas.setdefault(linea, {})[tipo] = x
         lab = tablas["laborable"].add_prefix("lab_h")
         sab = tablas["sabado"].add_prefix("sab_h")
         t = lab.join(sab, how="outer").fillna(0).astype(int).reset_index()
@@ -807,12 +928,39 @@ def gtfs() -> None:
         sin = int(t["geometry"].isna().sum())
         t = t.dropna(subset=["geometry"])
         t["red"] = red
+        # Paradas con pasos estimados (línea reconstruida): se marca de dónde salen
+        t["origen_pasos"] = "horarios del GTFS"
+        for linea, x in estimadas.items():
+            ids = set(x["laborable"].index)
+            solo = ids - set(st["stop_id"])
+            modelo = ", ".join(S.GTFS_LINEAS_RECONSTRUIDAS[red][linea]["modelo"])
+            t.loc[t["stop_id"].isin(solo), "origen_pasos"] = (
+                f"estimación: línea {linea} sin viajes en el GTFS; frecuencia media de las "
+                f"líneas {modelo}")
+            t.loc[t["stop_id"].isin(ids - solo), "origen_pasos"] = (
+                f"horarios del GTFS + estimación de la línea {linea} (sin viajes en el GTFS)")
+            notas_rec.append(
+                f"{red}: **línea {linea} reconstruida (estimación)**. El GTFS trae sus "
+                f"andenes pero ningún viaje. En cada andén ({len(solo)} propios y "
+                f"{len(ids - solo)} de otra línea en la misma estación: "
+                f"{', '.join(S.GTFS_LINEAS_RECONSTRUIDAS[red][linea]['estaciones_extra'])}) "
+                f"se ponen, hora a hora, los trenes de la estación mediana de las líneas "
+                f"{modelo} (media de las cuatro): "
+                f"{int(x['laborable'].iloc[0].sum())} trenes al día en laborable y "
+                f"{int(x['sabado'].iloc[0].sum())} en sábado, sumando los dos sentidos.")
         resultados.append(t)
         notas.append(f"{red}: laborable {dias_usados[red]['laborable']}, sábado "
                      f"{dias_usados[red]['sabado']}"
                      + (" (viajes-plantilla de frequencies.txt expandidos)" if expandir else "")
-                     + (f"; {len(relleno)} viajes de relleno descartados (todas las paradas "
-                        "a la misma hora)" if relleno else "")
+                     + f"; ese laborable circulan {dias['laborable'][2]} de las "
+                       f"{n_lineas} líneas del fichero"
+                     + (f"; línea {', '.join(arr['excluidas'])} excluida (sin servicio "
+                        "habitual: cerrada por obras)" if arr.get("excluidas") else "")
+                     + (f"; {arr['sin_hora']} viajes de {arr['sin_hora_lineas']} líneas sin "
+                        "hora en cada parada, contados con la hora estimada (salida + "
+                        f"{arr['salto_s']} s por parada); {arr['repetidos']} repetidos y "
+                        f"{arr['sin_dato']} sin hora de salida, descartados"
+                        if arr.get("sin_hora") else "")
                      + (f"; {sin} paradas sin coordenadas" if sin else "")
                      + (f"; {int(t['con_accesos'].sum())} con la posición de sus accesos"
                         if t["con_accesos"].any() else "")
@@ -832,19 +980,42 @@ def gtfs() -> None:
         "Pasos de vehículos (cada vez que un tren o autobús para en la parada) por hora, "
         "en un laborable típico (`lab_00`…`lab_23`) y un sábado típico (`sab_00`…`sab_23`). "
         "Las horas de más de 24:00 del GTFS se pasan a la madrugada (25:30 → 1).",
-        "Día típico: entre los martes, miércoles y jueves (y entre los sábados) de las "
-        f"{S.GTFS_SEMANAS_MUESTRA} primeras semanas de vigencia a partir de hoy, el de "
-        "número de viajes mediano (evita festivos y días especiales).",
-        "Metro: GTFS de mayo de 2025 (el más reciente publicado; su calendario terminó el "
-        "27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se supone "
-        "que las frecuencias actuales son parecidas.",
+        "Día típico de cada red: entre los martes, miércoles y jueves (y entre los "
+        f"sábados) de las {S.GTFS_SEMANAS_MUESTRA} primeras semanas de vigencia a partir de "
+        f"hoy, sin los días con menos del {100 * S.GTFS_DIA_MINIMO_VIAJES:.0f} % de los "
+        "viajes del día mediano (festivos), el día en que circulan más líneas y, entre los "
+        "empatados, el de número de viajes mediano. Antes se tomaba solo el de viajes "
+        "mediano, y en interurbanos y urbanos caía en un día en que el GTFS deja sin "
+        "servicio 21 líneas de la Sierra (su calendario de miércoles y jueves solo vale "
+        "para un día suelto; el resto del año solo figuran los martes).",
+        "Viajes sin hora en cada parada (interurbanos y urbanos): son viajes reales, con "
+        "su calendario y su hora de salida, en los que todas las paradas llevan la misma "
+        "hora (la de salida o, si viene la hora de relleno 01:00:00, la que figura en el "
+        "identificador del viaje). Antes se descartaban y sus líneas (480-499, 350-355, "
+        "665-667, urbanos de Pinto, Valdemoro, Arganda o Tres Cantos…) salían sin "
+        "servicio. Ahora se cuentan: el número de vehículos es un **dato** y la hora en "
+        "cada parada, una **estimación** (salida + orden de la parada × tiempo mediano "
+        "entre paradas de los viajes con horario de la red).",
+        "`origen_pasos` dice si los pasos de la parada salen de los horarios del GTFS o de "
+        "una línea reconstruida (estimación).",
+        "Metro: GTFS de mayo de 2025 (el más reciente publicado, comprobado el 2026-11-12: "
+        "el fichero del CRTM no se ha modificado desde el 30/05/2025; su calendario terminó "
+        "el 27/05/2026), así que se usa un día dentro de su vigencia. **Estimación**: se "
+        "supone que las frecuencias actuales son parecidas.",
+        "Cercanías, línea C9 (Cercedilla-Cotos): excluida. Está cerrada por obras de "
+        "renovación desde mayo de 2024 (aviso de cierre: "
+        "https://www.timeout.es/madrid/es/noticias/la-linea-de-cercanias-que-lleva-a-la-"
+        "sierra-de-guadarrama-cierra-en-mayo-042924; consultado el 2026-11-12) y el GTFS "
+        "solo le pone viajes 5 días sueltos del mes. Revisar cuando reabra "
+        "(`GTFS_LINEAS_EXCLUIDAS` en src/supuestos.py).",
         "Interurbanos y urbanos comparten `stops.txt`: cada red cuenta solo sus vehículos.",
         "Geometría: la parada; en Metro y Metro Ligero, el conjunto de accesos de la "
         "estación (`location_type` 2 del GTFS), para medir la distancia a la salida más "
         "cercana a la calle.",
-    ] + notas + notas_cal
+    ] + notas + notas_rec + notas_cal
     guardar(gdf, capa, ["red", "stop_id", "parada", *hl, *hs, "total_lab", "total_sab",
-                        "pp_lab", "pp_sab", "origen_pp", "con_accesos"], n, "paradas")
+                        "pp_lab", "pp_sab", "origen_pp", "origen_pasos", "con_accesos"], n,
+            "paradas")
     (PROC / "salidas_paradas_dias.json").write_text(
         json.dumps(dias_usados, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -863,7 +1034,7 @@ def lineas() -> None:
     for fichero, red in REDES.items():
         print(f"  · {fichero} …", flush=True)
         g = Gtfs(carpeta / fichero)
-        cal, cd, trips, st, freq, expandir, _ = cargar_red(g)
+        cal, cd, trips, st, freq, expandir, _ = cargar_red(g, red)
         dia = date.fromisoformat(dias[red]["laborable"])
         t = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))].copy()
         veces = pd.Series(1, index=t["trip_id"])
@@ -880,22 +1051,43 @@ def lineas() -> None:
         # su nombre corto (C1, C5…). En el resto, el route_id (en los urbanos el «1» de un
         # municipio no es el «1» de otro).
         t["id_linea"] = t["linea"] if red == "cercanias" else t["route_id"]
-        t["sentido"] = t["direction_id"] if "direction_id" in t else t["route_id"]
+        t["sentido"] = t["route_id"] if red == "cercanias" else t["direction_id"]
         x = st[["trip_id", "stop_id"]].merge(
             t[["trip_id", "linea", "id_linea", "sentido"]], on="trip_id")
         x["vehiculos_lab"] = x["trip_id"].map(veces).astype(int)
         x = (x.groupby(["stop_id", "linea", "id_linea", "sentido"], as_index=False)
              ["vehiculos_lab"].sum())
+        x["estimada"] = False
+        # Líneas reconstruidas (línea 3 de Metro): mismos pasos que en gtfs(), mitad por
+        # sentido. ESTIMACIÓN.
+        rec = lineas_reconstruidas(
+            g, red, trips, st,
+            salidas_por_hora(g, servicios_activos(cal, cd, dia), trips, st, freq, expandir))
+        for linea, tab in rec.items():
+            tot = tab.sum(axis=1).astype(int)
+            for sentido, v in (("0", tot // 2), ("1", tot - tot // 2)):
+                x = pd.concat([x, pd.DataFrame({
+                    "stop_id": tot.index, "linea": linea, "id_linea": tab.attrs["route_id"],
+                    "sentido": sentido, "vehiculos_lab": v.to_numpy(), "estimada": True})],
+                    ignore_index=True)
         x.insert(0, "red", red)
         partes.append(x)
         todas = set(rutas["route_short_name"].dropna().str.strip())
         sin = sorted(todas - set(x["linea"]))
+        con_viajes = set(g.leer("trips.txt", usecols=["route_id"])["route_id"])
+        sin_viajes = sorted(set(rutas.loc[~rutas["route_id"].isin(con_viajes),
+                                          "route_short_name"].str.strip()) & set(sin))
+        estimadas = sorted(rec)
         notas.append(f"{red}: {x['id_linea'].nunique()} líneas con servicio el "
                      f"{dias[red]['laborable']}"
-                     + (f"; sin servicio ese día en el GTFS (no salen): {', '.join(sin)}"
-                        if sin and len(sin) <= 15 else
-                        f"; {len(sin)} líneas sin servicio ese día en el GTFS (no salen)"
-                        if sin else ""))
+                     + (f" (la {', '.join(estimadas)}, reconstruida: **estimación**)"
+                        if estimadas else "")
+                     + (f"; no salen: {', '.join(sin)}" if sin and len(sin) <= 25 else
+                        f"; {len(sin)} líneas no salen" if sin else "")
+                     + (f" (sin ningún viaje en el fichero: {', '.join(sin_viajes)})"
+                        if sin_viajes and len(sin) <= 25 else
+                        f" ({len(sin_viajes)} de ellas, sin ningún viaje en el fichero)"
+                        if sin_viajes else ""))
     out = pd.concat(partes, ignore_index=True)
     # Solo las paradas que están en salidas_paradas.parquet (con coordenadas).
     paradas = gpd.read_parquet(PROC / "salidas_paradas.parquet")[["red", "stop_id", "total_lab"]]
@@ -920,6 +1112,11 @@ def lineas() -> None:
             "`linea` es el nombre corto de la línea (`route_short_name`); `id_linea` la "
             "distingue de otras con el mismo nombre (urbanos de distintos municipios). En "
             "Cercanías, que no trae sentido, cada `route_id` hace de sentido.",
+            "`estimada` vale verdadero en las líneas reconstruidas (línea 3 de Metro): sus "
+            "vehículos son una **estimación** (ver `salidas_paradas`).",
+            "Las líneas que «no salen» no tienen viajes ese laborable: no tienen ninguno en "
+            "el fichero, solo circulan en fin de semana o festivo, o están excluidas por "
+            "obras (C9 de Cercanías).",
         ] + notas}
     print(f"  {capa}: {n} → {len(out)}")
 

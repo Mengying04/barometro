@@ -529,9 +529,52 @@ def peso_parada(d_m: float, radio: float = RADIO_M) -> float:
 # donde sale la gente a la calle), no al andén. Accesos del GTFS (location_type 2).
 
 # Para elegir un día típico de cada GTFS se miran los martes, miércoles y jueves (y los
-# sábados) de las primeras semanas de vigencia y se toma el de número de viajes mediano,
-# para no caer en un festivo ni en un día especial.
+# sábados) de las primeras semanas de vigencia. Se descartan los días con menos del 80 %
+# de los viajes del día mediano (festivos, días especiales). De los que quedan se toma el
+# día en que circulan más líneas y, entre los empatados, el de número de viajes mediano.
+# Lo de «más líneas» hace falta porque el GTFS de interurbanos publica mal el calendario
+# de 21 líneas de la Sierra (611, 681, 682, 684, 687, 691…): sus servicios de miércoles y
+# jueves solo valen para un día suelto y, fuera de él, solo «circulan» los martes.
 GTFS_SEMANAS_MUESTRA = 4
+GTFS_DIA_MINIMO_VIAJES = 0.8
+
+# Líneas que el GTFS trae algún día suelto pero que hoy no circulan de forma habitual: se
+# dejan fuera para no contar trenes que no hay. C9 (Cercedilla-Cotos): cerrada por obras
+# de renovación desde mayo de 2024; el GTFS de noviembre de 2026 solo le pone viajes 5
+# días del mes. Revisar cuando reabra.
+GTFS_LINEAS_EXCLUIDAS = {"cercanias": ("C9",)}
+
+# Viajes sin hora en cada parada. En interurbanos y urbanos hay viajes reales (con su
+# calendario y su hora de salida) en los que todas las paradas llevan la misma hora: la de
+# salida o, si viene la hora de relleno 01:00:00 o 01:00:01, la que figura dentro del
+# identificador del viaje. Se cuentan (son el 15 % de los viajes de un laborable) y la
+# hora de cada parada se ESTIMA: salida + nº de orden de la parada × el tiempo mediano
+# entre paradas de los viajes con horario de la misma red. El número de vehículos al día
+# es un dato; la hora exacta en cada parada, una estimación.
+GTFS_HORAS_RELLENO = ("01:00:00", "01:00:01")
+
+# Líneas que existen pero no tienen ningún viaje en el GTFS, reconstruidas. ESTIMACIÓN.
+# Metro, línea 3: el GTFS de Metro (versión 27/05/2025, el único publicado) trae sus 18
+# andenes de Villaverde Alto a Moncloa pero ningún viaje. No es por obras: es un hueco
+# del fichero. Se le ponen, en cada andén y cada hora, los trenes de una línea parecida:
+# la media de las líneas del centro con longitud y frecuencia similares («modelo»; de
+# cada una, su estación mediana). «andenes» son los nombres de sus andenes sin viajes en
+# el GTFS (se comprueba que coinciden) y «estaciones_extra», estaciones de la línea que
+# solo tienen andén de otra línea: El Casar, a donde la línea 3 llega desde abril de 2025.
+GTFS_LINEAS_RECONSTRUIDAS = {
+    "metro": {
+        "3": {
+            "modelo": ("1", "2", "4", "5"),
+            "andenes": (
+                "VILLAVERDE ALTO", "SAN CRISTOBAL", "VILLAVERDE BAJO CRUCE",
+                "CIUDAD DE LOS ANGELES", "SAN FERMIN-ORCASUR", "HOSPITAL 12 DE OCTUBRE",
+                "ALMENDRALES", "LEGAZPI", "DELICIAS", "PALOS DE LA FRONTERA", "EMBAJADORES",
+                "LAVAPIES", "SOL", "CALLAO", "PLAZA DE ESPAÑA", "VENTURA RODRIGUEZ",
+                "ARGÜELLES", "MONCLOA"),
+            "estaciones_extra": ("EL CASAR",),
+        },
+    },
+}
 
 # ============================================================================= VECINOS
 # Pasos por residente y día cerca de casa. La Encuesta Domiciliaria de Movilidad del

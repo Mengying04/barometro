@@ -4,7 +4,7 @@
     "sabado": "2026-05-09"
   },
   "metro_ligero": {
-    "laborable": "2026-11-19",
+    "laborable": "2026-11-25",
     "sabado": "2026-11-21"
   },
   "cercanias": {
@@ -12,15 +12,15 @@
     "sabado": "2026-11-21"
   },
   "emt": {
-    "laborable": "2026-11-19",
+    "laborable": "2026-11-25",
     "sabado": "2026-11-21"
   },
   "interurbanos": {
-    "laborable": "2026-11-26",
+    "laborable": "2026-11-24",
     "sabado": "2026-11-21"
   },
   "urbanos": {
-    "laborable": "2026-11-26",
+    "laborable": "2026-11-24",
     "sabado": "2026-11-21"
   }
 }

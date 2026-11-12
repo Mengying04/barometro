@@ -172,16 +172,21 @@ def desde_dea(c: dict, punto, radio) -> tuple[dict, dict]:
     return out, cuenta
 
 
-def viajeros(c: dict, punto, radio) -> tuple[dict, int]:
+def viajeros(c: dict, punto, radio) -> tuple[dict, int, int]:
     """Pasos de vehículos × personas por paso (calibradas con la demanda real) × peso de
-    la parada, que cae más deprisa con la distancia que el de los demás sitios."""
+    la parada, que cae más deprisa con la distancia que el de los demás sitios. Devuelve
+    también cuántas paradas hay y en cuántas los pasos son estimados (línea 3 de Metro,
+    reconstruida porque no tiene viajes en el GTFS)."""
     p = cerca(c["paradas"], punto, radio)
     p["peso"] = p["distancia_m"].map(lambda d: S.peso_parada(d, radio)).astype(float)
     lab = p[[f"lab_{h:02d}" for h in range(24)]].to_numpy()
     sab = p[[f"sab_{h:02d}" for h in range(24)]].to_numpy()
     fl = (p["peso"] * p["pp_lab"].astype(float)).to_numpy()[:, None]
     fs = (p["peso"] * p["pp_sab"].astype(float)).to_numpy()[:, None]
-    return {"laborable": (lab * fl).sum(axis=0), "fin_de_semana": (sab * fs).sum(axis=0)}, len(p)
+    n_est = int(p["origen_pasos"].str.contains("estimación").sum()) \
+        if "origen_pasos" in p else 0
+    return ({"laborable": (lab * fl).sum(axis=0), "fin_de_semana": (sab * fs).sum(axis=0)},
+            len(p), n_est)
 
 
 def fraccion_ponderada(geoms: np.ndarray, punto, radio) -> np.ndarray:
@@ -248,7 +253,7 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
     un, n_campus, est_campus = universitarios(c, punto, radio)
     pa, n_san = pacientes(c, punto, radio)
     dea, n_dea = desde_dea(c, punto, radio)
-    vi, n_par = viajeros(c, punto, radio)
+    vi, n_par, n_par_est = viajeros(c, punto, radio)
     ve, pob = vecinos(c, punto, radio)
     for d in DIAS:
         res["padres_ninos"][d] += pn[d]
@@ -295,6 +300,8 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
             "sitios del registro de desfibriladores": sum(n_dea.values()),
             **{f"  de ellos {S.TIPOS_CLIENTE[t].lower()}": v for t, v in n_dea.items() if v},
             "paradas de transporte (por red)": n_par,
+            **({"  de ellas con trenes estimados (línea 3 de Metro, sin viajes en los "
+                "horarios publicados)": n_par_est} if n_par_est else {}),
             "población estimada dentro del radio (ponderada por distancia)": round(pob),
         },
         "es_estimacion": True,

@@ -157,8 +157,14 @@ cada uno con su comentario.
   personas ni de locales.
 - **Direcciones.** Solo se calcula con un portal con número o con un punto confirmado
   en el mapa. Probado con una calle sin número, un municipio y un portal exacto.
-- **Líneas de transporte.** En cada una de las 14.401 paradas, los vehículos por línea
-  suman exactamente los que ya usaba el perfil por horas.
+- **Líneas de transporte.** En cada una de las 15.207 paradas, los vehículos por línea
+  suman exactamente los que usa el perfil por horas.
+- **Día típico del transporte.** Se revisó, línea a línea, qué circula el día elegido
+  de cada red. Se recuperaron los viajes de autobús que se descartaban por no traer
+  hora en cada parada (el 15 % de los interurbanos), se cambió el día de interurbanos
+  y urbanos para que salgan 21 líneas de la Sierra y se reconstruyó la línea 3 de
+  Metro. En los tres puntos de prueba solo cambian los viajeros (entre el −1 % y el
+  −20 %); el nivel de movimiento, el titular y las recomendaciones son los mismos.
 - **Sin cambios en lo anterior.** Al añadir el nivel de movimiento, los accesos y el
   entorno, el perfil, las recomendaciones y los seis bloques anteriores del informe de
   los tres puntos quedaron idénticos.
@@ -183,11 +189,18 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
   sección: por eso el 10 % más bajo de la referencia son sitios casi vacíos, y un
   pueblo pequeño puede salir con menos paso del que tiene.
 - **«Cómo se llega» solo cuenta transporte público.** No hay datos abiertos de
-  aparcamiento ni de tráfico. Cuenta líneas y vehículos, no viajeros. En el GTFS de
-  Metro (de 2025) la línea 3 no tiene servicio el día usado, así que no aparece ni
-  aporta viajeros; pasa lo mismo con la C9 de Cercanías y con algunas líneas de
-  autobús. Los autobuses urbanos de fuera de Madrid son «datos parciales» según el
-  propio Consorcio.
+  aparcamiento ni de tráfico. Cuenta líneas y vehículos, no viajeros. Los autobuses
+  urbanos de fuera de Madrid son «datos parciales» según el propio Consorcio.
+- **La línea 3 de Metro es una estimación.** Los horarios publicados de Metro (de
+  2025) traen sus estaciones pero ningún tren. Se le pone la frecuencia media de las
+  líneas 1, 2, 4 y 5 (461 trenes al día por estación en laborable) y la aplicación lo
+  avisa junto a sus estaciones. La frecuencia real puede ser otra.
+- **Hay autobuses sin hora en cada parada.** En 68 líneas interurbanas y 24 urbanas
+  los horarios solo dan la hora de salida. Se cuentan todos los autobuses (es un
+  dato), pero la hora a la que pasan por cada parada se estima.
+- **Líneas que no salen.** La C9 de Cercanías (cerrada por obras desde 2024), 12
+  líneas interurbanas y 5 urbanas sin ningún viaje en los horarios publicados (entre
+  ellas, las 720 a 728 de Colmenar Viejo) y las que solo circulan en fin de semana.
 - **El contexto a 1 km es solo contexto.** Reparte a los vecinos por igual en la
   superficie de cada sección censal y, fuera de Madrid capital, cuenta los locales de
   OpenStreetMap, al que le faltan.

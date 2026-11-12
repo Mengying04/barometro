@@ -659,6 +659,10 @@ def accesos_en(punto, radio: float) -> dict:
                      "vehiculos_dia": veh, "paradas": int(m[["red", "stop_id"]]
                                                           .drop_duplicates().shape[0]),
                      "distancia_m": int(round(m["distancia_m"].min(), -1))}
+        # Líneas reconstruidas (sin viajes en el GTFS): sus vehículos son una estimación
+        est = sorted(set(m.loc[m["estimada"], "linea"])) if "estimada" in m else []
+        if est:
+            out[modo]["lineas_estimadas"] = est
     return out
 
 
@@ -691,6 +695,17 @@ def _texto_corto(d: dict) -> str:
                      f"{miles(v['vehiculos_dia'])} vehículos al día)" for m, v in d.items())
 
 
+def _aviso_estimadas(*radios: dict) -> str:
+    """Frase para las líneas cuyos vehículos son una estimación (línea 3 de Metro)."""
+    est = sorted({(m, n) for d in radios for m, v in d.items()
+                  for n in v.get("lineas_estimadas", [])})
+    if not est:
+        return ""
+    return (" Los vehículos de " + ", ".join(f"la línea {n} de {m}" for m, n in est)
+            + " son una **estimación**: no tiene viajes en el GTFS y se le pone la "
+              "frecuencia media de líneas parecidas.")
+
+
 def b_accesos(punto, radio: float) -> dict:
     lejos_m = S.ACCESOS_RADIO_LEJOS_M
     cerca, lejos = accesos_en(punto, radio), accesos_en(punto, lejos_m)
@@ -702,7 +717,7 @@ def b_accesos(punto, radio: float) -> dict:
         f"**{nivel}**. A menos de {radio:.0f} m: {_texto_modos(cerca)}. "
         + (f"A menos de {lejos_m} m (unos {S.ACCESOS_MINUTOS_LEJOS} minutos andando), en "
            f"total: {_texto_corto(lejos)}." if lejos else
-           f"Tampoco a menos de {lejos_m} m."),
+           f"Tampoco a menos de {lejos_m} m.") + _aviso_estimadas(cerca, lejos),
         {"nivel": nivel, "niveles": S.ACCESOS_NIVELES, "radio_cerca_m": int(radio),
          "radio_lejos_m": lejos_m, "cerca": cerca, "lejos": lejos,
          "dias_laborables_usados": {r: d["laborable"] for r, d in dias.items()}},
@@ -722,8 +737,13 @@ def b_accesos(punto, radio: float) -> dict:
          "menos que eso; «Sin transporte cerca» si no hay ninguna parada.",
          "No dice cuánta gente usa cada parada (no hay datos por estación de Metro ni por "
          "parada de autobús) ni cómo se llega en coche o si hay aparcamiento: no hay datos "
-         "abiertos para eso. Los horarios de Metro son de 2025 y solo salen las líneas con "
-         "servicio el día elegido: puede faltar alguna (ver docs/fuentes.md).",
+         "abiertos para eso. Los horarios de Metro son de 2025.",
+         "Día usado: en cada red, el laborable de martes a jueves en que circulan más "
+         "líneas. La línea 3 de Metro no tiene viajes en el GTFS y se reconstruye con la "
+         "frecuencia media de las líneas 1, 2, 4 y 5 (**estimación**). En los autobuses "
+         "interurbanos y urbanos hay viajes sin hora en cada parada: se cuentan todos (el "
+         "número de vehículos es un dato). No sale la C9 de Cercanías, cerrada por obras, "
+         "ni las líneas sin ningún viaje en el fichero (ver docs/fuentes.md).",
          "Los autobuses urbanos de municipios distintos de Madrid son «datos parciales» "
          "según el propio CRTM: puede faltar alguna línea."])
 
