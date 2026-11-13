@@ -63,7 +63,7 @@ respuestas.
 
 El centro del análisis son **15 conjuntos del Portal de Datos Abiertos de la Comunidad
 de Madrid** ([datos.comunidad.madrid](https://datos.comunidad.madrid)), todos con
-licencia Creative Commons Attribution y descargados el 2026-11-10.
+licencia Creative Commons Attribution y descargados el 2026-11-12.
 
 <!-- inicio:tabla-portal -->
 | Conjunto del portal | Para qué sirve en BARómetro | Última modificación |
