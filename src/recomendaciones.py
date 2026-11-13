@@ -416,58 +416,113 @@ def a_que_precio(perfil: dict, inf: dict) -> dict:
 
 
 # ============================================================= RIESGOS Y COMPROBACIONES
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def de_cada(p: float) -> str:
+    """Una proporción dicha como se dice en la calle: 0,26 → «1 de cada 4». Se elige la
+    fracción sencilla más cercana (solo para decirlo; la cifra exacta va en el porqué)."""
+    fracciones = [(a, b) for b in range(2, 6) for a in range(1, b)] \
+        + [(1, b) for b in range(6, 11)] + [(9, 10)]
+    a, b = min(fracciones, key=lambda f: (abs(p - f[0] / f[1]), f[1]))
+    return f"{a} de cada {b}"
+
+
+def veces(rel: float) -> str:
+    """«×2,07» dicho con palabras: «el doble», «el triple» o «2,6 veces»."""
+    return {2.0: "el doble de", 3.0: "el triple de"}.get(round(rel, 1), f"{dec(rel)} veces")
+
+
+def _y(xs: list[str]) -> str:
+    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " y " + xs[-1]
+
+
 def riesgos(perfil: dict, inf: dict) -> list[dict]:
+    """Avisos del sitio: cada uno sale de los datos de ese punto y lo dice con su cifra, en
+    lenguaje sencillo. Van ordenados por importancia (S.ORDEN_RIESGOS) y como mucho se dan
+    S.MAX_RIESGOS; si no hay ninguno, se dice en positivo. Cada aviso lleva su «clave»."""
     out = []
+    muni = inf["municipio"]["nombre"]
     comp = bloque(inf, "competencia")["datos"]
     rel = comp["relacion_con_media"]
+    n = comp["total"]
+    locales_txt = "1 bar o restaurante" if n == 1 else f"{n} bares y restaurantes"
     if comp["media_municipio"] < S.HUECO_MEDIA_MINIMA:
-        out.append(rec("No se puede valorar si la competencia es alta o baja: la media del "
-                       "municipio es de menos de un local en 300 m.",
-                       [f"{comp['total']} locales en el radio frente a "
+        out.append(rec(f"En {muni} hay tan pocos bares (menos de 1 de media en un círculo "
+                       f"como este) que no podemos decir si {locales_txt} a menos de "
+                       f"{S.RADIO_M} m {'es' if n == 1 else 'son'} mucha o poca competencia.",
+                       [f"{n} locales en el radio frente a "
                         f"{dec(comp['media_municipio'])} de media ({comp['fuente_usada']}); "
                         "con tan pocos locales la comparación no dice nada."],
-                       "baja", "dato + estimación"))
+                       "baja", "dato + estimación", clave="competencia_sin_valorar"))
     elif rel is not None and rel > S.RIESGO_COMPETENCIA:
-        out.append(rec(f"Competencia alta: {comp['total']} locales en el radio, "
-                       f"×{dec(rel, 2)} la media del municipio.",
-                       [f"Fuente: {comp['fuente_usada']}."],
+        out.append(rec(f"Ya hay {locales_txt} a menos de {S.RADIO_M} m: {veces(rel)} lo "
+                       f"normal en {muni}.",
+                       [f"{n} locales en el radio, ×{dec(rel, 2)} la media del municipio.",
+                        f"Fuente: {comp['fuente_usada']}."],
                        "baja" if comp.get("cobertura_osm") else "media",
-                       "dato + estimación"))
+                       "dato + estimación", clave="competencia_alta"))
     cob = comp.get("cobertura_osm")
     if cob and cob["relacion"] < S.COBERTURA_OSM_AVISO:
-        out.append(rec("Cobertura baja de OpenStreetMap: probablemente hay más locales de los "
-                       "que se cuentan, así que la competencia real es mayor.",
+        out.append(rec(f"Seguramente hay más de {locales_txt} cerca: el mapa colaborativo que "
+                       f"usamos recoge en {muni} {dec(cob['osm_municipio'])} locales por cada "
+                       f"1.000 vecinos, y el censo oficial de Madrid capital, "
+                       f"{dec(cob['censo_madrid']).removesuffix(',0')}.",
                        [f"OSM registra {dec(cob['osm_municipio'], 2)} locales por 1.000 "
                         f"habitantes en el municipio, frente a {dec(cob['censo_madrid'], 2)} "
-                        "del censo oficial de Madrid capital."], "media", "dato"))
-    fest = bloque(inf, "festivos")["datos"]
-    if fest["proximos"]:
-        out.append(rec("Festivos próximos: esos días cambia el público; baja el de laborable "
-                       "(trabajadores, estudiantes) y el día se parece más a un sábado.",
+                        "del censo oficial de Madrid capital.",
+                        "Por eso la competencia real probablemente es mayor que la contada."],
+                       "media", "dato", clave="cobertura_baja"))
+    # Festivos: solo los de los próximos S.RIESGO_FESTIVO_DIAS días, diciendo cuál y cuándo.
+    hoy = date.today()
+    cerca = [p for p in bloque(inf, "festivos")["datos"]["proximos"]
+             if (date.fromisoformat(p["fecha"]) - hoy).days <= S.RIESGO_FESTIVO_DIAS]
+    if cerca:
+        def cual(p: dict) -> str:
+            f = date.fromisoformat(p["fecha"])
+            que = (f"fiesta local en {p['ambito']}" if p["festivo"] == "local"
+                   else p["ambito"])
+            return f"el {p['dia']} {f.day} de {MESES[f.month - 1]} ({que})"
+        uno = len(cerca) == 1
+        out.append(rec(f"{'Viene un festivo' if uno else 'Vienen festivos'}: "
+                       f"{_y([cual(p) for p in cerca])}. "
+                       f"{'Ese día' if uno else 'Esos días'} pasa menos gente de diario "
+                       "(trabajadores, estudiantes) y la zona se parece más a un sábado.",
                        [f"{p['fecha']} ({p['dia']}): "
                         + (f"fiesta local ({p['ambito']})" if p["festivo"] == "local"
-                           else p["ambito"]) for p in fest["proximos"]]
-                       + (["Fiestas locales del año en curso (orientación para el siguiente, "
-                           "aún sin publicar): " + ", ".join(
-                               f"{x['fecha']}" for x in fest["festivos_locales_del_anyo"])]
-                          if fest["festivos_locales_del_anyo"] else []),
-                       "alta", "dato"))
+                           else p["ambito"]) for p in cerca]
+                       + [f"Solo se avisa de los festivos de los próximos "
+                          f"{S.RIESGO_FESTIVO_DIAS} días; el resto está en el bloque "
+                          "«Festivos» del informe."],
+                       "alta", "dato", clave="festivos"))
     lab = perfil["horas"].loc["laborable"][TIPOS].sum()
     peso_est = {t: lab[t] / lab.sum() for t in ("universitarios", "padres_ninos")} \
         if lab.sum() > 0 else {}
-    for t, p in peso_est.items():
+    for t, p in sorted(peso_est.items(), key=lambda kv: -kv[1]):
         if p >= S.RIESGO_ESTUDIANTES:
-            out.append(rec(f"Periodos sin clase: {nombre(t).lower()} son el {pct(p)} de la "
-                           "gente de un laborable; sin clase ese público desaparece.",
-                           [f"Periodo lectivo típico ({'universidad' if t == 'universitarios' else 'colegios'}): "
+            uni = t == "universitarios"
+            out.append(rec(f"Aquí {de_cada(p)} personas que pasan en un día de diario son "
+                           f"{'universitarios' if uni else 'familias del colegio'}: en "
+                           f"vacaciones {'de la universidad' if uni else 'escolares'} "
+                           "(Navidad, Semana Santa, julio y agosto) lo notarás.",
+                           [f"{nombre(t)} son el {pct(p)} de la gente de un laborable "
+                            "(estimación); sin clase ese público desaparece.",
+                            f"Periodo lectivo típico ({'universidad' if uni else 'colegios'}): "
                             f"{S.PERIODO_LECTIVO[t]}.",
                             "El portal de la Comunidad no publica el calendario escolar: el "
                             "periodo lectivo es un supuesto (src/supuestos.py)."],
-                           "media", "estimación"))
+                           "media", "estimación",
+                           clave="sin_clase_universidad" if uni else "sin_clase_colegios"))
     if not out:
-        out.append(rec("Sin riesgos destacados en los datos disponibles.", [], "media",
-                       "estimación"))
-    return out
+        return [rec("No vemos nada especial que vigilar en esta zona.",
+                    ["Ninguna de las reglas de aviso se cumple aquí: la competencia no es "
+                     "alta, el peso de colegios y universidad es pequeño y no hay festivos "
+                     f"en los próximos {S.RIESGO_FESTIVO_DIAS} días."], "media",
+                    "estimación", clave="ninguno")]
+    out.sort(key=lambda r: S.ORDEN_RIESGOS.index(r["clave"].replace("_universidad", "")
+                                                 .replace("_colegios", "")))
+    return out[:S.MAX_RIESGOS]
 
 
 def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict) -> list[str]:

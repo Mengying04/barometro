@@ -33,14 +33,28 @@ function desplazar(id) {
   return !!el;
 }
 
-// Enlaces de la portada a secciones de la misma página (#como-funciona, #fuentes).
+// Lleva a una sección que puede no estar todavía en la página (se está cambiando de vista).
+function desplazarCuandoEste(id) {
+  let intentos = 0;
+  const ir = () => { if (!desplazar(id) && intentos++ < 40) setTimeout(ir, 150); };
+  setTimeout(ir, 250);
+}
+
+// Enlaces de la portada a secciones de la misma página (#como-funciona, #fuentes) y enlace
+// «Fuentes y licencias» del pie: si la sección está en la página, se va a ella; si no (en el
+// Resumen o con una dirección sin confirmar), se le pide al servidor la vista que la tiene.
 if (!window.__bmEnlaces) {
   window.__bmEnlaces = true;
   document.addEventListener("click", (ev) => {
-    const a = ev.target.closest && ev.target.closest('.pt-nav a[href^="#"]');
-    if (a) {
-      ev.preventDefault();
-      desplazar(a.getAttribute("href").slice(1));
+    const a = ev.target.closest && ev.target.closest('.pt-nav a[href^="#"], .pie-bm a[href^="#"]');
+    if (!a) return;
+    ev.preventDefault();
+    const id = a.getAttribute("href").slice(1);
+    if (desplazar(id)) return;
+    const barra = document.querySelector(".bm.bm-barra");
+    if (a.dataset.ir && barra && barra._api) {
+      window.__bmIrA = id;
+      barra._api.setTriggerValue(a.dataset.ir, true);
     }
   });
 }
@@ -334,6 +348,10 @@ export default function (componente) {
   }
   raiz._api = { setStateValue, setTriggerValue };
   raiz._d = data;
+  if (window.__bmIrA) {            // sección pedida desde el pie, en otra vista
+    desplazarCuandoEste(window.__bmIrA);
+    window.__bmIrA = null;
+  }
   // Si el servidor contesta con un aviso (no se pudo situar la dirección), se puede volver a
   // buscar: el campo deja de estar «enviando».
   if (data.mensaje && data.mensaje !== raiz._s.msgVisto) {

@@ -209,8 +209,12 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
 
     Devuelve cuatro respuestas (a_quien, a_que_hora, que_vender, a_que_precio). Cada
     recomendación trae su texto, su «porque» con las cifras, su «confianza» (alta, media o
-    baja) y su «base» (dato o estimación). Incluye además los riesgos y avisos y una
-    lista de cosas que comprobar en persona. «Laborable» es un día de diario y «sábado»
+    baja) y su «base» (dato o estimación). Incluye además los «riesgos»: como mucho tres
+    avisos propios de ese sitio, ordenados por importancia, cada uno con su cifra y en
+    lenguaje sencillo (peso de colegios o de universidad, competencia, festivos de los
+    próximos 30 días con su fecha); si no hay ninguno, una sola frase que lo dice. Dalos
+    tal cual, sin añadir avisos genéricos. Trae también una lista de cosas que comprobar
+    en persona. «Laborable» es un día de diario y «sábado»
     representa el fin de semana (el domingo no se modela). Analiza un círculo de 300
     metros alrededor del punto.
 

@@ -879,6 +879,16 @@ RIESGO_COMPETENCIA = 1.5
 # Peso de estudiantes (universitarios + padres y niños) en un laborable a partir del
 # cual se avisa de los periodos sin clase.
 RIESGO_ESTUDIANTES = 0.15
+# Festivos: solo se avisa de los festivos (locales, o regionales y nacionales del conjunto
+# del portal) que caen en los próximos RIESGO_FESTIVO_DIAS días, diciendo cuál y cuándo. Los
+# demás siguen en el bloque «Festivos» del informe, pero no son un aviso.
+RIESGO_FESTIVO_DIAS = 30
+# Avisos que se dan como máximo y su orden de importancia: primero lo que cambia el negocio
+# (quién deja de pasar y cuánta competencia hay), después lo que tiene fecha (festivos) y al
+# final los límites de los datos de competencia.
+MAX_RIESGOS = 3
+ORDEN_RIESGOS = ["sin_clase", "competencia_alta", "festivos", "cobertura_baja",
+                 "competencia_sin_valorar"]
 # Calendario escolar: el portal de la Comunidad no publica un conjunto con el calendario
 # escolar (búsqueda del 2026-11-10: «calendario escolar», «calendario lectivo»,
 # «vacaciones escolares», sin resultados). Se usa el periodo lectivo típico de la

@@ -22,6 +22,12 @@ Pantallas:
 Ninguna de las dos vistas calcula nada: traducen lo que devuelven recomendar() e
 informe_local().
 
+Rejilla (app/estilo.css): un solo ancho máximo de contenido y un margen lateral simétrico
+para todas las vistas; la barra, el índice, el contenido y el pie comparten bordes. En el
+Informe completo cada sección tiene una columna de lectura (texto, listas y desplegables del
+mismo ancho) y, al lado, un recuadro de apoyo (clase «seccion»). El pie es el mismo en todas
+las vistas. Los avisos («Ojo con esto» y «Riesgos y avisos») son los de recomendar(), tal cual.
+
 Ficheros de la interfaz (en app/): estilo.css (sistema visual), buscador.js (componente del
 buscador y de la barra, montado con st.components.v2, sin iframe) y logo.svg.
 
@@ -489,7 +495,7 @@ def ofertas(rec: dict) -> list[str]:
 
 
 def competencia_alta(rec: dict) -> bool:
-    return any(r["texto"].startswith("Competencia alta") for r in rec["riesgos"])
+    return any(r["clave"] == "competencia_alta" for r in rec["riesgos"])
 
 
 def titular_calle(rec: dict, mov: dict) -> str:
@@ -694,6 +700,21 @@ def barras_que(rec: dict) -> None:
         width="stretch")
 
 
+def barras_que_mini(rec: dict) -> None:
+    """Lo mismo que barras_que(), para una columna estrecha: una barra fina por momento, con
+    su nombre y su cifra encima. El largo de cada barra es su parte del momento mayor."""
+    mo = sorted(((m, n) for m, n in rec["que_vender"]["momentos"]["laborable"].items()
+                 if n > 0), key=lambda kv: -kv[1])[:5]
+    if not mo:
+        return
+    tope = mo[0][1]
+    st.markdown(
+        "<div class='lado-t'>Posibles clientes en un día de diario</div><div class='mini'>"
+        + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
+                  f"<span>unos {unas(n)}</span><i style='width:{100 * n / tope:.0f}%'></i></div>"
+                  for m, n in mo) + "</div>", unsafe_allow_html=True)
+
+
 def frases_precio(inf: dict) -> list[str]:
     d = bloque_inf(inf, "precios")["datos"]
     renta = {"económica": "ganan menos que la media de la región",
@@ -739,29 +760,11 @@ def explicacion(clave: str, resp: dict, rec: dict, inf: dict) -> None:
         st.button("Cerrar", key="cerrar_explicacion", on_click=alternar, args=(clave,))
 
 
-def avisos_calle(rec: dict, inf: dict) -> list[tuple[str, str]]:
-    """Como mucho tres avisos (icono y una línea), con lo más importante primero."""
-    total = bloque_inf(inf, "competencia")["datos"]["total"]
-    out = []
-    for r in sorted(rec["riesgos"], key=lambda r: icono_y_orden(r["texto"])[0]):
-        t, icono = r["texto"], icono_y_orden(r["texto"])[1]
-        if t.startswith("Periodos sin clase"):
-            cuando = "de la universidad" if "universitarios" in t else "escolares"
-            frase = f"En vacaciones {cuando} pasa mucha menos gente."
-        elif t.startswith("Competencia alta"):
-            frase = f"Ya hay muchos bares y restaurantes cerca: {total}."
-        elif t.startswith("Cobertura baja"):
-            frase = "Puede haber más locales de los que salen en el mapa."
-        elif t.startswith("No se puede valorar"):
-            frase = "No sabemos si aquí hay mucha o poca competencia."
-        elif t.startswith("Festivos"):
-            frase = "Vienen festivos: esos días cambia la gente que pasa."
-        else:
-            continue
-        if (icono, frase) not in out:
-            out.append((icono, frase))
-    return out[:3] or [("ok", "No vemos nada especial, pero compruébalo en persona.")]
-
+def avisos_calle(rec: dict) -> list[tuple[str, str]]:
+    """Los avisos del sitio (icono y frase), tal como los da recomendar(): ya vienen
+    ordenados por importancia, como mucho tres, cada uno con la cifra de este punto; si no
+    hay ninguno, una sola frase en positivo."""
+    return [(ICONO_RIESGO.get(r["clave"], "aviso"), r["texto"]) for r in rec["riesgos"]]
 
 
 def comprobaciones_calle(rec: dict) -> list[str]:
@@ -1133,7 +1136,13 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
                      ir_a=st.session_state.get("ir_a"))
     r = BUSCADOR(key=clave, data=datos, on_q_change=_nada, on_elegida_change=_nada,
                  on_ejemplo_change=_nada, on_ubicacion_change=_nada, on_inicio_change=_nada,
-                 on_vista_change=_nada)
+                 on_vista_change=_nada, on_fuentes_change=_nada)
+    if r.fuentes:   # enlace «Fuentes y licencias» del pie
+        if st.session_state.get("resultado"):
+            ir_a_fuentes()
+        else:       # sin resultado (dirección sin confirmar): las fuentes están en la portada
+            volver_al_inicio()
+        st.rerun()
     if r.ejemplo in EJEMPLOS:
         elegir_punto(*EJEMPLOS[r.ejemplo], r.ejemplo)
         st.rerun()
@@ -1304,17 +1313,9 @@ def bloque_mercado(b: dict) -> None:
 
 
 # ------------------------------------------------------------------ riesgos
-PRIORIDAD_RIESGO = [  # lo que más cambia el negocio, primero (con su icono)
-    ("Periodos sin clase", "birrete"), ("Competencia alta", "tienda"),
-    ("Cobertura baja", "mapa"), ("No se puede valorar", "duda"), ("Festivos", "calendario"),
-    ("Sin riesgos", "ok")]
-
-
-def icono_y_orden(texto: str) -> tuple[int, str]:
-    for i, (clave, icono) in enumerate(PRIORIDAD_RIESGO):
-        if texto.startswith(clave):
-            return i, icono
-    return len(PRIORIDAD_RIESGO), "aviso"
+ICONO_RIESGO = {"sin_clase_universidad": "birrete", "sin_clase_colegios": "birrete",
+                "competencia_alta": "tienda", "festivos": "calendario",
+                "cobertura_baja": "mapa", "competencia_sin_valorar": "duda", "ninguno": "ok"}
 
 
 def nota(icono: str, cuerpo_html: str, clase: str = "") -> str:
@@ -1323,26 +1324,27 @@ def nota(icono: str, cuerpo_html: str, clase: str = "") -> str:
 
 
 def seccion_riesgos(rec: dict, inf: dict) -> None:
-    for r in sorted(rec["riesgos"], key=lambda r: icono_y_orden(r["texto"])[0]):
-        icono = icono_y_orden(r["texto"])[1]
-        titulo, _, resto = r["texto"].partition(": ")
-        st.markdown(nota(icono, f"<b>{html.escape(titulo)}</b>"
-                         + (f": {html.escape(resto)}" if resto else "")
-                         + f"<br>{etiquetas(r)}", "bien" if icono == "ok" else ""),
-                    unsafe_allow_html=True)
-        if r.get("porque"):
-            with st.expander("Por qué"):
-                st.markdown("\n".join(f"- {p}" for p in r["porque"]))
-    st.markdown("<div class='porque-t'>Avisos sobre los datos</div>", unsafe_allow_html=True)
-    avisos = [es_aviso(n) for b in inf["bloques"] for n in b["notas"] if es_aviso(n)]
-    st.markdown("\n".join(
-        f"- {a}" for a in dict.fromkeys(
-            avisos + ["El domingo no se modela aparte: «sábado» representa el fin de "
-                      "semana.",
-                      "Toda cifra de personas y de gasto es una estimación con supuestos "
-                      "explícitos (src/supuestos.py)."])))
-    st.caption("El texto completo de cada aviso está en la sección Mercado, en «Detalle, "
-               "notas y fuentes».")
+    """Los avisos del sitio (los mismos del Resumen, con su fiabilidad y su porqué) y, al
+    lado, los avisos sobre los datos."""
+    with seccion("riesgos") as lado:
+        for r in rec["riesgos"]:
+            icono = ICONO_RIESGO.get(r["clave"], "aviso")
+            st.markdown(nota(icono, f"{html.escape(r['texto'])}<br>{etiquetas(r)}",
+                             "bien" if icono == "ok" else ""), unsafe_allow_html=True)
+            if r.get("porque"):
+                with st.expander("Por qué"):
+                    st.markdown("\n".join(f"- {p}" for p in r["porque"]))
+    with lado:
+        avisos = [es_aviso(n) for b in inf["bloques"] for n in b["notas"] if es_aviso(n)]
+        st.markdown("<div class='lado-t'>Avisos sobre los datos</div>", unsafe_allow_html=True)
+        st.markdown("\n".join(
+            f"- {a}" for a in dict.fromkeys(
+                avisos + ["El domingo no se modela aparte: «sábado» representa el fin de "
+                          "semana.",
+                          "Toda cifra de personas y de gasto es una estimación con supuestos "
+                          "explícitos (src/supuestos.py)."])))
+        st.caption("El texto completo de cada aviso está en la sección Mercado, en «Detalle, "
+                   "notas y fuentes».")
 
 
 # ------------------------------------------- informe: una sección por pregunta
@@ -1362,6 +1364,30 @@ def cabecera_seccion(clave: str, titulo: str | None = None, primera: bool = Fals
             f"{ico(ICONO_SECCION[clave])}<b>{html.escape(titulo)}</b></div>")
 
 
+class seccion:
+    """Rejilla de una sección: a la izquierda, la columna de lectura (texto, listas y
+    desplegables, todos del mismo ancho); a la derecha, un recuadro de apoyo con la cifra
+    clave, un gráfico pequeño o la fiabilidad. En pantallas estrechas, uno debajo de otro
+    (app/estilo.css). Uso:
+        with seccion("quien") as lado:
+            ...   # columna de lectura
+        with lado:
+            ...   # recuadro de apoyo"""
+
+    def __init__(self, clave: str):
+        self.fila = st.container(key=f"sec_{clave}")
+        with self.fila:
+            self.texto = st.container(key=f"texto_{clave}")
+            self.lado = st.container(key=f"lado_{clave}")
+
+    def __enter__(self):
+        self.texto.__enter__()
+        return self.lado
+
+    def __exit__(self, *a):
+        return self.texto.__exit__(*a)
+
+
 def rec_detalle(r: dict) -> None:
     """Una recomendación dentro de un detalle desplegable: texto, etiquetas y sus motivos."""
     st.markdown(f"{r['texto']}<br>{etiquetas(r)}", unsafe_allow_html=True)
@@ -1369,20 +1395,28 @@ def rec_detalle(r: dict) -> None:
         st.caption("\n".join(f"- {p}" for p in r["porque"]))
 
 
-def seccion_pregunta(clave: str, t: dict, detalle) -> None:
-    """Las cuatro preguntas tienen la misma estructura, en una sola columna: respuesta en
-    grande, fiabilidad, porqué (la recomendación principal con sus motivos) y un detalle
-    desplegable con todas las recomendaciones."""
+def seccion_pregunta(clave: str, t: dict, detalle, figura=None, pie: str = "") -> None:
+    """Las cuatro preguntas tienen la misma estructura: respuesta en grande, porqué (la
+    recomendación principal con sus motivos) y un detalle desplegable con todas las
+    recomendaciones; al lado, la cifra clave o un gráfico pequeño y la fiabilidad."""
     r = t["rec"]
-    st.markdown(
-        cabecera_seccion(clave)
-        + f"<div class='resp-grande'>{html.escape(t['respuesta'])}</div>"
-        + (f"<div class='resp-apoyo'>{html.escape(t['apoyo'])}</div>" if t["apoyo"] else "")
-        + f"<div>{etiquetas(r)}</div><div class='porque-t'>Por qué</div>",
-        unsafe_allow_html=True)
-    st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
-    with st.expander("Detalle: todas las recomendaciones"):
-        detalle()
+    st.markdown(cabecera_seccion(clave), unsafe_allow_html=True)
+    with seccion(clave) as lado:
+        st.markdown(
+            f"<div class='resp-grande'>{html.escape(t['respuesta'])}</div>"
+            + (f"<div class='resp-apoyo'>{html.escape(t['apoyo'])}</div>" if t["apoyo"] else "")
+            + f"<div>{etiquetas(r)}</div><div class='porque-t'>Por qué</div>",
+            unsafe_allow_html=True)
+        st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
+        with st.expander("Detalle: todas las recomendaciones"):
+            detalle()
+        if pie:
+            st.caption(pie)
+    with lado:
+        if figura:
+            figura()
+        st.markdown("<div class='lado-t'>Fiabilidad</div>" + fiabilidad(r),
+                    unsafe_allow_html=True)
 
 
 def por_dias(recs: list[dict], extra: tuple[str, list[dict]] | None = None) -> None:
@@ -1442,9 +1476,15 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
 def pestana_comprobar(rec: dict) -> None:
     lista = rec["comprobar_en_persona"]
     texto_lista = "\n".join(f"{i}. {c}" for i, c in enumerate(lista, 1))
-    st.markdown(texto_lista)
-    with st.expander("Copiar o descargar la lista"):
-        st.code(texto_lista, language=None, wrap_lines=True)
+    with seccion("comprobar") as lado:
+        st.markdown(texto_lista)
+        with st.expander("Copiar la lista"):
+            st.code(texto_lista, language=None, wrap_lines=True)
+    with lado:
+        st.markdown(f"<div class='lado-t'>Para llevar al local</div><div class='cifra'>"
+                    f"{len(lista)}</div><div class='cifra-pie'>comprobaciones para hacer en "
+                    "persona antes de decidir: los datos abiertos no ven la calle.</div>",
+                    unsafe_allow_html=True)
         st.download_button("Descargar la lista (.txt)", texto_lista.encode("utf-8"),
                            file_name="barometro_comprobaciones.txt", mime="text/plain")
 
@@ -1459,26 +1499,29 @@ def pestana_fuentes(fu: dict) -> None:
         for f in fu["portal"]])
     st.dataframe(tabla, hide_index=True, width="stretch", column_config={
         "Ficha": st.column_config.LinkColumn("Ficha", display_text=r".*/dataset/(.*)")})
-    st.markdown("**Otras fuentes:**")
-    for e in fu["externas"] + fu["aplicacion"]:
-        st.markdown(f"- **{e['titulo']}**  \n"
-                    f"  Enlace: {e.get('Enlace', '?')}  \n"
-                    f"  Licencia: {e.get('Licencia', '?')}  \n"
-                    f"  Datos: {e.get('Versión de los datos', '?')} · descargado el "
-                    f"{e.get('Fecha de descarga', '?')}")
-    st.markdown(
-        "**Powered by [CRTM](https://www.crtm.es)**. Los datos del Consorcio Regional de "
-        "Transportes de Madrid (paradas, horarios GTFS y demanda de viajeros) se usan "
-        "**procesados**: se calculan a partir de ellos los pasos de vehículos por hora y las "
-        "personas por vehículo, no se muestran en bruto.\n\n"
-        "Locales, campus y mapa: © [colaboradores de OpenStreetMap]"
-        "(https://www.openstreetmap.org/copyright), datos con licencia "
-        "[ODbL](https://opendatacommons.org/licenses/odbl/). ¿Ves un error en el mapa? "
-        "[Infórmalo a OpenStreetMap](https://www.openstreetmap.org/fixthemap).\n\n"
-        + ATRIBUCION_CARTOCIUDAD + ".\n\n"
-        "Este proyecto **no está respaldado ni patrocinado por ninguna de las entidades** que "
-        "publican los datos (Comunidad de Madrid, Ayuntamiento de Madrid, INE, IGN, CRTM, "
-        "Fundación OpenStreetMap ni ninguna otra).")
+    with seccion("fuentes") as lado:
+        st.markdown("**Otras fuentes:**")
+        for e in fu["externas"] + fu["aplicacion"]:
+            st.markdown(f"- **{e['titulo']}**  \n"
+                        f"  Enlace: {e.get('Enlace', '?')}  \n"
+                        f"  Licencia: {e.get('Licencia', '?')}  \n"
+                        f"  Datos: {e.get('Versión de los datos', '?')} · descargado el "
+                        f"{e.get('Fecha de descarga', '?')}")
+    with lado:
+        st.markdown("<div class='lado-t'>Atribuciones</div>", unsafe_allow_html=True)
+        st.markdown(
+            "**Powered by [CRTM](https://www.crtm.es)**. Los datos del Consorcio Regional de "
+            "Transportes de Madrid (paradas, horarios GTFS y demanda de viajeros) se usan "
+            "**procesados**: se calculan a partir de ellos los pasos de vehículos por hora y "
+            "las personas por vehículo, no se muestran en bruto.\n\n"
+            "Locales, campus y mapa: © [colaboradores de OpenStreetMap]"
+            "(https://www.openstreetmap.org/copyright), datos con licencia "
+            "[ODbL](https://opendatacommons.org/licenses/odbl/). ¿Ves un error en el mapa? "
+            "[Infórmalo a OpenStreetMap](https://www.openstreetmap.org/fixthemap).\n\n"
+            + ATRIBUCION_CARTOCIUDAD + ".\n\n"
+            "Este proyecto **no está respaldado ni patrocinado por ninguna de las entidades** "
+            "que publican los datos (Comunidad de Madrid, Ayuntamiento de Madrid, INE, IGN, "
+            "CRTM, Fundación OpenStreetMap ni ninguna otra).")
 
 
 # =========================================================================== página
@@ -1626,11 +1669,14 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
                 unsafe_allow_html=True)
 
     # --------------------------------------------------- avisos y comprobaciones
-    st.markdown(f"<div class='seccion'>{ico('aviso')}Ojo con esto</div>",
-                unsafe_allow_html=True)
-    st.markdown("".join(nota(icono, html.escape(frase), "bien" if icono == "ok" else "")
-                        for icono, frase in avisos_calle(rec, inf)), unsafe_allow_html=True)
-    parte_comprobaciones(rec)
+    with st.container(key="dos_avisos"):   # dos columnas iguales en portátil
+        with st.container(key="col_avisos"):
+            st.markdown(f"<div class='seccion'>{ico('aviso')}Ojo con esto</div>",
+                        unsafe_allow_html=True)
+            st.markdown("".join(nota(icono, html.escape(frase), "bien" if icono == "ok" else "")
+                                for icono, frase in avisos_calle(rec)), unsafe_allow_html=True)
+        with st.container(key="col_comprobar"):
+            parte_comprobaciones(rec)
 
 
 # ------------------------------------------------------------ vista Informe completo
@@ -1646,36 +1692,46 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         st.markdown(
             orientacion(AVISO) + f"<div class='donde' style='margin-top:1rem'>{ico('pin')}{html.escape(lugar_analizado())} · radio de "
             f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>"
-            + cabecera_seccion("movimiento", primera=True)
-            + f"<div class='resp-grande'>{html.escape(mov['nombre'])}</div>"
-            f"<div class='resp-apoyo'>Nivel {mov['nivel']} de 5</div>"
-            "<div><span class='etiqueta'>Estimación</span></div>"
-            "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
-        st.markdown(
-            f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5). "
-            f"≈{redondo(mov['pasos_laborable'])} personas pasan cerca en un día laborable; "
-            f"{mov['frase']} (por encima del {100 * mov['posicion']:.0f} % de "
-            f"{miles(mov['sitios_referencia'])} sitios de referencia, cuya mediana es "
-            f"≈{redondo(mov['mediana_referencia'])}).")
-        if mov["muy_poco_paso"]:
-            st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
-        with st.expander(f"Detalle: cómo se calcula y por qué {S.RADIO_M} metros"):
+            + cabecera_seccion("movimiento", primera=True), unsafe_allow_html=True)
+        with seccion("movimiento") as lado:
             st.markdown(
-                f"{mov['nota']} Por qué {S.RADIO_M} metros: es lo que se anda en unos 4 "
-                "minutos, la distancia a la que alguien se desvía para tomar algo de paso; "
-                "por eso el perfil y las recomendaciones solo miran ese círculo. El "
-                f"transporte se mira además a {S.ACCESOS_RADIO_LEJOS_M} m y el entorno a "
-                f"{S.ENTORNO_RADIO_M // 1000} km, solo como contexto (sección Mercado).")
+                f"<div class='resp-grande'>{html.escape(mov['nombre'])}</div>"
+                f"<div class='resp-apoyo'>Nivel {mov['nivel']} de 5</div>"
+                "<div><span class='etiqueta'>Estimación</span></div>"
+                "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5). "
+                f"≈{redondo(mov['pasos_laborable'])} personas pasan cerca en un día laborable; "
+                f"{mov['frase']} (por encima del {100 * mov['posicion']:.0f} % de "
+                f"{miles(mov['sitios_referencia'])} sitios de referencia, cuya mediana es "
+                f"≈{redondo(mov['mediana_referencia'])}).")
+            if mov["muy_poco_paso"]:
+                st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
+            with st.expander(f"Detalle: cómo se calcula y por qué {S.RADIO_M} metros"):
+                st.markdown(
+                    f"{mov['nota']} Por qué {S.RADIO_M} metros: es lo que se anda en unos 4 "
+                    "minutos, la distancia a la que alguien se desvía para tomar algo de "
+                    "paso; por eso el perfil y las recomendaciones solo miran ese círculo. El "
+                    f"transporte se mira además a {S.ACCESOS_RADIO_LEJOS_M} m y el entorno a "
+                    f"{S.ENTORNO_RADIO_M // 1000} km, solo como contexto (sección Mercado).")
+        with lado:
+            st.markdown(
+                indicador_movimiento(mov)
+                + f"<div class='cifra'>≈{redondo(mov['pasos_laborable'])}</div>"
+                "<div class='cifra-pie'>personas pasan cerca en un día laborable "
+                "(estimación).</div>", unsafe_allow_html=True)
 
-        seccion_pregunta("quien", resp["quien"], lambda: detalle_quien(rec))
-        st.caption(aq["nota"])
-        seccion_pregunta("hora", resp["cuando"], lambda: por_dias(hr["recomendaciones"]))
+        seccion_pregunta("quien", resp["quien"], lambda: detalle_quien(rec),
+                         lambda: diez_clientes(rec), aq["nota"])
+        seccion_pregunta("hora", resp["cuando"], lambda: por_dias(hr["recomendaciones"]),
+                         lambda: cifra_cuando(rec))
         seccion_pregunta("vender", resp["que"], lambda: por_dias(
             qv["recomendaciones"],
             ("Huecos y cocinas", [r for r in qv["recomendaciones"] if "dia" not in r]
-             + qv["huecos"] + [qv["cocinas"]])))
+             + qv["huecos"] + [qv["cocinas"]])), lambda: barras_que_mini(rec))
         seccion_pregunta("precio", resp["precio"],
-                         lambda: [rec_detalle(r) for r in pr["recomendaciones"]] and None)
+                         lambda: [rec_detalle(r) for r in pr["recomendaciones"]] and None,
+                         lambda: cifra_precio(inf))
 
         seccion_perfil(rec, perfil)
 
@@ -1738,8 +1794,6 @@ if res or pendiente:   # resultado sobre fondo claro, con la barra fija arriba
 if res:
     parte_buscador("barra", lugar_analizado(), vista,
                    SECCIONES if vista == "Informe completo" else ())
-    if vista != "Resumen":   # el informe aprovecha el ancho: menos margen a los lados
-        st.markdown("<style>:root {--ancho:1400px;}</style>", unsafe_allow_html=True)
     if vista == "Resumen":   # solo se construye la vista que se está viendo
         st.markdown(orientacion(AVISO_SENCILLO), unsafe_allow_html=True)
         vista_resumen(res["rec"], res["perfil"], res["informe"])
@@ -1762,18 +1816,30 @@ else:
     portada()
 
 # --------------------------------------------------------------------- pie
+# El mismo pie en todas las vistas: una franja a todo el ancho, del color de la barra. El
+# enlace «Fuentes y licencias» lo atiende app/buscador.js (lleva a esa sección; desde el
+# Resumen, abre antes el Informe completo).
 st.markdown(
-    "<div class='pie'>"
-    "Powered by <a href='https://www.crtm.es'>CRTM</a> · "
-    "© <a href='https://www.openstreetmap.org/copyright'>colaboradores de OpenStreetMap</a>"
-    " · Direcciones: CartoCiudad, IGN · CC BY 4.0 "
-    "<a href='https://www.scne.es/productos.html#CartoCiudad'>"
-    "www.scne.es/productos.html#CartoCiudad</a> · "
-    f"Datos descargados el {fu['portal_descarga']} · "
-    "Sin respaldo de las entidades que publican los datos · "
-    "BARómetro, prototipo para DATAMAD 2026"
-    "</div>", unsafe_allow_html=True)
-if res:
-    st.button("Fuentes y licencias", key="ir_fuentes", type="tertiary", on_click=ir_a_fuentes)
+    "<footer class='pie-bm'><div class='pie-dentro'>"
+    f"<div class='pie-marca'><span class='marca'>{logo_svg()}<b>BARómetro</b></span>"
+    "<p>Te ayuda a decidir qué ofrecer en tu bar o restaurante, según la zona.</p>"
+    "<p class='tenue'>Prototipo para el datathon DATAMAD 2026 de la Comunidad de Madrid.</p>"
+    "</div>"
+    "<div class='pie-col'><b>Atribuciones</b><ul>"
+    "<li>Powered by <a href='https://www.crtm.es' target='_blank' rel='noopener'>CRTM</a></li>"
+    "<li>© <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>"
+    "colaboradores de OpenStreetMap</a></li>"
+    "<li>Direcciones: CartoCiudad, IGN · CC BY 4.0 · "
+    "<a href='https://www.scne.es/productos.html#CartoCiudad' target='_blank' rel='noopener'>"
+    "www.scne.es/productos.html#CartoCiudad</a></li></ul></div>"
+    "<div class='pie-col'><b>Datos</b><ul>"
+    f"<li>Descargados el {html.escape(fu['portal_descarga'])}</li>"
+    "<li><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a></li>"
+    f"<li><a href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a></li>"
+    "</ul></div>"
+    f"<div class='pie-legal'><p>{AVISO_SENCILLO} Toda cifra de personas es una estimación."
+    "</p><p>Este proyecto no está respaldado ni patrocinado por ninguna de las entidades que "
+    "publican los datos.</p></div>"
+    "</div></footer>", unsafe_allow_html=True)
 st.session_state["_en_pagina"] = False
 anotar_medidas("página", _T_PAGINA)
