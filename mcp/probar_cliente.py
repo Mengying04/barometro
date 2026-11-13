@@ -75,10 +75,37 @@ async def main() -> int:
         herramientas = (await cliente.list_tools()).tools
         print("Herramientas:", [h.name for h in herramientas])
         comprobar({h.name for h in herramientas} == {"recomendar_local", "perfil_por_horas",
-                                                     "informe_de_zona", "buscar_direccion"},
-                  "no están las cuatro herramientas")
+                                                     "informe_de_zona", "buscar_direccion",
+                                                     "comparar_locales"},
+                  "no están las cinco herramientas")
         for h in herramientas:
             comprobar(len(h.description or "") > 200, f"{h.name}: descripción corta")
+
+        # Comparación de dos de los ejemplos: el mismo contenido que comparar().
+        from comparar import comparar
+        (n1, p1), (n2, p2) = list(EJEMPLOS.items())[0], list(EJEMPLOS.items())[-1]
+        print(f"\n== comparar_locales: {n1} y {n2}")
+        lados = []
+        for i, (lat, lon) in enumerate((p1, p2), 1):
+            perfil = P.perfil_horario(lat, lon)
+            inf = I.informe_local(lat, lon, perfil=perfil)
+            lados.append({"nombre": f"Local {i} ({inf['municipio']['nombre']})",
+                          "perfil": perfil, "informe": inf,
+                          "rec": recomendar(lat, lon, perfil=perfil, inf=inf),
+                          "mov": nivel_movimiento(perfil)})
+        esperado = comparar(*lados)
+        c = datos(await cliente.call_tool("comparar_locales", {
+            "lat1": p1[0], "lon1": p1[1], "lat2": p2[0], "lon2": p2[1]}))
+        comunes("comparar_locales", c)
+        for k in ("filas", "resumen"):
+            comprobar(json.dumps(c[k], sort_keys=True, default=str)
+                      == json.dumps(esperado[k], sort_keys=True, default=str),
+                      f"comparar_locales: «{k}» no coincide con comparar()")
+        comprobar(len(c["filas"]) == 11 and 2 <= len(c["resumen"]) <= 3,
+                  "comparar_locales: faltan filas o el resumen no tiene dos o tres frases")
+        print(f"   {len(c['filas'])} filas · mejor: "
+              f"{[f['mejor'] for f in c['filas']]} · {len(c['fuentes'])} fuentes")
+        print("   " + " ".join(c["resumen"]))
 
         for nombre, (lat, lon) in EJEMPLOS.items():
             print(f"\n== {nombre}")

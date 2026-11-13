@@ -1,10 +1,11 @@
 """BARómetro: servidor MCP (Model Context Protocol), en local por stdio.
 
 Permite que un asistente (Claude Desktop, Claude Code u otro cliente MCP) consulte
-BARómetro. Expone cuatro herramientas que solo llaman a las funciones que ya existen en
+BARómetro. Expone cinco herramientas que solo llaman a las funciones que ya existen en
 src/, sin repetir cálculos:
 
   - recomendar_local(lat, lon)   → recomendar()
+  - comparar_locales(lat1, lon1, lat2, lon2) → comparar() (src/comparar.py)
   - perfil_por_horas(lat, lon)   → perfil_horario()
   - informe_de_zona(lat, lon)    → informe_local()
   - buscar_direccion(texto)      → geocodificar() y coordenadas() (CartoCiudad)
@@ -69,7 +70,8 @@ servidor = MCPServer(
         "BARómetro orienta sobre qué vender, a quién, a qué hora y a qué precio en un bar o "
         "restaurante de la Comunidad de Madrid, con datos abiertos. Si el usuario da una "
         "dirección, usa primero buscar_direccion para obtener las coordenadas y después "
-        "recomendar_local. Si buscar_direccion no devuelve un portal exacto (una calle sin "
+        "recomendar_local. Si duda entre dos sitios, usa comparar_locales y no declares "
+        "un ganador. Si buscar_direccion no devuelve un portal exacto (una calle sin "
         "número, un municipio…), no calcules: pide antes el número o que confirmen el "
         "sitio. Mira primero el nivel de movimiento de la zona: si es «Muy poco paso», "
         "dilo con claridad antes de recomendar nada. Presenta siempre los resultados como una orientación con "
@@ -84,6 +86,7 @@ def _modulos():
     """Carga los módulos de cálculo la primera vez. Todo lo que escriban va a la salida de
     errores: la salida estándar es el canal del protocolo."""
     with contextlib.redirect_stdout(sys.stderr):
+        import comparar
         import direcciones
         import fuentes
         import informe_local
@@ -91,7 +94,8 @@ def _modulos():
         import perfil_horario
         import recomendaciones
         import supuestos
-    return {"direcciones": direcciones, "fuentes": fuentes, "informe": informe_local,
+    return {"comparar": comparar, "direcciones": direcciones, "fuentes": fuentes,
+            "informe": informe_local,
             "perfil": perfil_horario, "rec": recomendaciones, "supuestos": supuestos,
             "movimiento": movimiento}
 
@@ -235,6 +239,55 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
         {"municipio": muni["nombre"], "fecha": rec["fecha"],
          "nivel_de_movimiento": _movimiento(perfil), **contenido},
         _unir(_fuentes_informe(inf), _fuentes(PORTAL_PERFIL, EXTERNAS_PERFIL)))
+
+
+@servidor.tool(title="Comparar dos locales")
+def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict[str, Any]:
+    """Compara dos puntos de la Comunidad de Madrid como sitio para un bar o restaurante,
+    aspecto por aspecto, con el mismo contenido que la comparación de la aplicación.
+
+    Úsala cuando alguien dude entre dos locales o dos direcciones. Necesita la latitud y
+    la longitud de los dos puntos en grados decimales (WGS84); si solo tienes direcciones,
+    obtén antes las coordenadas de cada una con buscar_direccion (solo portales exactos).
+    El primero es el local «a» y el segundo, el «b».
+
+    Devuelve «filas», una por aspecto: nivel de movimiento, gente que pasa en un día de
+    diario y en un sábado, quién pasa, horas punta, qué conviene ofrecer, gama de precios,
+    competencia a menos de 300 metros y frente a su municipio, cómo se llega y los avisos
+    de cada sitio. Cada fila trae lo que se sabe de «a» y de «b», su «fiabilidad», «mejor»
+    («a», «b» o nada) y un «veredicto» en una frase. «mejor» solo se marca cuando la
+    diferencia pasa del 15 % y la fiabilidad no es baja; si no, el veredicto dice
+    «diferencia pequeña, no decide» o por qué no se puede comparar (por ejemplo, locales
+    contados con fuentes distintas). En quién pasa y en la gama de precios no hay mejor ni
+    peor. Trae también «personas_por_hora» de los dos sitios (laborable y sábado) y un
+    «resumen» de dos o tres frases.
+
+    No declares un ganador: di en qué sale mejor cada uno, repite los veredictos tal cual
+    (incluidos los que no deciden) y recuerda que es una orientación con estimaciones, no
+    una garantía, y que conviene comprobarlo en persona en los dos sitios. No nombra
+    locales ni guarda los puntos. Si alguno está fuera de la Comunidad de Madrid, devuelve
+    un error."""
+    lados = []
+    for n, (lat, lon) in enumerate(((lat1, lon1), (lat2, lon2)), 1):
+        try:
+            muni, perfil, inf, rec = _calcular(lat, lon, "recomendar")
+        except ToolError as e:
+            raise ToolError(f"Local {n}: {e}") from None
+        lados.append({"nombre": f"Local {n} ({muni['nombre']})", "perfil": perfil,
+                      "informe": inf, "rec": rec, "mov": _movimiento(perfil),
+                      "municipio": muni["nombre"], "lat": lat, "lon": lon})
+    c = _modulos()["comparar"].comparar(*lados)
+    return _respuesta(
+        {"fecha": lados[0]["rec"]["fecha"], "radio_m": lados[0]["rec"]["radio_m"],
+         "locales": {k: {"nombre": x["nombre"], "municipio": x["municipio"],
+                         "lat": x["lat"], "lon": x["lon"]}
+                     for k, x in zip("ab", lados)},
+         "filas": c["filas"], "resumen": c["resumen"],
+         "personas_por_hora": {k: {"laborable": v["laborable"], "sabado": v["fin_de_semana"]}
+                               for k, v in c["personas_por_hora"].items()},
+         "nota": c["nota"], "aviso_comparacion": c["aviso"]},
+        _unir(_fuentes_informe(lados[0]["informe"]), _fuentes_informe(lados[1]["informe"]),
+              _fuentes(PORTAL_PERFIL, EXTERNAS_PERFIL)))
 
 
 @servidor.tool(title="Gente que pasa cerca, por horas")

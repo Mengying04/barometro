@@ -20,7 +20,14 @@ Pantallas:
         la misma estructura (respuesta, fiabilidad, porqué y detalle desplegable), el perfil
         por horas, mercado, riesgos, comprobaciones y fuentes.
 Ninguna de las dos vistas calcula nada: traducen lo que devuelven recomendar() e
-informe_local().
+informe_local(), con las palabras de src/calle.py.
+
+Desde el resultado se puede además:
+  - «Comparar con otra dirección»: se elige una segunda dirección con el mismo buscador y
+    las mismas reglas y se enseña la comparación (src/comparar.py) lado a lado en portátil
+    y apilada en móvil, con las dos curvas por horas y un resumen final sin ganador;
+  - «Descargar informe»: un PDF (src/documento.py) del local o de la comparación, que se
+    genera en memoria al pulsar el botón y no se guarda en el servidor.
 
 Rejilla (app/estilo.css): un solo ancho máximo de contenido y un margen lateral simétrico
 para todas las vistas; la barra, el índice, el contenido y el pie comparten bordes. En el
@@ -42,7 +49,7 @@ mapa.
 Privacidad: lo que se escribe en el buscador se envía a CartoCiudad para sugerir
 direcciones. Ni eso, ni la dirección elegida, ni la ubicación del navegador (que solo se
 pide si el usuario pulsa «Usar mi ubicación» y la acepta) se guardan: solo viven en la
-memoria de la sesión; no se escriben en ficheros, registros ni en la URL. Las estadísticas
+memoria de la sesión, igual que la segunda dirección de una comparación; no se escriben en ficheros, registros ni en la URL. Las estadísticas
 de uso de Streamlit están desactivadas en .streamlit/config.toml.
 """
 
@@ -72,9 +79,16 @@ import informe_local as I  # noqa: E402
 import perfil_horario as P  # noqa: E402
 import supuestos as S  # noqa: E402
 import tablas_readme  # noqa: E402
+from comparar import comparar  # noqa: E402
 from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
                          geocodificar)
+from documento import comparacion_pdf, informe_pdf  # noqa: E402
 from movimiento import nivel_movimiento, referencia  # noqa: E402
+from calle import (CLIENTE_CALLE, COLOR_TIPO, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
+                   MODO_CALLE, MOMENTO_CALLE, bloque_inf, comprobaciones_calle, dec,
+                   frases_cuando, frases_precio, frases_que, frases_quien, grupos_horas,
+                   hora_de_grupo, horas_punta, lista_y, mayus, metrica_bloque, miles,
+                   rec_dia, redondo, respuestas, titular_calle, unas)
 from procesar import PROC  # noqa: E402
 from recomendaciones import recomendar  # noqa: E402
 
@@ -99,8 +113,6 @@ COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": 
 # Tipos de local: cuatro colores bien separados también con daltonismo (comprobados por pares
 # con el validador de paletas: diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia) y,
 # además, una forma distinta por tipo. Los mismos en el mapa, la leyenda y el informe.
-COLOR_TIPO = {"bar": "#0072B2", "restaurante": "#D55E00", "cafeteria": "#009E73",
-              "comida_rapida": "#B5338A"}
 FORMA_TIPO = {  # en una rejilla de 16: círculo, cuadrado, triángulo y rombo
     "bar": "<circle cx='8' cy='8' r='6'/>",
     "restaurante": "<rect x='2.4' y='2.4' width='11.2' height='11.2' rx='1.6'/>",
@@ -352,26 +364,7 @@ def cifras_portada() -> dict:
             "municipios": int(secc["cod_municipio"].nunique())}
 
 
-
 # ------------------------------------------------------------------- formato
-def miles(n: float) -> str:
-    """Entero con punto de miles: 12345 → «12.345»."""
-    return f"{round(n):,}".replace(",", ".")
-
-
-def dec(x: float, d: int = 1) -> str:
-    return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def redondo(n: float) -> str:
-    """Redondeo para cifras estimadas: dos cifras significativas («≈5.000»)."""
-    if n >= 100:
-        n = round(n, -len(str(int(n))) + 2)
-    return miles(n)
-
-
-def lista_y(xs: list[str]) -> str:
-    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " y " + xs[-1]
 
 
 def etiquetas(r: dict) -> str:
@@ -389,127 +382,12 @@ def mostrar_rec(r: dict) -> None:
             st.markdown("\n".join(f"- {p}" for p in r["porque"]))
 
 
-def bloque_inf(inf: dict, clave: str) -> dict:
-    return next(b for b in inf["bloques"] if b["clave"] == clave)
-
-
 # ------------------------------------------- lecturas de recomendar() (sin cálculos)
-def horas_punta(rec: dict, dia: str) -> list[int]:
-    return [int(h["hora"][:2]) for h in rec["a_que_hora"]["detalle"][dia]["horas_punta"]]
-
-
-def grupos_horas(rec: dict, dia: str) -> list[list[int]]:
-    """Horas punta agrupadas en tramos seguidos, ordenados por la hora más concurrida."""
-    punta = rec["a_que_hora"]["detalle"][dia]["horas_punta"]
-    total = {int(h["hora"][:2]): h["total"] for h in punta}
-    grupos: list[list[int]] = []
-    for h in sorted(total):
-        if grupos and h == grupos[-1][-1] + 1:
-            grupos[-1].append(h)
-        else:
-            grupos.append([h])
-    return sorted(grupos, key=lambda g: -max(total[h] for h in g))
-
-
-def tramo(g: list[int]) -> str:
-    return f"{g[0]} h" if len(g) == 1 else f"{g[0]}–{g[-1] + 1} h"
-
-
-def hora_de_grupo(rec: dict, dia: str, g: list[int]) -> int:
-    total = {int(h["hora"][:2]): h["total"]
-             for h in rec["a_que_hora"]["detalle"][dia]["horas_punta"]}
-    return max(g, key=lambda h: total[h])
-
-
-def rec_dia(recs: list[dict], dia: str) -> list[dict]:
-    return [r for r in recs if r.get("dia") == dia]
-
-
-def clientes_principales(rec: dict, dia: str = "laborable") -> list[tuple[str, float]]:
-    """Tipos de cliente que destaca la recomendación «a quién» (como mucho dos)."""
-    r = rec_dia(rec["a_quien"]["recomendaciones"], dia)
-    pesos = sorted((r[0].get("pesos") or {}).items(), key=lambda kv: -kv[1]) if r else []
-    fuertes = [kv for kv in pesos if kv[1] >= 0.25][:2]
-    return fuertes or pesos[:1]
 
 
 # ------------------------------------------------- vista Resumen: palabras de la calle
-# Esta vista no calcula nada: traduce a frases cortas lo que devuelven recomendar() e
-# informe_local(). Las cifras se redondean solo para mostrarlas.
-CLIENTE_CALLE = {"vecinos": "vecinos", "viajeros": "viajeros",
-                 "universitarios": "universitarios", "padres_ninos": "familias con niños",
-                 "pacientes": "pacientes", "trabajadores": "trabajadores",
-                 "deporte_eventos": "gente del deporte"}
-ARTICULO = {"padres_ninos": "las", "deporte_eventos": "la"}   # el resto, «los»
-MOMENTO_CALLE = {"desayuno": "desayunos", "almuerzo": "almuerzos a media mañana",
-                 "menu_del_dia": "menú del día", "merienda": "meriendas",
-                 "canas_raciones": "cañas con raciones", "cenas": "cenas", "copas": "copas"}
-FRANJA_CALLE = {"primera hora de la mañana": "a primera hora",
-                "media mañana": "a media mañana", "mediodía": "a mediodía",
-                "media tarde": "a media tarde", "tarde-noche": "al caer la tarde",
-                "noche": "de noche"}
-PRECIO_CALLE = {"económica": "económicos", "media": "medios", "alta": "altos"}
-FIABILIDAD = {"alta": (3, "Bastante fiable"), "media": (2, "Orientativo"),
-              "baja": (1, "Poco fiable, compruébalo")}
-LOCAL_CALLE = {"sirven_comidas": "sitios para comer", "bar": "bares",
-               "cafeteria": "cafeterías", "comida_rapida": "locales de comida rápida"}
 COLOR_OTROS = "#b8b0a4"
 DIA_RESUMEN = {"Día de diario": "laborable", "Sábado": "fin_de_semana"}
-
-
-def unas(n: float) -> str:
-    """Número redondo para leer de un vistazo: 2.084 → «2.000», 580 → «600»."""
-    paso = 500 if n >= 1000 else 50 if n >= 100 else 10 if n >= 20 else 1
-    return miles(max(paso, round(n / paso) * paso))
-
-
-def horas_calle(grupos: list[list[int]]) -> str:
-    """Tramos de horas punta en palabras: «de 8 a 10 y a las 14»."""
-    def uno(g):
-        if len(g) > 1:
-            return f"de {g[0]} a {g[-1] + 1}"
-        return "a la 1" if g[0] == 1 else f"a las {g[0]}"
-    return lista_y([uno(g) for g in sorted(grupos)])
-
-
-def mayus(t: str) -> str:
-    return t[0].upper() + t[1:] if t else t
-
-
-def oportunidad_comidas(rec: dict) -> list[str]:
-    """Momentos (menú del día, cenas) que recomendar() señala como oportunidad."""
-    textos = [r["texto"] for r in rec["que_vender"]["recomendaciones"] if "dia" not in r]
-    return [m for m in ("menu_del_dia", "cenas")
-            if any(S.MOMENTOS[m].lower() in t for t in textos)]
-
-
-def ofertas(rec: dict) -> list[str]:
-    """Los dos momentos que se enseñan: el primero del día de diario y la oportunidad de
-    comidas si la hay; si no, el segundo del día de diario."""
-    lab = [r["momento"] for r in rec_dia(rec["que_vender"]["recomendaciones"], "laborable")]
-    out = lab[:1]
-    for m in oportunidad_comidas(rec) + lab[1:]:
-        if m not in out:
-            out.append(m)
-    return out[:2]
-
-
-def competencia_alta(rec: dict) -> bool:
-    return any(r["clave"] == "competencia_alta" for r in rec["riesgos"])
-
-
-def titular_calle(rec: dict, mov: dict) -> str:
-    """Una sola idea, doce palabras como mucho."""
-    if mov["muy_poco_paso"]:
-        return "Muy poco paso: por aquí casi no pasa gente andando"
-    of = lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)])
-    if not of:
-        return "Por aquí pasa poca gente"
-    if oportunidad_comidas(rec):
-        return f"Buena zona para {of}"
-    if competencia_alta(rec):
-        return f"Zona de {MOMENTO_CALLE[ofertas(rec)[0]]}, con mucha competencia cerca"
-    return f"Aquí encajan sobre todo {of}"
 
 
 def fiabilidad(r: dict) -> str:
@@ -522,45 +400,6 @@ def alternar(clave: str | None) -> None:
     """Abre la explicación de una tarjeta (solo una a la vez) o la cierra."""
     st.session_state["abierta"] = (None if st.session_state.get("abierta") == clave
                                    else clave)
-
-
-def respuestas(rec: dict, inf: dict) -> dict:
-    """Pregunta, respuesta corta, línea de apoyo y recomendación de la que sale la
-    fiabilidad, para cada una de las cuatro tarjetas."""
-    aq = rec["a_quien"]["recomendaciones"]
-    hr = rec["a_que_hora"]["recomendaciones"]
-    qv = rec["que_vender"]
-    pr = rec["a_que_precio"]["recomendaciones"]
-    lab = clientes_principales(rec)
-    sab = clientes_principales(rec, "fin_de_semana")
-    g_sab = grupos_horas(rec, "fin_de_semana")
-    v_lab = rec_dia(qv["recomendaciones"], "laborable")
-    v_sab = rec_dia(qv["recomendaciones"], "fin_de_semana")
-    gama = bloque_inf(inf, "precios")["datos"]["gama_ajustada"]["gama"]["semana"]
-    return {
-        "quien": {
-            "pregunta": "¿Quién pasa por aquí?",
-            "respuesta": mayus(lista_y([CLIENTE_CALLE[t] for t, _ in lab])) or "Poca gente",
-            "apoyo": f"Los sábados, sobre todo {CLIENTE_CALLE[sab[0][0]]}" if sab else "",
-            "rec": (rec_dia(aq, "laborable") or aq)[0]},
-        "cuando": {
-            "pregunta": "¿Cuándo hay más gente?",
-            "respuesta": mayus(horas_calle(grupos_horas(rec, "laborable"))) or "Sin datos",
-            "apoyo": f"Los sábados, {horas_calle(g_sab)}" if g_sab else "",
-            "rec": (rec_dia(hr, "laborable") or hr)[0]},
-        "que": {
-            "pregunta": "¿Qué conviene ofrecer?",
-            "respuesta": mayus(lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)]))
-            or "Sin datos",
-            "apoyo": f"Los sábados, {MOMENTO_CALLE[v_sab[0]['momento']]}" if v_sab else "",
-            "rec": v_lab[0] if v_lab else qv["cocinas"]},
-        "precio": {
-            "pregunta": "¿A qué precios?",
-            "respuesta": mayus(PRECIO_CALLE.get(gama, gama)),
-            "apoyo": "Mira antes los precios de la zona",
-            "rec": pr[0]},
-    }
-
 
 
 ICONO_PREGUNTA = {"quien": "personas", "cuando": "reloj", "que": "taza", "precio": "euro"}
@@ -584,33 +423,6 @@ def tarjetas_resumen(resp: dict) -> None:
                       on_click=alternar, args=(clave,))
 
 
-
-def frases_quien(rec: dict) -> list[str]:
-    lab = clientes_principales(rec)
-    sab = clientes_principales(rec, "fin_de_semana")
-    out = []
-    if lab:
-        out.append(f"En un día de diario pasan sobre todo "
-                   f"{lista_y([CLIENTE_CALLE[t] for t, _ in lab])}.")
-    r = rec_dia(rec["a_quien"]["recomendaciones"], "laborable")
-    fuerte = {}
-    for p in (r[0]["porque"] if r else []):
-        m = re.match(r"([^:]+): .*franja fuerte es «([^»]+)»", p)
-        if m:
-            fuerte[m.group(1)] = m.group(2)
-    cuando = [f"{ARTICULO.get(t, 'los')} {CLIENTE_CALLE[t]}, "
-              f"{FRANJA_CALLE[fuerte[S.TIPOS_CLIENTE[t]]]}"
-              for t, _ in lab if fuerte.get(S.TIPOS_CLIENTE[t]) in FRANJA_CALLE]
-    if cuando:
-        out.append(mayus("; ".join(cuando)) + ".")
-    if sab:
-        out.append(f"Los sábados pasan sobre todo "
-                   f"{lista_y([CLIENTE_CALLE[t] for t, _ in sab])}.")
-    if any(t == "viajeros" for t, _ in lab + sab):
-        out.append("Los viajeros van al metro, al tren o al autobús: paran menos.")
-    return out
-
-
 def diez_clientes(rec: dict) -> None:
     """«De cada 10 posibles clientes»: diez puntos con el color de cada tipo."""
     r = rec_dia(rec["a_quien"]["recomendaciones"], "laborable")
@@ -628,28 +440,6 @@ def diez_clientes(rec: dict) -> None:
                 f"<div class='cifra-pie'>{texto}</div>", unsafe_allow_html=True)
 
 
-def frases_cuando(rec: dict) -> list[str]:
-    out = []
-    g_lab = grupos_horas(rec, "laborable")
-    g_sab = grupos_horas(rec, "fin_de_semana")
-    if g_lab:
-        out.append(f"En un día de diario hay más gente {horas_calle(g_lab)}.")
-    if g_sab:
-        out.append(f"Los sábados, {horas_calle(g_sab)}.")
-    hueco = [r for r in rec["a_que_hora"]["recomendaciones"]
-             if r["texto"].startswith("Posible hueco horario") and r.get("dia") == "laborable"]
-    if hueco:
-        franja = hueco[0]["texto"].split(": ", 1)[1].split(" (")[0].split(",")[0]
-        if franja in FRANJA_CALLE:
-            out.append(f"{mayus(FRANJA_CALLE[franja])} hay gente y abren pocos locales. "
-                       "Puede ser un hueco.")
-    clase = rec["a_que_hora"]["detalle"]["laborable"]["clase"]
-    flojas = [f for f, c in clase.items() if c != "abrir" and f in FRANJA_CALLE]
-    if flojas:
-        out.append(f"{mayus(FRANJA_CALLE[flojas[-1]])} pasa muy poca gente.")
-    return out
-
-
 def cifra_cuando(rec: dict) -> None:
     punta = rec["a_que_hora"]["detalle"]["laborable"]["horas_punta"]
     if punta:
@@ -657,26 +447,6 @@ def cifra_cuando(rec: dict) -> None:
         st.markdown(f"<div class='cifra'>Unas {unas(mejor['total'])} personas</div>"
                     f"<div class='cifra-pie'>pasan cerca a las {int(mejor['hora'][:2])}, la "
                     "mejor hora de un día de diario.</div>", unsafe_allow_html=True)
-
-
-def frases_que(rec: dict) -> list[str]:
-    qv = rec["que_vender"]
-    lab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "laborable")]
-    sab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "fin_de_semana")]
-    out = []
-    if lab:
-        out.append(f"En un día de diario encajan sobre todo {lista_y(lab[:3])}.")
-    op = oportunidad_comidas(rec)
-    if op:
-        out.append(f"Hay pocos sitios para comer cerca y gente para "
-                   f"{lista_y([MOMENTO_CALLE[m] for m in op])}. Puede ser una oportunidad.")
-    if sab:
-        out.append(f"Los sábados, sobre todo {lista_y(sab[:2])}.")
-    sobra = [LOCAL_CALLE[h["tipo"]] for h in qv["huecos"]
-             if h.get("sentido") == "sobra" and h.get("tipo") in LOCAL_CALLE]
-    if sobra:
-        out.append(f"Ya hay muchos {lista_y(sobra[:2])} cerca: ahí cuesta más competir.")
-    return out
 
 
 def barras_que(rec: dict) -> None:
@@ -715,22 +485,6 @@ def barras_que_mini(rec: dict) -> None:
                   for m, n in mo) + "</div>", unsafe_allow_html=True)
 
 
-def frases_precio(inf: dict) -> list[str]:
-    d = bloque_inf(inf, "precios")["datos"]
-    renta = {"económica": "ganan menos que la media de la región",
-             "media": "ganan más o menos como la media de la región",
-             "alta": "ganan más que la media de la región"}
-    ajustada = d["gama_ajustada"]["gama"]["semana"]
-    out = []
-    if d["gama"] in renta:
-        out.append(f"Los vecinos de la zona {renta[d['gama']]}.")
-    if ajustada != d["gama"]:
-        out.append("Pero mucha de la gente que pasa no vive aquí.")
-    out.append(f"Por eso encajan precios {PRECIO_CALLE.get(ajustada, ajustada)}.")
-    out.append("No tenemos las cartas de los bares de la zona: míralas tú.")
-    return out
-
-
 def cifra_precio(inf: dict) -> None:
     v = (bloque_inf(inf, "precios")["datos"].get("ipc_interanual") or {}).get(
         "restaurantes_alojamiento")
@@ -765,28 +519,6 @@ def avisos_calle(rec: dict) -> list[tuple[str, str]]:
     ordenados por importancia, como mucho tres, cada uno con la cifra de este punto; si no
     hay ninguno, una sola frase en positivo."""
     return [(ICONO_RIESGO.get(r["clave"], "aviso"), r["texto"]) for r in rec["riesgos"]]
-
-
-def comprobaciones_calle(rec: dict) -> list[str]:
-    """La lista de recomendar(), en el mismo orden, dicha con palabras sencillas."""
-    g = grupos_horas(rec, "laborable")
-    hora = f"a las {hora_de_grupo(rec, 'laborable', g[0])}" if g else "en la mejor hora"
-    calle = {
-        "Contar durante": f"Cuenta la gente que pasa por delante {hora}, durante 15 minutos.",
-        "Anotar en": "Apunta el precio del café, la caña y el menú en tres bares cercanos.",
-        "Comprobar a qué hora": "Mira a qué hora abren y cierran los bares de la zona.",
-        "Ver por qué acera": "Fíjate por dónde sale la gente del metro o del autobús.",
-        "Consultar el calendario": "Pregunta cuándo hay clase en el campus y si tiene "
-                                   "cafetería dentro.",
-        "Observar la salida": "Mira si las familias se quedan a merendar al salir del "
-                              "colegio.",
-        "Recorrer el radio": "Date una vuelta y cuenta los bares que hay de verdad.",
-        "Preguntar a un hostelero": "Pregunta a otro hostelero qué meses flojea la zona.",
-        "Confirmar los posibles huecos": "Pregunta si cerraron locales como el tuyo, y por "
-                                         "qué.",
-    }
-    return [next((frase for clave, frase in calle.items() if c.startswith(clave)), c)
-            for c in rec["comprobar_en_persona"]]
 
 
 def eje_horas(cada: int, con_h: bool) -> alt.X:
@@ -857,17 +589,6 @@ def veredicto(lugar: str, mov: dict, titular: str) -> str:
             f"<div class='ver-nivel n{mov['nivel']}'>{html.escape(mov['nombre'])}</div>"
             f"<div class='ver-frase'>Por aquí {html.escape(mov['frase'])}.</div></div>"
             f"<div class='titular'>{html.escape(titular)}</div></div>")
-
-
-
-MODO_CALLE = {"Metro": "metro", "Cercanías": "tren de Cercanías",
-              "Metro Ligero": "metro ligero", "Autobús urbano": "autobús urbano",
-              "Autobús interurbano": "autobús interurbano"}
-ENTORNO_CALLE = {
-    "aislado": "Es un sitio aislado: casi no vive nadie cerca.",
-    "borde": "Está en el borde de un barrio: justo al lado vive poca gente, pero un poco "
-             "más lejos sí.",
-    "dentro": "Está dentro de una zona con vecinos."}
 
 
 def frases_llegar(inf: dict) -> list[str]:
@@ -1040,7 +761,62 @@ def elegir_punto(lat: float, lon: float, ejemplo: str | None = None,
     st.session_state["abierta"] = None
     st.session_state["todas_comprobaciones"] = False
     st.session_state.pop("pendiente", None)
+    quitar_comparacion()
     buscador_nuevo()
+
+
+# ------------------------------------------------------------ comparar dos locales
+# La segunda dirección vive, como la primera, solo en la sesión: «cmp_fase» dice qué se
+# está viendo («elegir»: el buscador de la segunda dirección; «ver»: la comparación),
+# «cmp_b» guarda el segundo punto con su resultado y «cmp_pendiente», una dirección que no
+# es un portal y falta confirmar en el mapa. Al cambiar la primera dirección se borra todo.
+AZUL_B = "#2a78d6"   # el segundo local, en el gráfico y en las cabeceras
+
+
+def quitar_comparacion() -> None:
+    for clave in ("cmp_fase", "cmp_b", "cmp_pendiente"):
+        st.session_state.pop(clave, None)
+
+
+def abrir_comparacion() -> None:
+    """Abre la comparación: si ya hay segunda dirección, la enseña; si no, la pide."""
+    st.session_state["cmp_fase"] = "ver" if st.session_state.get("cmp_b") else "elegir"
+
+
+def cambiar_segunda() -> None:
+    st.session_state.pop("cmp_b", None)
+    st.session_state.pop("cmp_pendiente", None)
+    st.session_state["cmp_fase"] = "elegir"
+    buscador_nuevo()
+
+
+def cerrar_comparacion() -> None:
+    """Vuelve al resultado de la primera dirección; la segunda se conserva en la sesión."""
+    st.session_state["cmp_fase"] = None
+    st.session_state.pop("cmp_pendiente", None)
+
+
+def elegir_b(lat: float, lon: float, lugar: str | None = None) -> None:
+    """Fija la segunda dirección (las mismas reglas que la primera)."""
+    st.session_state["cmp_b"] = {"punto": (round(lat, 6), round(lon, 6)),
+                                 "lugar": lugar or "El segundo punto elegido"}
+    st.session_state["cmp_fase"] = "ver"
+    st.session_state.pop("cmp_pendiente", None)
+    buscador_nuevo()
+
+
+def dejar_pendiente_b(cand: dict, lat: float, lon: float) -> None:
+    """Segunda dirección que no es un portal concreto: no se calcula hasta confirmarla."""
+    st.session_state["cmp_pendiente"] = {"lat": round(lat, 6), "lon": round(lon, 6),
+                                         "texto": cand["texto"],
+                                         "precision": cand["precision"]}
+    buscador_nuevo()
+
+
+def confirmar_pendiente_b() -> None:
+    p = st.session_state.get("cmp_pendiente")
+    if p:
+        elegir_b(p["lat"], p["lon"], p["texto"])
 
 
 def buscador_nuevo() -> None:
@@ -1053,6 +829,7 @@ def volver_al_inicio() -> None:
     for clave in ("resultado", "pendiente", "lugar"):
         st.session_state.pop(clave, None)
     st.session_state.update(punto=None, ejemplo=None, abierta=None, vista="Resumen")
+    quitar_comparacion()
     buscador_nuevo()
 
 
@@ -1073,6 +850,7 @@ def dejar_pendiente(cand: dict, lat: float, lon: float) -> None:
     st.session_state["ejemplo"] = None
     st.session_state.pop("resultado", None)
     st.session_state["abierta"] = None
+    quitar_comparacion()
     buscador_nuevo()
 
 
@@ -1112,10 +890,16 @@ def _nada() -> None:
 
 @fragmento("buscador")
 def parte_buscador(modo: str, direccion: str = "", vista: str = "",
-                   secciones: tuple = ()) -> None:
+                   secciones: tuple = (), segundo: bool = False) -> None:
     """El buscador con sugerencias (portada) o la barra fija con el buscador dentro
-    (resultado). Mientras se escribe solo se vuelve a ejecutar esta parte."""
-    clave = f"busca_{modo}_{st.session_state.get('n_busca', 0)}"
+    (resultado). Mientras se escribe solo se vuelve a ejecutar esta parte. Con «segundo»,
+    es el buscador de la segunda dirección de una comparación: el mismo componente y las
+    mismas reglas, pero lo elegido va al segundo punto."""
+    clave = f"busca_{'b' if segundo else modo}_{st.session_state.get('n_busca', 0)}"
+    elegir, pendiente_de = ((elegir_b, dejar_pendiente_b) if segundo
+                            else (elegir_punto, dejar_pendiente))
+    # Mientras se elige la segunda dirección, los avisos salen en su buscador, no en la barra.
+    calla = modo == "barra" and st.session_state.get("cmp_fase") == "elegir"
     q = ((st.session_state.get(clave) or {}).get("q") or "").strip()
     sug = sugerencias(q)
     datos = {
@@ -1123,10 +907,11 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
         "sugerencias": [{"t": c["texto"], "nota": "" if c["exacto"] else
                          mayus(c["precision_texto"]) + ": confirmarás el sitio en el mapa"}
                         for c in sug["cands"]],
-        "mensaje": st.session_state.pop("mensaje", ""),
-        "placeholder": "Escribe la dirección del local" if modo == "portada"
-        else "Escribe otra dirección",
-        "placeholder_corto": "Dirección del local" if modo == "portada" else "Otra dirección"}
+        "mensaje": "" if calla else st.session_state.pop("mensaje", ""),
+        "placeholder": "Escribe la otra dirección" if segundo else
+        "Escribe la dirección del local" if modo == "portada" else "Escribe otra dirección",
+        "placeholder_corto": "Otra dirección" if segundo or modo != "portada"
+        else "Dirección del local"}
     if modo == "portada":
         datos.update(ejemplos=list(EJEMPLOS), privacidad=PRIVACIDAD)
     else:
@@ -1144,10 +929,13 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
             volver_al_inicio()
         st.rerun()
     if r.ejemplo in EJEMPLOS:
-        elegir_punto(*EJEMPLOS[r.ejemplo], r.ejemplo)
+        if segundo:
+            elegir_b(*EJEMPLOS[r.ejemplo], r.ejemplo)
+        else:
+            elegir_punto(*EJEMPLOS[r.ejemplo], r.ejemplo)
         st.rerun()
     if r.ubicacion:   # solo llega si el usuario ha pulsado el botón y ha dado permiso
-        elegir_punto(float(r.ubicacion["lat"]), float(r.ubicacion["lon"]), lugar="Tu ubicación")
+        elegir(float(r.ubicacion["lat"]), float(r.ubicacion["lon"]), lugar="Tu ubicación")
         st.rerun()
     if r.elegida and r.elegida.get("q") == sug["q"] and sug["cands"]:
         cand = sug["cands"][min(int(r.elegida.get("i", 0)), len(sug["cands"]) - 1)]
@@ -1156,9 +944,9 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
         except Exception:
             xy = None
         if xy and cand["exacto"]:
-            elegir_punto(*xy, lugar=cand["texto"])
+            elegir(*xy, lugar=cand["texto"])
         elif xy:   # una calle sin número, un municipio…: no se calcula hasta confirmar
-            dejar_pendiente(cand, *xy)
+            pendiente_de(cand, *xy)
         else:
             st.session_state["mensaje"] = ("No hemos podido situar esa dirección. Prueba con "
                                            "otra.")
@@ -1166,70 +954,15 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
     if r.inicio:
         volver_al_inicio()
         st.rerun()
-    if r.vista in VISTAS and r.vista != st.session_state.get("vista"):
+    if r.vista in VISTAS and (r.vista != st.session_state.get("vista")
+                              or st.session_state.get("cmp_fase")):
         st.session_state["vista"] = r.vista
         st.session_state.pop("ir_a", None)
+        cerrar_comparacion()   # desde la comparación, las vistas vuelven al primer local
         st.rerun()
 
 
-
 # ------------------------------------------------------------------ mercado
-def metrica_bloque(b: dict) -> tuple[str, str, str]:
-    """Cifra clave y una frase de cada bloque del informe (solo formato)."""
-    d = b["datos"]
-    k = b["clave"]
-    if k == "competencia":
-        rel = d.get("relacion_con_media")
-        frase = (f"≈×{dec(rel)} la media del municipio · " if rel is not None else "") \
-            + f"{d['sirven_comidas']} sirven comidas · fuente: {d['fuente_usada']}"
-        return f"Locales de hostelería en {S.RADIO_M} m", miles(d["total"]), frase
-    if k == "mercado":
-        a, z = d["rango_eur_anual"]
-
-        def eur(x):
-            return f"{dec(x / 1e6)} M€" if x >= 1e6 else f"{miles(round(x, -3) / 1e3)} mil €"
-        val = (f"≈{dec(a / 1e6)}–{dec(z / 1e6)} M€" if a >= 1e6
-               else f"≈{eur(a)} – {eur(z)}")
-        return ("Gasto anual de los vecinos en restauración", val,
-                f"≈{redondo(d['poblacion_radio'])} vecinos en {S.RADIO_M} m · renta "
-                f"×{dec(d['renta_relativa'], 2)} la media de la Comunidad")
-    if k == "precios":
-        ipc = d["ipc_interanual"]
-        return ("Gama de precios (ajustada a la clientela)",
-                d["gama_ajustada"]["gama"]["semana"].capitalize(),
-                f"IPC en 12 meses: restaurantes y alojamiento {ipc['restaurantes_alojamiento']:+.1f} %"
-                f", alimentos {ipc['alimentos']:+.1f} % ({d['ipc_mes']})".replace(".", ","))
-    if k == "turismo":
-        return ("Alojamientos turísticos del código postal", miles(d["total_cp"]),
-                f"CP ≈{d['codigo_postal_aproximado']} · municipio: "
-                f"{miles(d['total_municipio'])} inscritos y "
-                f"{miles(d['vut_declaraciones_municipio'])} viviendas turísticas declaradas")
-    if k == "festivos":
-        prox = d["proximos"]
-        if not prox:
-            return "Próximo festivo", "—", "Sin festivos publicados en los próximos meses"
-        f0 = pd.Timestamp(prox[0]["fecha"])
-        meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct",
-                 "nov", "dic"]
-        return ("Próximo festivo", f"{f0.day} {meses[f0.month - 1]}",
-                f"{prox[0]['dia'].capitalize()} · {len(prox)} festivos publicados por delante")
-    if k == "sector":
-        return ("Empresas de distribución y hostelería, último año",
-                f"{d['variacion_anual_pct']:+.1f} %".replace(".", ","),
-                "Toda la Comunidad · la rama incluye comercio y transporte")
-    if k == "accesos":
-        modos = lista_y(list(d["cerca"])) if d["cerca"] else "ninguna parada"
-        return ("Transporte público", d["nivel"],
-                f"A menos de {d['radio_cerca_m']} m: {modos} · "
-                f"{sum(v['lineas'] for v in d['lejos'].values())} líneas a menos de "
-                f"{d['radio_lejos_m']} m")
-    if k == "entorno":
-        return (f"Vecinos a {d['radio_m'] // 1000} km (unos {d['minutos_andando']} min "
-                "andando)", f"≈{redondo(d['vecinos'])}",
-                f"{miles(d['locales'])} locales de hostelería a esa distancia · a "
-                f"{S.RADIO_M} m: ≈{redondo(d['vecinos_radio_analisis'])} vecinos y "
-                f"{d['locales_radio_analisis']} locales · solo contexto")
-    return b["titulo"], "—", ""
 
 
 AVISOS = {  # nota del informe → aviso corto para la pestaña de riesgos
@@ -1472,7 +1205,6 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
                      hide_index=True, width="stretch")
 
 
-
 def pestana_comprobar(rec: dict) -> None:
     lista = rec["comprobar_en_persona"]
     texto_lista = "\n".join(f"{i}. {c}" for i, c in enumerate(lista, 1))
@@ -1566,6 +1298,24 @@ if punto and res is None:
             st.session_state["resultado"] = res
             st.session_state["segundos"] = time.perf_counter() - t0
         hueco.empty()
+# El segundo punto de una comparación se calcula igual y también vive solo en la sesión.
+b_cmp = st.session_state.get("cmp_b") if res else None
+if b_cmp and "res" not in b_cmp:
+    muni_b = municipio_de(*b_cmp["punto"])
+    if muni_b is None:
+        st.session_state["mensaje"] = ("Ese punto está fuera de la Comunidad de Madrid. "
+                                       "Elige otro.")
+        st.session_state.pop("cmp_b", None)
+        st.session_state["cmp_fase"] = "elegir"
+        b_cmp = None
+    else:
+        hueco = st.empty()
+        hueco.markdown(f"<div class='cargando'>{aguja_svg(None)}<div>Mirando la segunda "
+                       "zona…</div></div>", unsafe_allow_html=True)
+        with medir("cálculo"):
+            b_cmp["res"] = {**calcular(*b_cmp["punto"]), "muni": muni_b}
+        hueco.empty()
+cmp_fase = st.session_state.get("cmp_fase") if res else None
 pendiente = None if punto else st.session_state.get("pendiente")
 muni = res["muni"] if res else None
 vista = st.session_state["vista"] if st.session_state["vista"] in VISTAS else "Resumen"
@@ -1577,6 +1327,27 @@ def lugar_analizado() -> str:
     lugar = (st.session_state.get("ejemplo") or st.session_state.get("lugar")
              or "El punto que has elegido")
     return lugar if muni["nombre"] in lugar else f"{lugar} ({muni['nombre']})"
+
+
+def lugar_b() -> str:
+    """Cómo se nombra el segundo punto de la comparación."""
+    m = b_cmp["res"]["muni"]["nombre"]
+    return b_cmp["lugar"] if m in b_cmp["lugar"] else f"{b_cmp['lugar']} ({m})"
+
+
+def acciones() -> None:
+    """Los dos botones del resultado: comparar con otra dirección y descargar el informe.
+    El PDF se genera en memoria al pulsar el botón; no se guarda en el servidor."""
+    lugar, este, donde = lugar_analizado(), res, punto
+    with st.container(key="acciones", horizontal=True):
+        if st.button("Ver la comparación" if b_cmp else "Comparar con otra dirección",
+                     key="btn_comparar", icon=":material/compare_arrows:"):
+            abrir_comparacion()
+            st.rerun()
+        st.download_button(
+            "Descargar informe (PDF)", key="btn_pdf", icon=":material/download:",
+            data=lambda: informe_pdf(este, lugar, fu, donde, este["locs"], este.get("paradas")),
+            file_name="barometro_informe.pdf", mime="application/pdf")
 
 
 # ------------------------------------------------------------------- vista Resumen
@@ -1596,15 +1367,20 @@ def parte_tarjetas(rec: dict, inf: dict, atenuadas: bool = False) -> None:
 
 
 @fragmento("mapa")
-def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16, paradas=None) -> None:
-    """El mapa. Un clic elige otro punto y, solo entonces, se recalcula la página."""
+def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16, paradas=None,
+               segundo: bool = False) -> None:
+    """El mapa. Un clic elige otro punto y, solo entonces, se recalcula la página. Con
+    «segundo», el clic elige el segundo punto de la comparación."""
     clic = (mapa(lat, lon, locs, alto=alto, zoom=zoom, paradas=paradas)
             or {}).get("last_clicked")
     if clic:
         nuevo = (round(clic["lat"], 6), round(clic["lng"], 6))
         if nuevo != st.session_state.get("ultimo_clic"):
             st.session_state["ultimo_clic"] = nuevo
-            if nuevo != st.session_state.get("punto"):
+            if segundo:
+                elegir_b(*nuevo)
+                st.rerun()
+            elif nuevo != st.session_state.get("punto"):
                 elegir_punto(*nuevo)
                 st.rerun()
 
@@ -1643,6 +1419,7 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
                 unsafe_allow_html=True)
     if mov["muy_poco_paso"]:
         st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
+    acciones()
     parte_tarjetas(rec, inf, mov["muy_poco_paso"])
 
     # ------------------------------------------------------- mapa y gente por horas
@@ -1691,8 +1468,10 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
     with st.container(key="informe"):
         st.markdown(
             orientacion(AVISO) + f"<div class='donde' style='margin-top:1rem'>{ico('pin')}{html.escape(lugar_analizado())} · radio de "
-            f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>"
-            + cabecera_seccion("movimiento", primera=True), unsafe_allow_html=True)
+            f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
+            unsafe_allow_html=True)
+        acciones()
+        st.markdown(cabecera_seccion("movimiento", primera=True), unsafe_allow_html=True)
         with seccion("movimiento") as lado:
             st.markdown(
                 f"<div class='resp-grande'>{html.escape(mov['nombre'])}</div>"
@@ -1747,6 +1526,142 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         pestana_fuentes(fu)
 
 
+# ------------------------------------------------------------ vista Comparación
+def lado_cmp(f: dict, lado: str, nombre: str, aguja: str = "") -> str:
+    c = f[lado]
+    mejor = f["mejor"] == lado
+    lista = ("<ul>" + "".join(f"<li>{html.escape(x)}</li>" for x in c["lista"]) + "</ul>"
+             if c.get("lista") else "")
+    return (f"<div class='cmp-lado {lado}{' mejor' if mejor else ''}'>"
+            f"<div class='cmp-quien'><i>{lado.upper()}</i>{html.escape(nombre)}</div>"
+            + aguja + f"<div class='cmp-tit'>{html.escape(c['titulo'])}</div>"
+            + (f"<div class='cmp-det'>{html.escape(c['detalle'])}</div>" if c["detalle"]
+               else "") + lista
+            + ("<div class='cmp-marca'>Sale mejor aquí</div>" if mejor else "") + "</div>")
+
+
+def fila_cmp(f: dict, na: str, nb: str, agujas: tuple[str, str] = ("", "")) -> str:
+    """Una fila de la comparación: el aspecto, los dos locales lado a lado (apilados en el
+    móvil) y, debajo, cuál sale mejor o por qué no decide."""
+    return (f"<div class='cmp-fila' id='cmp-{f['clave']}'><div class='cmp-asp'>"
+            f"{html.escape(f['aspecto'])}"
+            + (f"<span class='etiqueta conf-{f['fiabilidad']}'>"
+               f"{html.escape(f['fiabilidad_texto'])}</span>" if f["fiabilidad"] else "")
+            + "</div><div class='cmp-lados'>" + lado_cmp(f, "a", na, agujas[0])
+            + lado_cmp(f, "b", nb, agujas[1]) + "</div>"
+            f"<div class='cmp-ver{' decide' if f['mejor'] else ''}'>"
+            f"{ico('ok' if f['mejor'] else 'info')}<span>{html.escape(f['veredicto'])}</span>"
+            "</div></div>")
+
+
+@fragmento("gráfico de la comparación")
+def parte_grafico_cmp(c: dict) -> None:
+    """Gente por horas de los dos locales, con las dos curvas superpuestas: A en línea
+    continua y B en discontinua (no se distinguen solo por el color)."""
+    na, nb = c["locales"]["a"], c["locales"]["b"]
+    dia_txt = st.session_state.get("dia_cmp") or "Día de diario"
+    st.markdown(f"<div class='caja-t'>Gente por horas en un {dia_txt.lower()}</div>"
+                "<div class='caja-s'>Personas que pasan cerca de cada local, hora a hora "
+                "(estimación).</div>", unsafe_allow_html=True)
+    st.segmented_control("Día", list(DIA_RESUMEN), default="Día de diario",
+                         label_visibility="collapsed", key="dia_cmp")
+    dia = DIA_RESUMEN[dia_txt]
+    datos = pd.DataFrame(
+        [{"hora": h, "personas": float(v), "local": nombre, "cuando": f"{h} h",
+          "txt": f"unas {unas(v)}" if v >= 1 else "casi nadie"}
+         for lado, nombre in (("a", f"A · {na}"), ("b", f"B · {nb}"))
+         for h, v in enumerate(c["personas_por_hora"][lado][dia])])
+    orden = [f"A · {na}", f"B · {nb}"]
+    base = alt.Chart(datos).encode(
+        x=alt.X("hora:Q", title=None, scale=alt.Scale(domain=[0, 23], nice=False),
+                axis=alt.Axis(values=list(range(0, 24, 3)), labelExpr="datum.value + ' h'",
+                              labelFontSize=13, labelColor=SUAVE, labelPadding=8,
+                              ticks=False, grid=False, domainColor=BORDE)),
+        y=eje_personas(),
+        color=alt.Color("local:N", legend=None,
+                        scale=alt.Scale(domain=orden, range=[TEJA, AZUL_B])),
+        tooltip=[alt.Tooltip("local:N", title="Local"), alt.Tooltip("cuando:N", title="Hora"),
+                 alt.Tooltip("txt:N", title="Personas")])
+    lineas = base.mark_line(strokeWidth=3).encode(
+        strokeDash=alt.StrokeDash("local:N", legend=None,
+                                  scale=alt.Scale(domain=orden, range=[[1, 0], [6, 4]])))
+    puntos = base.mark_point(size=42, filled=True, opacity=1).encode(
+        shape=alt.Shape("local:N", legend=None,
+                        scale=alt.Scale(domain=orden, range=["circle", "square"])))
+    st.altair_chart((lineas + puntos).properties(
+        height=320, padding={"top": 14, "left": 2, "right": 10, "bottom": 2})
+        .configure_view(strokeWidth=0), width="stretch")
+    st.markdown(
+        "<div class='leyenda cmp-ley'>"
+        f"<span><i class='raya a'></i>A · {html.escape(na)} (línea continua)</span>"
+        f"<span><i class='raya b'></i>B · {html.escape(nb)} (línea discontinua)</span></div>",
+        unsafe_allow_html=True)
+
+
+def vista_comparacion() -> None:
+    """Los dos locales lado a lado, fila a fila, con las dos curvas por horas y un resumen
+    final de dos o tres frases. No calcula nada: enseña lo que devuelve comparar()."""
+    a = {**res, "nombre": lugar_analizado()}
+    b = {**b_cmp["res"], "nombre": lugar_b()}
+    c = comparar(a, b)
+    na, nb = a["nombre"], b["nombre"]
+    st.markdown(
+        orientacion(html.escape(c["aviso"]))
+        + "<div class='cmp-cab'><div class='cmp-etq'>Comparación de dos locales</div>"
+        f"<div class='cmp-nombres'><span class='a'><i>A</i>{html.escape(na)}</span>"
+        f"<span class='b'><i>B</i>{html.escape(nb)}</span></div></div>",
+        unsafe_allow_html=True)
+    with st.container(key="acciones", horizontal=True):
+        st.button("Volver al resumen", key="btn_volver", on_click=cerrar_comparacion,
+                  icon=":material/arrow_back:")
+        st.button("Cambiar la segunda dirección", key="btn_cambiar", on_click=cambiar_segunda,
+                  icon=":material/edit_location_alt:")
+        st.download_button(
+            "Descargar comparación (PDF)", key="btn_pdf_cmp", icon=":material/download:",
+            data=lambda: comparacion_pdf(c, a, b, fu),
+            file_name="barometro_comparacion.pdf", mime="application/pdf")
+    agujas = tuple(f"<div class='cmp-aguja'>{aguja_svg(x['mov']['nivel'])}</div>"
+                   for x in (a, b))
+    filas = c["filas"]
+    st.markdown("<div class='cmp'>" + "".join(
+        fila_cmp(f, na, nb, agujas if f["clave"] == "movimiento" else ("", ""))
+        for f in filas[:-1]) + "</div>", unsafe_allow_html=True)
+    with st.container(border=True, key="caja_cmp_grafico"):
+        parte_grafico_cmp(c)
+    st.markdown("<div class='cmp'>" + fila_cmp(filas[-1], na, nb) + "</div>"
+                f"<div class='seccion' style='margin-top:var(--hueco)'>{ico('lista')}"
+                "En resumen</div>", unsafe_allow_html=True)
+    st.markdown("<div class='cmp-resumen'>" + "".join(
+        f"<p>{html.escape(x)}</p>" for x in c["resumen"])
+        + f"<p class='pie-cmp'>{html.escape(c['nota'])}</p></div>", unsafe_allow_html=True)
+
+
+def elegir_segunda() -> None:
+    """Pantalla para elegir la segunda dirección: el mismo buscador y las mismas reglas
+    (un portal se calcula; una calle sin número se confirma antes en el mapa)."""
+    pend = st.session_state.get("cmp_pendiente")
+    with st.container(key="caja_comparar"):
+        st.markdown(
+            "<div class='cmp-elegir-t'>Comparar con otra dirección</div>"
+            f"<div class='cmp-elegir-s'>Ya tienes «{html.escape(lugar_analizado())}». Escribe "
+            "la segunda dirección y las pondremos lado a lado.</div>", unsafe_allow_html=True)
+        if not pend:
+            parte_buscador("portada", segundo=True)
+        st.button("Cancelar", key="btn_cancelar_cmp", on_click=cerrar_comparacion)
+    if pend:   # no es un portal: no se calcula hasta confirmar el sitio
+        with st.container(border=True, key="caja_confirma"):
+            st.markdown(
+                "<div class='confirma'>¿Es aquí? Si no, toca el mapa en el sitio exacto."
+                f"</div><div class='confirma-pie'>«{html.escape(pend['texto'])}» "
+                f"{QUE_ES[pend['precision']]}. Hemos puesto el punto en un sitio cualquiera "
+                "de esa zona y todavía no hemos calculado nada.</div>",
+                unsafe_allow_html=True)
+            st.button("Sí, es aquí", type="primary", key="confirmar_b",
+                      on_click=confirmar_pendiente_b)
+            parte_mapa(pend["lat"], pend["lon"], None, 460, ZOOM_PENDIENTE[pend["precision"]],
+                       segundo=True)
+
+
 # ------------------------------------------------------------------------ portada
 def portada() -> None:
     """Pantalla inicial: el nombre, una frase y el buscador; debajo, tres cifras."""
@@ -1791,7 +1706,13 @@ def portada() -> None:
 if res or pendiente:   # resultado sobre fondo claro, con la barra fija arriba
     st.markdown("<style>.block-container {padding-top:5rem;} @media (max-width:640px) "
                 "{.block-container {padding-top:7.4rem;}}</style>", unsafe_allow_html=True)
-if res:
+if res and cmp_fase == "ver" and b_cmp:   # la comparación: ninguna vista marcada en la barra
+    parte_buscador("barra", lugar_analizado(), "Comparación")
+    vista_comparacion()
+elif res and cmp_fase == "elegir":
+    parte_buscador("barra", lugar_analizado(), "Comparación")
+    elegir_segunda()
+elif res:
     parte_buscador("barra", lugar_analizado(), vista,
                    SECCIONES if vista == "Informe completo" else ())
     if vista == "Resumen":   # solo se construye la vista que se está viendo

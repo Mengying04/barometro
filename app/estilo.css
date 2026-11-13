@@ -436,6 +436,85 @@ header[data-testid="stHeader"] {display:none;}
 [data-testid="stExpander"] details {border-radius:0.9rem; border-color:var(--borde);
                                     background:#fff;}
 
+/* ------------------------------------------------------- comparar dos locales */
+/* Botones del resultado (comparar y descargar): una fila que se parte si no cabe. */
+.st-key-acciones {gap:0.7rem; flex-wrap:wrap;}
+.st-key-acciones button {border-radius:999px; border-color:var(--borde); background:#fff;
+                         font-weight:600; padding:0.45rem 1.1rem;}
+.st-key-acciones button:hover {border-color:var(--teja); color:var(--teja);}
+/* Elegir la segunda dirección: un panel oscuro, como la portada, con el mismo buscador. */
+.st-key-caja_comparar {background:linear-gradient(165deg, #2c1c15 0%, #150e0b 100%) !important;
+                       padding:2.2rem 1.6rem 1.8rem 1.6rem; align-items:center; gap:1.1rem;}
+.st-key-caja_comparar > * {max-width:46rem; width:100%;}
+.st-key-caja_comparar > *:has(.bm) {z-index:5;}
+.cmp-elegir-t {font-size:1.9rem; font-weight:800; letter-spacing:-0.03em; color:#fff;
+               text-align:center; line-height:1.15;}
+.cmp-elegir-s {font-size:1.05rem; color:#e9ddd3; text-align:center; margin-top:0.5rem;
+               line-height:1.45;}
+.st-key-btn_cancelar_cmp {display:flex; justify-content:center;}
+.st-key-btn_cancelar_cmp button {width:auto !important; padding:0.4rem 1.4rem; background:transparent; color:#efe5dc;
+                                 border-color:rgba(255,255,255,.3); border-radius:999px;}
+.st-key-btn_cancelar_cmp button:hover {border-color:#fff; color:#fff;}
+/* Cabecera y filas: en portátil, los dos locales lado a lado; en móvil, uno debajo de otro. */
+.cmp-cab {background:#fff; border-radius:1.4rem; box-shadow:var(--sombra); padding:1.4rem 1.6rem;
+          margin-top:0.9rem;}
+.cmp-etq {font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;
+          color:var(--tenue);}
+.cmp-nombres {display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0.6rem var(--hueco);
+              margin-top:0.6rem;}
+.cmp-nombres span {display:flex; align-items:flex-start; gap:0.6rem; font-size:1.45rem; font-weight:800;
+                   letter-spacing:-0.02em; line-height:1.2; color:var(--tinta);}
+.cmp-nombres i, .cmp-quien i {flex:none; display:inline-flex; align-items:center; justify-content:center;
+                font-style:normal; font-weight:800; color:#fff; border-radius:0.5rem;}
+.cmp-nombres i {width:2rem; height:2rem; font-size:1.05rem;}
+.cmp-nombres .a i, .cmp-lado.a .cmp-quien i {background:var(--teja);}
+.cmp-nombres .b i, .cmp-lado.b .cmp-quien i {background:#2a78d6;}
+.cmp {display:grid; gap:var(--hueco);}
+.cmp-fila {background:#fff; border-radius:var(--radio); box-shadow:var(--sombra); padding:1.2rem 1.4rem;}
+.cmp-asp {display:flex; flex-wrap:wrap; align-items:center; gap:0.2rem 0.7rem; font-size:1.2rem;
+          font-weight:800; letter-spacing:-0.015em; color:var(--tinta);}
+.cmp-asp .etiqueta {margin:0;}
+.cmp-lados {display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0.8rem var(--hueco);
+            margin-top:0.9rem;}
+.cmp-lado {border:1px solid var(--borde); border-radius:0.9rem; padding:0.9rem 1rem; min-width:0;}
+.cmp-lado.mejor {border:2px solid var(--teja); background:var(--teja-fondo); padding:calc(0.9rem - 1px) calc(1rem - 1px);}
+.cmp-quien {display:flex; align-items:center; gap:0.45rem; font-size:0.85rem; color:var(--suave);
+            line-height:1.3;}
+.cmp-quien i {width:1.35rem; height:1.35rem; font-size:0.78rem; border-radius:0.35rem;}
+.cmp-aguja {max-width:11rem; margin:0.7rem 0 0 0;}
+.cmp-aguja svg {display:block; width:100%; height:auto;}
+.cmp-tit {font-size:1.45rem; font-weight:800; letter-spacing:-0.02em; line-height:1.2;
+          color:var(--tinta); margin-top:0.5rem;}
+.cmp-lado.mejor .cmp-tit {color:var(--teja);}
+.cmp-det {font-size:0.95rem; color:var(--suave); line-height:1.45; margin-top:0.3rem;}
+.cmp-lado ul {margin:0.5rem 0 0 0; padding-left:1.1rem;}
+.cmp-lado li {font-size:0.95rem; line-height:1.45; color:var(--tinta); margin:0 0 0.4rem 0;}
+.cmp-marca {display:inline-block; margin-top:0.6rem; padding:0.12rem 0.65rem; border-radius:999px;
+            background:var(--teja); color:#fff; font-size:0.8rem; font-weight:700;}
+.cmp-ver {display:flex; gap:0.55rem; align-items:flex-start; margin-top:0.9rem; padding-top:0.8rem;
+          border-top:1px solid var(--borde); font-size:1.02rem; line-height:1.45; color:var(--suave);}
+.cmp-ver.decide {color:var(--tinta); font-weight:600;}
+.cmp-ver .ico {flex:none; margin-top:0.1rem; color:var(--tenue);}
+.cmp-ver.decide .ico {color:var(--teja);}
+.cmp-resumen {background:#fff; border-radius:var(--radio); box-shadow:var(--sombra); padding:1.3rem 1.5rem;
+              border-left:0.4rem solid var(--teja); max-width:calc(var(--lectura) + 3.4rem);}
+.cmp-resumen p {font-size:1.12rem; line-height:1.5; margin:0 0 0.6rem 0; color:var(--tinta);
+                max-width:var(--lectura);}
+.cmp-resumen p.pie-cmp {font-size:0.9rem; color:var(--tenue); margin:0.9rem 0 0 0;}
+.cmp-ley .raya {display:inline-block; width:1.8rem; height:0; border-top:3px solid var(--teja);
+                vertical-align:0.25rem; margin-right:0.45rem;}
+.cmp-ley .raya.b {border-top:3px dashed #2a78d6;}
+.cmp-ley span {white-space:normal;}
+@media (max-width:640px) {
+  .cmp-nombres, .cmp-lados {grid-template-columns:minmax(0, 1fr);}
+  .cmp-nombres span {font-size:1.15rem;}
+  .cmp-cab {padding:1.1rem 1.1rem;}
+  .cmp-fila {padding:1rem 1rem;}
+  .cmp-tit {font-size:1.25rem;}
+  .cmp-elegir-t {font-size:1.5rem;}
+  .st-key-caja_comparar {padding:1.6rem 1rem 1.4rem 1rem;}
+}
+
 /* --------------------------------------------------------- estados de carga */
 .cargando {display:flex; flex-direction:column; align-items:center; justify-content:center;
            gap:0.8rem; min-height:70vh; color:var(--suave); font-size:1.15rem; font-weight:600;}

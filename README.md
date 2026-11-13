@@ -162,6 +162,65 @@ flowchart LR
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
 cada uno con su comentario.
 
+## Comparar dos locales y descargar el informe
+
+Dos cosas más que se pueden hacer desde el resultado. Ninguna calcula nada nuevo:
+ordenan lo que ya dan las funciones de arriba.
+
+### Comparar con otra dirección
+
+El botón **«Comparar con otra dirección»** pide una segunda dirección con el mismo
+buscador y las mismas reglas (un portal se calcula; una calle sin número se confirma
+antes en el mapa) y enseña los dos locales lado a lado en portátil y uno debajo de otro
+en móvil:
+
+- nivel de movimiento con las dos agujas, gente en un día de diario y en sábado, quién
+  pasa, horas punta, qué conviene ofrecer, gama de precios, competencia a 300 metros y
+  frente a su municipio, cómo se llega y los avisos de cada sitio;
+- un gráfico por horas con las dos curvas superpuestas;
+- un resumen final de dos o tres frases, **sin declarar un ganador**.
+
+En cada fila se dice cuál sale mejor, con tres cautelas
+([`src/comparar.py`](src/comparar.py)):
+
+| Caso | Qué se dice |
+|---|---|
+| La diferencia entre las dos cifras es de menos del 15 % | «Diferencia pequeña, no decide» |
+| La fiabilidad de alguno de los dos es baja | Se dice quién tiene más, pero «no decide» |
+| Los locales se cuentan con fuentes distintas, o faltan locales en el mapa | Se dice, y «no decide» |
+| Qué gente pasa y la gama de precios | «No es mejor ni peor» |
+
+El 15 % es una elección razonada, anotada en `src/supuestos.py`: las cifras de personas
+son estimaciones y no distinguen diferencias más pequeñas.
+
+![Comparación de dos locales](docs/capturas/portatil-comparacion.png)
+
+### Descargar el informe
+
+El botón **«Descargar informe (PDF)»** genera un documento listo para imprimir o enviar,
+y **«Descargar comparación (PDF)»**, el de la comparación
+([`src/documento.py`](src/documento.py)). Hay dos de muestra en
+[`docs/ejemplos/`](docs/ejemplos/).
+
+- **Qué lleva:** el logotipo, la dirección, la fecha, el resumen, el nivel de
+  movimiento, las cuatro respuestas con su porqué y su fiabilidad, el gráfico por
+  horas, un esquema de la zona, el mercado, los avisos y la lista de comprobaciones en
+  persona.
+- **Siempre, al final:** el aviso de orientación, las fuentes con su licencia y su
+  fecha, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y la nota de
+  que ninguna entidad respalda el proyecto.
+- **La zona es un esquema, no un mapa:** el círculo de 300 metros, los locales por tipo
+  y las paradas, sin fondo y sin nombres. Así no se descargan teselas de OpenStreetMap
+  desde el servidor ni puede colarse el rótulo de un local.
+- **Se genera en memoria al pulsar el botón** y no se guarda en el servidor.
+
+**Por qué PDF y no una página HTML para imprimir.** Se genera con
+[fpdf2](https://py-pdf.github.io/fpdf2/), que es Python puro: no necesita un navegador ni
+programas del sistema, que es lo que suele fallar en Streamlit Community Cloud. Medido en
+el entorno de trabajo, cada documento ocupa unos 50 KB, tarda medio segundo y usa unos
+12 MB de memoria mientras se genera. Lleva la letra DejaVu Sans (en `app/letra/`, con su
+licencia), porque las letras que trae el formato PDF no tienen signos como «≈» o «×».
+
 ## Rigor: qué se ha comprobado
 
 - **Coordenadas.** Las del portal están en ETRS89 / UTM 30N. Los desfibriladores
@@ -259,6 +318,8 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
   sugerir direcciones mientras se escribe y situar la elegida, y la aplicación lo dice.
 - **La ubicación del navegador solo se usa si se pide.** «Usar mi ubicación» la pregunta
   al navegador, solo vale si el usuario la acepta y tampoco se guarda.
+- **La segunda dirección de una comparación tampoco se guarda:** vive, como la primera,
+  solo en la sesión. El PDF se genera en memoria y no queda en el servidor.
 - **La aplicación no recoge estadísticas de uso.**
 - **Lenguaje de orientación,** nunca de garantía, y fiabilidad visible en cada
   respuesta.
@@ -327,12 +388,13 @@ Los pasos para publicarla están en [`docs/despliegue.md`](docs/despliegue.md).
 ## Servidor MCP: BARómetro desde un asistente
 
 [`mcp/servidor.py`](mcp/servidor.py) es un servidor MCP (Model Context Protocol) que
-funciona en local. Permite que un asistente como Claude consulte BARómetro con cuatro
+funciona en local. Permite que un asistente como Claude consulte BARómetro con cinco
 herramientas, que llaman a las mismas funciones que la aplicación:
 
 | Herramienta | Qué devuelve |
 |---|---|
 | `recomendar_local(lat, lon)` | El nivel de movimiento y las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
+| `comparar_locales(lat1, lon1, lat2, lon2)` | La comparación de dos locales fila a fila, con cuál sale mejor en cada aspecto o por qué no decide, y un resumen sin ganador |
 | `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable y sábado, y el nivel de movimiento |
 | `informe_de_zona(lat, lon)` | Los ocho bloques del informe, con cómo se llega y qué hay a 1 km |
 | `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad. Dice si es un portal exacto o una calle entera, con un aviso |
@@ -398,6 +460,8 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 **Mengying Xia Ruan** · DATAMAD 2026.
 
 - **Código:** licencia MIT ([`LICENSE`](LICENSE)).
+- **Letra del PDF:** DejaVu Sans, con su propia licencia libre
+  ([`app/letra/LICENCIA-DejaVu.txt`](app/letra/LICENCIA-DejaVu.txt)).
 - **Datos:** la licencia MIT no se aplica a los datos. Cada fichero conserva la
   licencia de su fuente (CC BY 4.0, ODbL, INE o CRTM), como se explica en
   [`datos/LICENCIAS.md`](datos/LICENCIAS.md).

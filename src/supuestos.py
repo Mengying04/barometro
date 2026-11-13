@@ -996,3 +996,12 @@ ENTORNO_MINUTOS = 12   # a 5 km/h
 ENTORNO_AISLADO_VECINOS = 1000
 ENTORNO_BORDE_FRACCION = 0.5
 ENTORNO_POCOS_VECINOS_CERCA = 300
+
+# ------------------------------------------------------------ comparar dos locales
+# Al comparar dos sitios, una diferencia de menos del 15 % entre dos cifras estimadas (gente
+# que pasa, posibles clientes) se da por pequeña: «diferencia pequeña, no decide». ELECCIÓN
+# RAZONADA: las cifras de personas son estimaciones con supuestos (repartos por distancia,
+# costumbres genéricas) y no distinguen diferencias de ese tamaño. Con locales contados, la
+# diferencia mínima son además COMPARAR_LOCALES_MINIMOS locales.
+COMPARAR_DIFERENCIA_PEQUENA = 0.15
+COMPARAR_LOCALES_MINIMOS = 3
