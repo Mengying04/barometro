@@ -29,8 +29,8 @@ y las fuentes.
 | Responde | No responde |
 |---|---|
 | **¿Quién pasa por aquí?** Vecinos, viajeros, universitarios, familias con niños, pacientes, trabajadores… | **No estima la facturación** ni cuántos clientes entrarán |
-| **¿Cuándo hay más gente?** Por horas, en un día de diario y en un sábado | **No da precios en euros:** no hay cartas en datos abiertos |
-| **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones… | No modela el domingo aparte ni la gente que va a un local a propósito |
+| **¿Cuándo hay más gente?** Por horas, en un día de diario, en sábado y en domingo | **No da precios en euros:** no hay cartas en datos abiertos |
+| **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones… | No modela la gente que va a un local a propósito |
 | **¿A qué precios?** Económicos, medios o altos, según la zona y quién pasa | No dice si un local concreto es bueno o malo: **no muestra nombres de locales** |
 | Qué bares y restaurantes hay ya en 300 metros, avisos y qué comprobar en persona | **No garantiza nada** |
 | **¿Pasa mucha o poca gente?** Cinco niveles, de «Muy poco paso» a «Muchísimo paso», frente al resto de la Comunidad | **No valora un local al que se va a propósito o en coche:** solo mide el negocio de paso |
@@ -174,7 +174,8 @@ buscador y las mismas reglas (un portal se calcula; una calle sin número se con
 antes en el mapa) y enseña los dos locales lado a lado en portátil y uno debajo de otro
 en móvil:
 
-- nivel de movimiento con las dos agujas, gente en un día de diario y en sábado, quién
+- nivel de movimiento con las dos agujas, gente en un día de diario, en sábado y en
+  domingo, quién
   pasa, horas punta, qué conviene ofrecer, gama de precios, competencia a 300 metros y
   frente a su municipio, cómo se llega y los avisos de cada sitio;
 - un gráfico por horas con las dos curvas superpuestas;
@@ -304,7 +305,11 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
   locales. En municipios pequeños no se puede valorar.
 - **Las cenas y las copas casi nunca salen recomendadas:** dependen de que la gente
   vaya a propósito, y eso el modelo no lo capta.
-- **El domingo no se modela** y el calendario escolar es un supuesto.
+- **El domingo es un modelo con supuestos propios** (qué abre y a qué horas sale la
+  gente; ver `src/supuestos.py`) y vale para los festivos solo de forma aproximada. El
+  transporte del domingo sí es real (horarios y demanda de domingo del CRTM), pero el
+  GTFS de autobuses publica el domingo de 74 líneas para un solo día y se completa con
+  ese día. El calendario escolar es un supuesto.
 - **El dato del sector mezcla hostelería con comercio y transporte,** y el índice de
   precios mezcla restaurantes con hoteles. No hay datos abiertos más finos.
 - **Los horarios de la competencia** solo están en OpenStreetMap, en muy pocos locales.
@@ -371,8 +376,10 @@ Todo junto tarda unos 4 minutos (medido el 2026-11-12). Es lo mismo que hace cad
 el flujo de actualización.
 
 `procesar_perfil.py` no cambia los resultados si los datos no cambian, salvo en un caso:
-elige el laborable y el sábado típicos a partir de la fecha del día. Para añadir solo las
-líneas por parada sin tocar lo demás: `python src/procesar_perfil.py lineas`.
+elige el laborable, el sábado y el domingo típicos a partir de la fecha del día. Para
+añadir solo las líneas por parada sin tocar lo demás: `python src/procesar_perfil.py
+lineas`. Para rehacer el transporte con los mismos laborable y sábado (y elegir solo el
+domingo): `python src/procesar_perfil.py gtfs --conservar-dias`.
 
 **Consultar un punto desde la terminal:**
 
@@ -395,7 +402,7 @@ herramientas, que llaman a las mismas funciones que la aplicación:
 |---|---|
 | `recomendar_local(lat, lon)` | El nivel de movimiento y las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
 | `comparar_locales(lat1, lon1, lat2, lon2)` | La comparación de dos locales fila a fila, con cuál sale mejor en cada aspecto o por qué no decide, y un resumen sin ganador |
-| `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable y sábado, y el nivel de movimiento |
+| `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable, sábado y domingo, y el nivel de movimiento |
 | `informe_de_zona(lat, lon)` | Los ocho bloques del informe, con cómo se llega y qué hay a 1 km |
 | `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad. Dice si es un portal exacto o una calle entera, con un aviso |
 
@@ -446,7 +453,8 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 
 - Usar entradas por estación de Metro y viajeros por parada de autobús, si se
   publican.
-- Modelar el domingo y usar un calendario escolar oficial.
+- Usar un calendario escolar oficial y medir el domingo y los festivos con datos de
+  paso reales, si se publican.
 - Valorar el local al que se va a propósito o en coche: aparcamiento, tráfico de la
   carretera y de dónde viene la gente, si aparecen datos abiertos.
 - Elegir mejor el punto de referencia de las secciones grandes, con datos de dónde

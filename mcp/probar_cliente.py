@@ -101,7 +101,7 @@ async def main() -> int:
             comprobar(json.dumps(c[k], sort_keys=True, default=str)
                       == json.dumps(esperado[k], sort_keys=True, default=str),
                       f"comparar_locales: «{k}» no coincide con comparar()")
-        comprobar(len(c["filas"]) == 11 and 2 <= len(c["resumen"]) <= 3,
+        comprobar(len(c["filas"]) == 12 and 2 <= len(c["resumen"]) <= 3,   # 12 con el domingo
                   "comparar_locales: faltan filas o el resumen no tiene dos o tres frases")
         print(f"   {len(c['filas'])} filas · mejor: "
               f"{[f['mejor'] for f in c['filas']]} · {len(c['fuentes'])} fuentes")
@@ -135,7 +135,8 @@ async def main() -> int:
             comunes("perfil_por_horas", p)
             comprobar(p["nivel_de_movimiento"]["nombre"] == mov["nombre"],
                       "perfil_por_horas: el nivel de movimiento no coincide")
-            for dia, etiqueta in (("laborable", "laborable"), ("fin_de_semana", "sabado")):
+            for dia, etiqueta in (("laborable", "laborable"), ("fin_de_semana", "sabado"),
+                                  ("domingo", "domingo")):
                 esperado = perfil["franjas"].loc[dia]["total"]
                 for franja, total in esperado.items():
                     comprobar(p["personas_por_franja"][etiqueta][str(franja)]["Total"]
@@ -143,8 +144,11 @@ async def main() -> int:
                               f"perfil_por_horas: total de {franja} ({etiqueta}) no coincide")
             lab = p["personas_por_franja"]["laborable"]
             mejor = max(lab, key=lambda f: lab[f]["Total"])
+            dom = p["personas_por_franja"]["domingo"]
+            mejor_dom = max(dom, key=lambda f: dom[f]["Total"])
             print(f"   perfil_por_horas: franja con más gente en laborable: {mejor} "
-                  f"(~{lab[mejor]['Total']}) · {len(p['fuentes'])} fuentes")
+                  f"(~{lab[mejor]['Total']}); en domingo: {mejor_dom} "
+                  f"(~{dom[mejor_dom]['Total']}) · {len(p['fuentes'])} fuentes")
 
             z = datos(await cliente.call_tool("informe_de_zona", args))
             comunes("informe_de_zona", z)

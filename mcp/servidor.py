@@ -218,9 +218,9 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
     lenguaje sencillo (peso de colegios o de universidad, competencia, festivos de los
     próximos 30 días con su fecha); si no hay ninguno, una sola frase que lo dice. Dalos
     tal cual, sin añadir avisos genéricos. Trae también una lista de cosas que comprobar
-    en persona. «Laborable» es un día de diario y «sábado»
-    representa el fin de semana (el domingo no se modela). Analiza un círculo de 300
-    metros alrededor del punto.
+    en persona. Las recomendaciones por día traen «dia»: «laborable» (un día de diario),
+    «fin_de_semana» (el sábado; el nombre es antiguo) o «domingo» (vale también, de forma
+    aproximada, para los festivos). Analiza un círculo de 300 metros alrededor del punto.
 
     Trae también «nivel_de_movimiento»: cuánta gente pasa en un día laborable frente a
     los sitios habitados de la Comunidad, en cinco niveles (de «Muy poco paso» a
@@ -252,15 +252,15 @@ def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict
     El primero es el local «a» y el segundo, el «b».
 
     Devuelve «filas», una por aspecto: nivel de movimiento, gente que pasa en un día de
-    diario y en un sábado, quién pasa, horas punta, qué conviene ofrecer, gama de precios,
-    competencia a menos de 300 metros y frente a su municipio, cómo se llega y los avisos
-    de cada sitio. Cada fila trae lo que se sabe de «a» y de «b», su «fiabilidad», «mejor»
-    («a», «b» o nada) y un «veredicto» en una frase. «mejor» solo se marca cuando la
-    diferencia pasa del 15 % y la fiabilidad no es baja; si no, el veredicto dice
-    «diferencia pequeña, no decide» o por qué no se puede comparar (por ejemplo, locales
-    contados con fuentes distintas). En quién pasa y en la gama de precios no hay mejor ni
-    peor. Trae también «personas_por_hora» de los dos sitios (laborable y sábado) y un
-    «resumen» de dos o tres frases.
+    diario, en un sábado y en un domingo, quién pasa, horas punta, qué conviene ofrecer,
+    gama de precios, competencia a menos de 300 metros y frente a su municipio, cómo se
+    llega y los avisos de cada sitio. Cada fila trae lo que se sabe de «a» y de «b», su
+    «fiabilidad», «mejor» («a», «b» o nada) y un «veredicto» en una frase. «mejor» solo se
+    marca cuando la diferencia pasa del 15 % y la fiabilidad no es baja; si no, el
+    veredicto dice «diferencia pequeña, no decide» o por qué no se puede comparar (por
+    ejemplo, locales contados con fuentes distintas). En quién pasa y en la gama de precios
+    no hay mejor ni peor. Trae también «personas_por_hora» de los dos sitios (laborable,
+    sábado y domingo) y un «resumen» de dos o tres frases.
 
     No declares un ganador: di en qué sale mejor cada uno, repite los veredictos tal cual
     (incluidos los que no deciden) y recuerda que es una orientación con estimaciones, no
@@ -283,7 +283,8 @@ def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict
                          "lat": x["lat"], "lon": x["lon"]}
                      for k, x in zip("ab", lados)},
          "filas": c["filas"], "resumen": c["resumen"],
-         "personas_por_hora": {k: {"laborable": v["laborable"], "sabado": v["fin_de_semana"]}
+         "personas_por_hora": {k: {"laborable": v["laborable"], "sabado": v["fin_de_semana"],
+                                   "domingo": v["domingo"]}
                                for k, v in c["personas_por_hora"].items()},
          "nota": c["nota"], "aviso_comparacion": c["aviso"]},
         _unir(_fuentes_informe(lados[0]["informe"]), _fuentes_informe(lados[1]["informe"]),
@@ -293,14 +294,15 @@ def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict
 @servidor.tool(title="Gente que pasa cerca, por horas")
 def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
     """Estimación de cuánta gente pasa cerca de un punto de la Comunidad de Madrid, por
-    franja del día y por tipo de cliente, en un día laborable y en un sábado.
+    franja del día y por tipo de cliente, en un día laborable, en un sábado y en un
+    domingo.
 
     Úsala cuando la pregunta sea cuándo hay más movimiento o qué tipo de gente pasa
     (vecinos, viajeros del transporte público, universitarios, padres y niños, pacientes,
     trabajadores, deporte y eventos). Necesita la latitud y la longitud en grados
     decimales (WGS84).
 
-    Devuelve, para «laborable» y «sabado», las personas que pasan en cada franja
+    Devuelve, para «laborable», «sabado» y «domingo», las personas que pasan en cada franja
     (primera hora de la mañana, media mañana, mediodía, media tarde, tarde-noche y noche)
     por tipo de cliente y en total, el total de cada hora de 0 a 23 y la confianza de
     cada tipo de cliente, separada en horario y cantidad. Incluye
@@ -315,7 +317,7 @@ def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
     muni, perfil, _, _ = _calcular(lat, lon, "perfil")
     sup = _modulos()["supuestos"]
     nombres = {**sup.TIPOS_CLIENTE, "total": "Total"}
-    dias = {"laborable": "laborable", "fin_de_semana": "sabado"}
+    dias = {"laborable": "laborable", "fin_de_semana": "sabado", "domingo": "domingo"}
     franjas, horas = {}, {}
     for dia, etiqueta in dias.items():
         tabla = perfil["franjas"].loc[dia]
@@ -334,7 +336,8 @@ def perfil_por_horas(lat: float, lon: float) -> dict[str, Any]:
         {"municipio": muni["nombre"], "radio_m": int(perfil["radio_m"]),
          "nivel_de_movimiento": _movimiento(perfil),
          "unidad": "personas que pasan cerca en la franja (estimación)",
-         "nota": "«sabado» representa el fin de semana; el domingo no se modela aparte.",
+         "nota": "Tres tipos de día con su propio horario de transporte y sus supuestos. "
+                 "«domingo» vale también, de forma aproximada, para los festivos.",
          "horas_de_cada_franja": {k: [f"{h:02d}:00" for h in v]
                                   for k, v in sup.FRANJAS.items()},
          "personas_por_franja": franjas, "total_por_hora": horas,

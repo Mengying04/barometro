@@ -43,7 +43,7 @@ y la sección censal de cada punto.
 | `centros_sanitarios.parquet` | Portal de la Comunidad de Madrid (centros, servicios y establecimientos sanitarios) | **CC BY 4.0** (Comunidad de Madrid) |
 | `secciones_censales.parquet` | INE (cartografía de secciones censales de 2025 y Atlas de distribución de renta de los hogares, 2024); límites municipales del portal de la Comunidad de Madrid | Reutilización citando al **INE**; los límites, **CC BY 4.0** (Comunidad de Madrid) |
 | `salidas_paradas.parquet` | CRTM (paradas, horarios GTFS y demanda diaria); viajeros de Cercanías por estación del portal de la Comunidad de Madrid | **Licencia del CRTM**, con las mismas condiciones; los viajeros por estación, **CC BY 4.0** (Comunidad de Madrid) |
-| `salidas_paradas_dias.json` | CRTM: días del calendario GTFS usados como laborable y sábado típicos | **Licencia del CRTM** |
+| `salidas_paradas_dias.json` | CRTM: días del calendario GTFS usados como laborable, sábado y domingo típicos | **Licencia del CRTM** |
 | `lineas_paradas.parquet` | CRTM (horarios GTFS): por parada, línea y sentido, vehículos que paran en el laborable típico | **Licencia del CRTM**, con las mismas condiciones |
 | `referencia_movimiento.parquet` | Elaboración propia: gente que pasa en un laborable (estimación del perfil por horas) en un punto interior de cada sección censal. Se calcula con todos los ficheros anteriores del perfil | Las de sus fuentes a la vez: **CC BY 4.0** (Comunidad de Madrid), **INE**, **ODbL 1.0** (campus de OpenStreetMap) y **licencia del CRTM**, con todas las citas |
 | `informe/gasto_restauracion.csv` | Portal de la Comunidad de Madrid (gasto medio de los hogares) | **CC BY 4.0** (Comunidad de Madrid) |

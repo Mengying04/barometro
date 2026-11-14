@@ -150,7 +150,8 @@ def icono_modo(modo: str, px: int = 18) -> str:
             f"{dentro}</svg>")
 
 
-DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana"}
+# «fin_de_semana» es el sábado (nombre antiguo que se conserva; ver supuestos.DIAS_PERFIL).
+DIA_ETIQUETA = {"Laborable": "laborable", "Sábado": "fin_de_semana", "Domingo": "domingo"}
 # ------------------------------------------------------------------------ medidas
 # Cronómetro opcional (BAROMETRO_MEDIR=1): escribe en la terminal cuántas veces se ejecuta
 # la página y cuánto tarda cada parte. Nunca escribe direcciones ni puntos.
@@ -387,7 +388,8 @@ def mostrar_rec(r: dict) -> None:
 
 # ------------------------------------------------- vista Resumen: palabras de la calle
 COLOR_OTROS = "#b8b0a4"
-DIA_RESUMEN = {"Día de diario": "laborable", "Sábado": "fin_de_semana"}
+DIA_RESUMEN = {"Día de diario": "laborable", "Sábado": "fin_de_semana",
+               "Domingo": "domingo"}
 
 
 def fiabilidad(r: dict) -> str:
@@ -1072,8 +1074,8 @@ def seccion_riesgos(rec: dict, inf: dict) -> None:
         st.markdown("<div class='lado-t'>Avisos sobre los datos</div>", unsafe_allow_html=True)
         st.markdown("\n".join(
             f"- {a}" for a in dict.fromkeys(
-                avisos + ["El domingo no se modela aparte: «sábado» representa el fin de "
-                          "semana.",
+                avisos + ["El domingo sirve también, de forma aproximada, para los "
+                          "festivos.",
                           "Toda cifra de personas y de gasto es una estimación con supuestos "
                           "explícitos (src/supuestos.py)."])))
         st.caption("El texto completo de cada aviso está en la sección Mercado, en «Detalle, "
@@ -1153,9 +1155,9 @@ def seccion_pregunta(clave: str, t: dict, detalle, figura=None, pie: str = "") -
 
 
 def por_dias(recs: list[dict], extra: tuple[str, list[dict]] | None = None) -> None:
-    """Recomendaciones en pestañas: laborable, sábado y, si hace falta, una más."""
-    nombres = ["Laborable", "Sábado"] + ([extra[0]] if extra else [])
-    grupos = [rec_dia(recs, "laborable"), rec_dia(recs, "fin_de_semana")] \
+    """Recomendaciones en pestañas: laborable, sábado, domingo y, si hace falta, una más."""
+    nombres = list(DIA_ETIQUETA) + ([extra[0]] if extra else [])
+    grupos = [rec_dia(recs, d) for d in DIA_ETIQUETA.values()] \
         + ([extra[1]] if extra else [])
     for tab, grupo in zip(st.tabs(nombres), grupos):
         with tab:
@@ -1172,7 +1174,7 @@ def detalle_quien(rec: dict) -> None:
     filas = []
     for f in S.FRANJAS:
         fila = {"Franja": f}
-        for d, et in (("laborable", "Laborable"), ("fin_de_semana", "Sábado")):
+        for et, d in DIA_ETIQUETA.items():
             c = rec["a_quien"]["por_franja"][d][f]
             fila[et] = ", ".join(
                 f"{x['nombre']} {100 * x['peso']:.0f} %" for x in c["clientes"]) or "—"
@@ -1186,7 +1188,8 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
                   "cliente (≈, estimación).</div>", unsafe_allow_html=True)
     dia_txt = st.segmented_control("Día", list(DIA_ETIQUETA), default="Laborable",
                                    label_visibility="collapsed", key="dia_informe",
-                                   help="El perfil no modela el domingo aparte.") \
+                                   help="El domingo sirve también, de forma "
+                                        "aproximada, para los festivos.") \
         or "Laborable"
     dia = DIA_ETIQUETA[dia_txt]
     with st.container(border=True, key="caja_perfil"):

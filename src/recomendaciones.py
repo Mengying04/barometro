@@ -33,7 +33,7 @@ from informe_local import (_A_UTM, a_markdown as _md_informe, dec, en_radio, inf
 from perfil_horario import DIAS, TIPOS, horas_punta, perfil_horario
 
 NIVELES = ["baja", "media", "alta"]
-NOMBRE_DIA = {"laborable": "laborable", "fin_de_semana": "sábado"}
+NOMBRE_DIA = {"laborable": "laborable", "fin_de_semana": "sábado", "domingo": "domingo"}
 FRANJAS = list(S.FRANJAS)
 
 
@@ -178,9 +178,10 @@ def a_quien(perfil: dict) -> dict:
                        if pesos[t] >= S.PESO_CONFIANZA_FRANJA)), "estimación",
             dia=d, pesos={t: round(float(pesos[t]), 3) for t in principales}))
     return {"recomendaciones": recs, "por_franja": tabla,
-            "nota": "El perfil no modela el domingo aparte: el «fin de semana» usa el "
-                    "horario de transporte del sábado y costumbres genéricas de fin de "
-                    "semana. Aquí se presenta como «sábado»."}
+            "nota": "Tres tipos de día: laborable (martes a jueves típico), sábado y "
+                    "domingo, cada uno con el horario real de transporte de ese día y sus "
+                    "supuestos. El domingo sirve también, de forma aproximada, para los "
+                    "festivos."}
 
 
 # ========================================================================= A QUÉ HORA
@@ -251,7 +252,7 @@ def momentos(perfil: dict) -> dict:
             if n <= 0:
                 continue
             for m in ms:
-                if d != "laborable":
+                if d != "laborable":   # sábado y domingo
                     m = S.MOMENTO_SOLO_LABORABLE.get(m, m)
                 tot[m] += n
                 aporte[m].append((t, f, n))
@@ -391,7 +392,8 @@ def a_que_precio(perfil: dict, inf: dict) -> dict:
                  sorted(rep.items(), key=lambda x: -x[1]) if v >= 0.05) + ".",
              f"Laborable: {aj['gama']['laborable']} ({dec(aj['valor']['laborable'], 2)}); "
              f"sábado: {aj['gama']['fin_de_semana']} "
-             f"({dec(aj['valor']['fin_de_semana'], 2)}); escala de 1 (económica) a 3 (alta).",
+             f"({dec(aj['valor']['fin_de_semana'], 2)}); domingo: {aj['gama']['domingo']} "
+             f"({dec(aj['valor']['domingo'], 2)}); escala de 1 (económica) a 3 (alta).",
              "Las gamas de universitarios, viajeros, trabajadores y deporte son supuestos "
              "(src/supuestos.py, GAMA_CLIENTE)."], conf, "estimación"),
         rec(f"Precios del sector: en los últimos 12 meses (hasta {p['ipc_mes']}) "
@@ -488,7 +490,7 @@ def riesgos(perfil: dict, inf: dict) -> list[dict]:
         out.append(rec(f"{'Viene un festivo' if uno else 'Vienen festivos'}: "
                        f"{_y([cual(p) for p in cerca])}. "
                        f"{'Ese día' if uno else 'Esos días'} pasa menos gente de diario "
-                       "(trabajadores, estudiantes) y la zona se parece más a un sábado.",
+                       "(trabajadores, estudiantes) y la zona se parece más a un domingo.",
                        [f"{p['fecha']} ({p['dia']}): "
                         + (f"fiesta local ({p['ambito']})" if p["festivo"] == "local"
                            else p["ambito"]) for p in cerca]
@@ -610,12 +612,13 @@ def a_markdown(r: dict) -> str:
         out += _md_rec(x)
     out += ["", "Clientes principales por franja (peso ≥ "
             f"{pct(S.PESO_MINIMO_CLIENTE)}, estimación):", "",
-            "| Franja | Laborable | Sábado |", "|---|---|---|"]
+            "| Franja | Laborable | Sábado | Domingo |", "|---|---|---|---|"]
     t = r["a_quien"]["por_franja"]
     celda = lambda c: ", ".join(f"{x['nombre']} {pct(x['peso'])}" for x in c["clientes"]) \
         + f" (~{miles(c['personas'])})" if c["clientes"] else "—"
     for f in FRANJAS:
-        out.append(f"| {f} | {celda(t['laborable'][f])} | {celda(t['fin_de_semana'][f])} |")
+        out.append(f"| {f} | {celda(t['laborable'][f])} | {celda(t['fin_de_semana'][f])} "
+                   f"| {celda(t['domingo'][f])} |")
     out += ["", f"*{r['a_quien']['nota']}*", "", "### A qué hora", ""]
     for x in r["a_que_hora"]["recomendaciones"]:
         out += _md_rec(x)

@@ -8,7 +8,8 @@ salida 1) si algo se sale de lo esperado:
      direcciones postales o NIF, y ningún correo ni teléfono dentro de los textos.
   3. Población: el total de las secciones censales cuadra (con la referencia, entre
      ficheros y sin secciones repetidas).
-  4. Transporte: las seis redes tienen paradas, líneas y servicio en laborable y en sábado.
+  4. Transporte: las seis redes tienen paradas, líneas y servicio en laborable, en sábado
+     y en domingo, con personas por vehículo válidas los tres días.
   5. Mapa: todos los puntos caen dentro de la Comunidad de Madrid (con margen).
 
 No cambia ningún dato. Lo usa el flujo de GitHub Actions que actualiza los datos cada
@@ -50,7 +51,7 @@ FILAS = {
     "hosteleria_madrid_capital.parquet": (15_000, 19_500),        # 17.143
     "hosteleria_osm.parquet": (13_000, 18_500),                   # 15.665
     "campus_universitarios.parquet": (70, 130),                   # 98
-    "salidas_paradas.parquet": (13_500, 17_000),                  # 15.207
+    "salidas_paradas.parquet": (13_500, 17_000),                  # 15.215
     "lineas_paradas.parquet": (30_000, 43_000),                   # 36.484
     "informe/alojamientos_turisticos.csv": (6_500, 10_500),       # 8.335
     "informe/viviendas_uso_turistico.csv": (800, 1_800),          # 1.164
@@ -219,15 +220,22 @@ def comprobar_transporte(d: Path, tablas: dict[str, pd.DataFrame], inf: Informe)
         paradas = len(pr)
         lab = float(pr["total_lab"].sum()) if paradas else 0.0
         sab = float(pr["total_sab"].sum()) if paradas else 0.0
+        dom = float(pr["total_dom"].sum()) if paradas and "total_dom" in pr else 0.0
+        pp = [c for c in ("pp_lab", "pp_sab", "pp_dom")]
+        pp_bien = paradas > 0 and all(c in pr for c in pp) and bool(
+            (pr[pp].astype(float) > 0).all().all())
         lineas = int(lr["id_linea"].nunique()) if len(lr) else 0
         vehiculos = float(lr["vehiculos_lab"].sum()) if len(lr) else 0.0
         fechas = dias.get(red, {})
-        bien = (paradas >= minimo and lab > 0 and sab > 0 and lineas > 0 and vehiculos > 0
-                and bool(fechas.get("laborable")) and bool(fechas.get("sabado")))
+        bien = (paradas >= minimo and lab > 0 and sab > 0 and dom > 0 and pp_bien
+                and lineas > 0 and vehiculos > 0 and bool(fechas.get("laborable"))
+                and bool(fechas.get("sabado")) and bool(fechas.get("domingo")))
         inf.anotar(bien, f"Red «{red}» con servicio",
                    f"{miles(paradas)} paradas (mínimo {miles(minimo)}), {lineas} líneas, "
-                   f"{miles(lab)} pasos en laborable ({fechas.get('laborable', 'sin día')}) y "
-                   f"{miles(sab)} en sábado ({fechas.get('sabado', 'sin día')})")
+                   f"{miles(lab)} pasos en laborable ({fechas.get('laborable', 'sin día')}), "
+                   f"{miles(sab)} en sábado ({fechas.get('sabado', 'sin día')}) y "
+                   f"{miles(dom)} en domingo ({fechas.get('domingo', 'sin día')})"
+                   + ("" if pp_bien else "; faltan personas por vehículo de algún día"))
     if p is not None:
         otras = sorted(set(p["red"]) - set(REDES))
         inf.anotar(not otras, "Redes desconocidas", ", ".join(otras) or "ninguna")

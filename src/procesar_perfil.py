@@ -11,8 +11,9 @@ Genera en datos/procesados/:
      trabajo grandes, instalaciones deportivas, recintos…), con su horario de acceso
      normalizado y fusionados cuando son del mismo sitio.
   3. salidas_paradas.parquet: número de vehículos que pasan por cada parada en cada hora
-     de un laborable típico y de un sábado típico, a partir de los GTFS del CRTM, y
-     personas que suben o bajan por vehículo calibradas con la demanda real. Incluye los
+     de un laborable típico, de un sábado típico y de un domingo típico, a partir de los
+     GTFS del CRTM, y personas que suben o bajan por vehículo calibradas con la demanda
+     real de cada tipo de día. Incluye los
      viajes sin hora por parada (hora estimada) y la línea 3 de Metro, que no tiene
      viajes en el GTFS (reconstruida: estimación).
   4. lineas_paradas.parquet: qué líneas paran en cada parada y cuántos vehículos de cada
@@ -21,7 +22,11 @@ Genera en datos/procesados/:
 Todos los supuestos están en src/supuestos.py.
 
 Uso:  python src/procesar_perfil.py [educativos universidades dea gtfs lineas]
+                                   [--conservar-dias]
       (sin argumentos, todos; «dea» necesita antes «universidades» y «lineas», «gtfs»)
+      --conservar-dias: el laborable y el sábado de cada red son los ya guardados en
+      salidas_paradas_dias.json (solo se elige el domingo). Sirve para añadir el domingo
+      sin que cambien los otros dos días; el flujo de actualización no lo usa.
 """
 
 from __future__ import annotations
@@ -346,6 +351,9 @@ _DIAS_TODOS = re.compile(r"\bL\s*[-/A]\s*D\b|LUNES\s+A\s+DOMINGO|TODOS\s+LOS\s+D
                          r"|\bL\s*-\s*S\b|LUNES\s+A\s+SABADO|DIARIO")
 _FINDE = re.compile(r"\bS\s*[-Y/]\s*D\b|SABADO|DOMINGO|FIN(ES)?\s+DE\s+SEMANA|FESTIVO"
                     r"|\bSD\b|\bS\b\s*\d")
+# El horario de fin de semana nombra el domingo (si no, solo abre el sábado).
+_DOMINGO = re.compile(r"DOMINGO|\bL\s*[-/A]\s*D\b|\bS\s*[-Y/]\s*D\b|FESTIVO|FIN(ES)?\s+DE\s+SEMANA"
+                      r"|TODOS\s+LOS\s+DIAS|DIARIO|\bD\b|\bSD\b")
 _HORA = r"(\d{1,2})(?:\s*[:.,H]\s*(\d{2}))?\s*(?:H\b|HORAS|HRS?\b)?\.?"
 _RANGO = re.compile(_HORA + r"\s*(?:-|–|A\b|HASTA)\s*" + _HORA)
 
@@ -374,10 +382,29 @@ def _rangos(texto: str) -> list[tuple[float, float]]:
 def normalizar_horario(texto) -> dict:
     """Interpreta el texto libre de horario_acceso.
 
-    Devuelve {tipo, abre_lab, cierra_lab, abre_fds, cierra_fds, fds}, donde tipo es
-    vacio | vehiculo | 24h | eventos | rango | expresion | no_interpretable, las horas
-    van en decimal (8.5 = 8:30; un cierre > 24 = pasada la medianoche) y fds dice si
-    abre el fin de semana (True/False) o None si el texto no lo aclara."""
+    Devuelve {tipo, abre_lab, cierra_lab, abre_fds, cierra_fds, fds, abre_dom,
+    cierra_dom, dom}, donde tipo es vacio | vehiculo | 24h | eventos | rango | expresion |
+    no_interpretable, las horas van en decimal (8.5 = 8:30; un cierre > 24 = pasada la
+    medianoche), fds dice si abre el sábado (True/False) o None si el texto no lo aclara,
+    y dom, lo mismo para el domingo (ver _domingo)."""
+    r = _normalizar_horario(texto)
+    r.update(_domingo(texto, r))
+    return r
+
+
+def _domingo(texto, r: dict) -> dict:
+    """Domingo (SUPUESTO, ver supuestos.py): si abre el fin de semana y el texto nombra el
+    domingo («L-D», «S y D», festivos, todos los días…), las mismas horas que el sábado;
+    si solo nombra el sábado («S 9-14», «L-S»), cerrado; si no se sabe, None."""
+    if r["fds"] is None:
+        return {"dom": None, "abre_dom": np.nan, "cierra_dom": np.nan}
+    t = sin_tildes(str(texto)).strip()
+    dom = bool(r["fds"]) and (r["tipo"] == "24h" or bool(_DOMINGO.search(t)))
+    return {"dom": dom, "abre_dom": r["abre_fds"] if dom else np.nan,
+            "cierra_dom": r["cierra_fds"] if dom else np.nan}
+
+
+def _normalizar_horario(texto) -> dict:
     r = {"tipo": "no_interpretable", "abre_lab": np.nan, "cierra_lab": np.nan,
          "abre_fds": np.nan, "cierra_fds": np.nan, "fds": None}
     if texto is None or (isinstance(texto, float) and np.isnan(texto)) or not str(texto).strip():
@@ -519,12 +546,20 @@ def dea() -> None:
         "No se guarda el texto libre de `horario_acceso` (ya está interpretado en "
         "`horario_tipo` y en las horas de apertura y cierre, y alguna vez nombra el "
         "establecimiento).",
+        "Domingo (`dom`, `abre_dom`, `cierra_dom`; **supuesto**): si el horario abre el "
+        "fin de semana y nombra el domingo («L-D», «S y D», festivos, todos los días…), las "
+        f"mismas horas que el sábado; si solo nombra el sábado, cerrado. "
+        f"{int(d['dom'].eq(True).sum())} abren el domingo y "
+        f"{int((d['fds'].eq(True) & d['dom'].eq(False)).sum())} abren el sábado pero no el "
+        "domingo.",
     ]
     d["fds"] = d["fds"].astype("boolean")
+    d["dom"] = d["dom"].astype("boolean")
     # No se guarda el texto libre de horario_acceso: ya está interpretado en las columnas
     # siguientes y alguna vez nombra el establecimiento.
     guardar(d, capa, ["codigo_dea", "tipo_establecimiento", "horario_tipo",
-                      "abre_lab", "cierra_lab", "abre_fds", "cierra_fds", "fds", "cliente",
+                      "abre_lab", "cierra_lab", "abre_fds", "cierra_fds", "fds",
+                      "abre_dom", "cierra_dom", "dom", "cliente",
                       "personas_dia", "perfil", "n_dea", "cod_municipio", "cdgseccion"], n)
 
 
@@ -571,24 +606,29 @@ def servicios_activos(cal: pd.DataFrame, cd: pd.DataFrame, dia: date) -> set[str
     return act
 
 
-def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame) -> dict:
-    """Día típico (laborable y sábado): {tipo: (viajes, día, líneas)}. Entre los martes,
-    miércoles y jueves (o los sábados) de la muestra, sin los días flojos (festivos), el
-    día en que circulan más líneas; entre los empatados, el de viajes mediano."""
+def _rango_fechas(cal: pd.DataFrame, cd: pd.DataFrame) -> tuple[date, date]:
     fechas = pd.concat([cal.get("start_date", pd.Series(dtype=str)),
                         cal.get("end_date", pd.Series(dtype=str)),
                         cd.get("date", pd.Series(dtype=str))]).dropna()
-    ini = pd.to_datetime(fechas.min()).date()
-    fin = pd.to_datetime(fechas.max()).date()
+    return pd.to_datetime(fechas.min()).date(), pd.to_datetime(fechas.max()).date()
+
+
+def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame,
+                fijos: dict | None = None) -> dict:
+    """Día típico (laborable, sábado y domingo): {tipo: (viajes, día, líneas)}. Entre los
+    martes, miércoles y jueves (o los sábados, o los domingos) de la muestra, sin los días
+    flojos (festivos), el día en que circulan más líneas; entre los empatados, el de viajes
+    mediano. `fijos` ({tipo: «AAAA-MM-DD»}) impone el día de esos tipos."""
+    ini, fin = _rango_fechas(cal, cd)
     largo = 7 * S.GTFS_SEMANAS_MUESTRA
     desde = max(ini, min(HOY, fin - timedelta(days=largo - 1)))
-    cand = {"laborable": [], "sabado": []}
+    cand = {"laborable": [], "sabado": [], "domingo": []}
     for k in range(largo):
         dia = desde + timedelta(days=k)
         if dia > fin:
             break
         tipo = "laborable" if dia.weekday() in (1, 2, 3) else \
-            "sabado" if dia.weekday() == 5 else None
+            "sabado" if dia.weekday() == 5 else "domingo" if dia.weekday() == 6 else None
         if tipo:
             t = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))]
             cand[tipo].append((len(t), dia, t["linea_id"].nunique()))
@@ -602,7 +642,32 @@ def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame) -> dic
         mas = max(x[2] for x in lista)
         lista = [x for x in lista if x[2] == mas]
         out[tipo] = lista[(len(lista) - 1) // 2]  # mediana (la inferior si son pares)
+    for tipo, dia in (fijos or {}).items():
+        dia = date.fromisoformat(dia)
+        t = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))]
+        out[tipo] = (len(t), dia, t["linea_id"].nunique())
     return out
+
+
+def completar_domingo(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame,
+                      dia: date) -> tuple[pd.DataFrame, date | None]:
+    """Viajes que se añaden al domingo elegido (supuestos.GTFS_COMPLETAR_DOMINGO): los del
+    primer domingo con servicio del calendario de las líneas que el día elegido no tienen
+    ningún viaje. Devuelve esos viajes y la fecha de la que salen."""
+    activos = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))]
+    ini, fin = _rango_fechas(cal, cd)
+    primero = ini + timedelta(days=(6 - ini.weekday()) % 7)
+    while primero <= fin:
+        t = trips[trips["service_id"].isin(servicios_activos(cal, cd, primero))]
+        if len(t):
+            break
+        primero += timedelta(days=7)
+    else:
+        return trips.iloc[0:0], None
+    if primero == dia:
+        return trips.iloc[0:0], None
+    extra = t[~t["linea_id"].isin(set(activos["linea_id"]))]
+    return extra, primero
 
 
 def salidas_por_hora(g: Gtfs, servicios: set[str], trips: pd.DataFrame,
@@ -661,7 +726,7 @@ def geometria_accesos(stops: pd.DataFrame) -> pd.DataFrame:
 
 
 def demanda_tipica() -> tuple[dict, str]:
-    """Viajeros de un laborable típico y de un sábado típico por columna del Excel."""
+    """Viajeros de un laborable, un sábado y un domingo típicos por columna del Excel."""
     d = pd.read_excel(ORIG / "crtm_paradas" / "crtm_demanda_diaria.xlsx",
                       sheet_name="diaria", header=1)
     d = d.rename(columns={d.columns[1]: "fecha"})
@@ -670,7 +735,7 @@ def demanda_tipica() -> tuple[dict, str]:
     fin = d["fecha"].max()
     d = d[d["fecha"] > fin - pd.Timedelta(weeks=S.DEMANDA_SEMANAS)]
     out = {}
-    for tipo, dias in {"lab": [1, 2, 3], "sab": [5]}.items():
+    for tipo, dias in {"lab": [1, 2, 3], "sab": [5], "dom": [6]}.items():
         x = d[d["fecha"].dt.weekday.isin(dias)]
         tot = x["Total"].astype(float)
         x = x[tot >= S.DEMANDA_DESCARTE * tot.median()]
@@ -688,10 +753,13 @@ def _norm_estacion(s: str) -> str:
 
 
 def calibrar(gdf: gpd.GeoDataFrame) -> list[str]:
-    """Añade pp_lab y pp_sab: personas que suben o bajan por cada vehículo que para."""
+    """Añade pp_lab, pp_sab y pp_dom: personas que suben o bajan por cada vehículo que
+    para."""
     hl, hs = [f"lab_{h:02d}" for h in range(24)], [f"sab_{h:02d}" for h in range(24)]
+    hd = [f"dom_{h:02d}" for h in range(24)]
     gdf["pp_lab"] = gdf["red"].map(S.VIAJEROS_POR_PASO).astype(float)
     gdf["pp_sab"] = gdf["pp_lab"]
+    gdf["pp_dom"] = gdf["pp_lab"]
     gdf["origen_pp"] = "supuesto (sin demanda publicada)"
     try:
         dem, periodo = demanda_tipica()
@@ -699,22 +767,26 @@ def calibrar(gdf: gpd.GeoDataFrame) -> list[str]:
         return [f"**Sin calibrar** (no se pudo leer la demanda del CRTM: {e}); se usan los "
                 "valores de respaldo de src/supuestos.py."]
     notas = [f"Calibración con la demanda diaria del CRTM ({periodo}; mediana de martes a "
-             "jueves y de sábados, sin festivos): personas por paso = 2 × viajeros del día / "
+             "jueves, de sábados y de domingos, sin días flojos): personas por paso = 2 × viajeros del día / "
              "pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las "
              "paradas de la red."]
     col_red = gdf["red"].map(S.DEMANDA_COLUMNA)
-    for tipo, cols in (("lab", hl), ("sab", hs)):
+    nombre_dia = {"lab": "Laborable", "sab": "Sábado", "dom": "Domingo"}
+    for tipo, cols in (("lab", hl), ("sab", hs), ("dom", hd)):
         pasos = gdf.assign(pasos=gdf[cols].sum(axis=1)).groupby(col_red)["pasos"].sum()
         factor = {c: 2 * dem[tipo][c] / pasos[c] for c in pasos.index}
         con = col_red.notna()
         gdf.loc[con, f"pp_{tipo}"] = col_red[con].map(factor)
-        notas.append(("Laborable" if tipo == "lab" else "Sábado") + ": " + "; ".join(
+        notas.append(nombre_dia[tipo] + ": " + "; ".join(
             f"{c} {dem[tipo][c]:,.0f} viajeros / {pasos[c]:,.0f} pasos → "
             f"{factor[c]:.1f} personas por paso".replace(",", ".") for c in pasos.index))
     gdf.loc[col_red.notna(), "origen_pp"] = "demanda de la red (CRTM)"
 
     # Estaciones de Cercanías con dato propio: se corrige la media de la red con la
-    # proporción entre la estación y la red (mismo año del dato por estación).
+    # proporción entre la estación y la red (mismo año del dato por estación). La
+    # proporción se calcula con 5 laborables y 2 sábados por semana, como antes de añadir
+    # el domingo, para no cambiar el laborable ni el sábado; al domingo se le aplica la
+    # misma proporción.
     try:
         e = leer_csv(ORIG / "1923861" / "viajeros-subidos-y-bajados-en-trenes-de-cercanias-"
                                         "por-estaciones.csv")
@@ -745,7 +817,7 @@ def calibrar(gdf: gpd.GeoDataFrame) -> list[str]:
         if pasos_dia[i] <= 0 or not np.isfinite(pp_red):
             continue
         ratio = (v / 365 / pasos_dia[i]) / pp_red
-        gdf.loc[i, ["pp_lab", "pp_sab"]] *= ratio
+        gdf.loc[i, ["pp_lab", "pp_sab", "pp_dom"]] *= ratio
         gdf.loc[i, "origen_pp"] = f"estación de Cercanías ({anyo})"
         usadas.append(f"{est} ×{ratio:.2f}")
     notas.append(f"Cercanías: {len(usadas)} estaciones con viajeros subidos y bajados propios "
@@ -899,31 +971,44 @@ def con_reconstruidas(tabla: pd.DataFrame, rec: dict[str, pd.DataFrame]) -> pd.D
     return tabla
 
 
-def gtfs() -> None:
+def gtfs(conservar_dias: bool = False) -> None:
     capa = "salidas_paradas"
     carpeta = ORIG / "crtm_paradas"
     resultados, notas, notas_rec, dias_usados = [], [], [], {}
+    previos = {}
+    if conservar_dias:
+        previos = json.loads((PROC / "salidas_paradas_dias.json").read_text(encoding="utf-8"))
     for fichero, red in REDES.items():
         print(f"  · {fichero} …", flush=True)
         g = Gtfs(carpeta / fichero)
         cal, cd, trips, st, freq, expandir, arr = cargar_red(g, red)
-        dias = elegir_dias(cal, cd, trips)
+        fijos = {k: v for k, v in previos.get(red, {}).items() if k in ("laborable", "sabado")}
+        dias = elegir_dias(cal, cd, trips, fijos)
         dias_usados[red] = {k: v[1].isoformat() for k, v in dias.items()}
         n_lineas = arr["lineas_fichero"]
         todas = g.leer("stops.txt", usecols=lambda c: c in {
             "stop_id", "stop_name", "stop_lat", "stop_lon", "location_type", "parent_station"})
         paradas = geometria_accesos(todas)
-        tablas, estimadas = {}, {}
+        tablas, estimadas, completadas = {}, {}, {}
         for tipo, (_, dia, _) in dias.items():
             tablas[tipo] = salidas_por_hora(g, servicios_activos(cal, cd, dia), trips, st,
                                             freq, expandir)
+            if tipo == "domingo" and red in S.GTFS_COMPLETAR_DOMINGO:
+                extra, origen = completar_domingo(cal, cd, trips, dia)
+                if len(extra):
+                    tablas[tipo] = tablas[tipo].add(salidas_por_hora(
+                        g, set(extra["service_id"]), extra, st, freq, expandir),
+                        fill_value=0).astype(int)
+                    completadas[red] = (extra["linea_id"].nunique(), len(extra), origen)
             rec = lineas_reconstruidas(g, red, trips, st, tablas[tipo])
             tablas[tipo] = con_reconstruidas(tablas[tipo], rec)
             for linea, x in rec.items():
                 estimadas.setdefault(linea, {})[tipo] = x
         lab = tablas["laborable"].add_prefix("lab_h")
         sab = tablas["sabado"].add_prefix("sab_h")
-        t = lab.join(sab, how="outer").fillna(0).astype(int).reset_index()
+        dom = tablas["domingo"].add_prefix("dom_h")
+        t = lab.join(sab, how="outer").join(dom, how="outer").fillna(0).astype(int) \
+            .reset_index()
         t = t.merge(paradas, on="stop_id", how="left")
         sin = int(t["geometry"].isna().sum())
         t = t.dropna(subset=["geometry"])
@@ -946,14 +1031,19 @@ def gtfs() -> None:
                 f"{', '.join(S.GTFS_LINEAS_RECONSTRUIDAS[red][linea]['estaciones_extra'])}) "
                 f"se ponen, hora a hora, los trenes de la estación mediana de las líneas "
                 f"{modelo} (media de las cuatro): "
-                f"{int(x['laborable'].iloc[0].sum())} trenes al día en laborable y "
-                f"{int(x['sabado'].iloc[0].sum())} en sábado, sumando los dos sentidos.")
+                f"{int(x['laborable'].iloc[0].sum())} trenes al día en laborable, "
+                f"{int(x['sabado'].iloc[0].sum())} en sábado y "
+                f"{int(x['domingo'].iloc[0].sum())} en domingo, sumando los dos sentidos.")
         resultados.append(t)
         notas.append(f"{red}: laborable {dias_usados[red]['laborable']}, sábado "
-                     f"{dias_usados[red]['sabado']}"
+                     f"{dias_usados[red]['sabado']}, domingo {dias_usados[red]['domingo']}"
                      + (" (viajes-plantilla de frequencies.txt expandidos)" if expandir else "")
                      + f"; ese laborable circulan {dias['laborable'][2]} de las "
                        f"{n_lineas} líneas del fichero"
+                     + f"; ese domingo, {dias['domingo'][2]}"
+                     + (f" (más {completadas[red][0]} líneas con el servicio de domingo que "
+                        f"el GTFS solo publica para el {completadas[red][2]}: "
+                        f"{completadas[red][1]} viajes)" if red in completadas else "")
                      + (f"; línea {', '.join(arr['excluidas'])} excluida (sin servicio "
                         "habitual: cerrada por obras)" if arr.get("excluidas") else "")
                      + (f"; {arr['sin_hora']} viajes de {arr['sin_hora_lineas']} líneas sin "
@@ -970,24 +1060,33 @@ def gtfs() -> None:
     t = pd.concat(resultados, ignore_index=True)
     n = len(t)
     t = t.rename(columns={**{f"lab_h{h}": f"lab_{h:02d}" for h in range(24)},
-                          **{f"sab_h{h}": f"sab_{h:02d}" for h in range(24)}})
+                          **{f"sab_h{h}": f"sab_{h:02d}" for h in range(24)},
+                          **{f"dom_h{h}": f"dom_{h:02d}" for h in range(24)}})
     hl, hs = [f"lab_{h:02d}" for h in range(24)], [f"sab_{h:02d}" for h in range(24)]
+    hd = [f"dom_{h:02d}" for h in range(24)]
     t["total_lab"], t["total_sab"] = t[hl].sum(axis=1), t[hs].sum(axis=1)
+    t["total_dom"] = t[hd].sum(axis=1)
     gdf = gpd.GeoDataFrame(t, geometry="geometry", crs=4326).to_crs(CRS)
     gdf = gdf.rename(columns={"stop_name": "parada"})
     notas_cal = calibrar(gdf)
     informe.setdefault(capa, {})["notas"] = [
         "Pasos de vehículos (cada vez que un tren o autobús para en la parada) por hora, "
-        "en un laborable típico (`lab_00`…`lab_23`) y un sábado típico (`sab_00`…`sab_23`). "
+        "en un laborable típico (`lab_00`…`lab_23`), un sábado típico (`sab_00`…`sab_23`) "
+        "y un domingo típico (`dom_00`…`dom_23`). "
         "Las horas de más de 24:00 del GTFS se pasan a la madrugada (25:30 → 1).",
         "Día típico de cada red: entre los martes, miércoles y jueves (y entre los "
-        f"sábados) de las {S.GTFS_SEMANAS_MUESTRA} primeras semanas de vigencia a partir de "
+        f"sábados, y entre los domingos) de las {S.GTFS_SEMANAS_MUESTRA} primeras semanas de vigencia a partir de "
         f"hoy, sin los días con menos del {100 * S.GTFS_DIA_MINIMO_VIAJES:.0f} % de los "
         "viajes del día mediano (festivos), el día en que circulan más líneas y, entre los "
         "empatados, el de número de viajes mediano. Antes se tomaba solo el de viajes "
         "mediano, y en interurbanos y urbanos caía en un día en que el GTFS deja sin "
         "servicio 21 líneas de la Sierra (su calendario de miércoles y jueves solo vale "
         "para un día suelto; el resto del año solo figuran los martes).",
+        "Domingo de interurbanos y urbanos (**supuesto**): el GTFS publica el servicio de "
+        "domingo de muchas líneas solo para el primer domingo del fichero. Al domingo "
+        "elegido se le añaden, solo para las líneas que ese día no tienen ningún viaje, los "
+        "viajes de ese primer domingo (ver `GTFS_COMPLETAR_DOMINGO` en src/supuestos.py). "
+        "Los domingos sirven también, de forma aproximada, para los festivos.",
         "Viajes sin hora en cada parada (interurbanos y urbanos): son viajes reales, con "
         "su calendario y su hora de salida, en los que todas las paradas llevan la misma "
         "hora (la de salida o, si viene la hora de relleno 01:00:00, la que figura en el "
@@ -1013,8 +1112,9 @@ def gtfs() -> None:
         "estación (`location_type` 2 del GTFS), para medir la distancia a la salida más "
         "cercana a la calle.",
     ] + notas + notas_rec + notas_cal
-    guardar(gdf, capa, ["red", "stop_id", "parada", *hl, *hs, "total_lab", "total_sab",
-                        "pp_lab", "pp_sab", "origen_pp", "origen_pasos", "con_accesos"], n,
+    guardar(gdf, capa, ["red", "stop_id", "parada", *hl, *hs, *hd, "total_lab", "total_sab",
+                        "total_dom", "pp_lab", "pp_sab", "pp_dom", "origen_pp",
+                        "origen_pasos", "con_accesos"], n,
             "paradas")
     (PROC / "salidas_paradas_dias.json").write_text(
         json.dumps(dias_usados, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1141,6 +1241,8 @@ PASOS = {"educativos": educativos, "universidades": universidades, "dea": dea, "
 
 
 def main(argv: list[str]) -> int:
+    conservar = "--conservar-dias" in argv
+    argv = [a for a in argv if not a.startswith("--")]
     elegidos = argv or list(PASOS)
     previo = PROC / "informe_perfil.json"
     try:
@@ -1149,7 +1251,7 @@ def main(argv: list[str]) -> int:
         guardado = {}
     for p in elegidos:
         print(p)
-        PASOS[p]()
+        PASOS[p](conservar) if p == "gtfs" else PASOS[p]()
     # Conserva en el informe las capas que no se han regenerado ahora
     capas = {"educativos": "centros_educativos_alumnos",
              "universidades": "campus_universitarios", "dea": "desfibriladores_horario",

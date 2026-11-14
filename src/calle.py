@@ -213,6 +213,7 @@ def respuestas(rec: dict, inf: dict) -> dict:
 def frases_quien(rec: dict) -> list[str]:
     lab = clientes_principales(rec)
     sab = clientes_principales(rec, "fin_de_semana")
+    dom = clientes_principales(rec, "domingo")
     out = []
     if lab:
         out.append(f"En un día de diario pasan sobre todo "
@@ -231,7 +232,10 @@ def frases_quien(rec: dict) -> list[str]:
     if sab:
         out.append(f"Los sábados pasan sobre todo "
                    f"{lista_y([CLIENTE_CALLE[t] for t, _ in sab])}.")
-    if any(t == "viajeros" for t, _ in lab + sab):
+    if dom:
+        out.append(f"Los domingos, sobre todo "
+                   f"{lista_y([CLIENTE_CALLE[t] for t, _ in dom])}.")
+    if any(t == "viajeros" for t, _ in lab + sab + dom):
         out.append("Los viajeros van al metro, al tren o al autobús: paran menos.")
     return out
 
@@ -244,6 +248,9 @@ def frases_cuando(rec: dict) -> list[str]:
         out.append(f"En un día de diario hay más gente {horas_calle(g_lab)}.")
     if g_sab:
         out.append(f"Los sábados, {horas_calle(g_sab)}.")
+    g_dom = grupos_horas(rec, "domingo")
+    if g_dom:
+        out.append(f"Los domingos, {horas_calle(g_dom)}.")
     hueco = [r for r in rec["a_que_hora"]["recomendaciones"]
              if r["texto"].startswith("Posible hueco horario") and r.get("dia") == "laborable"]
     if hueco:
@@ -271,6 +278,9 @@ def frases_que(rec: dict) -> list[str]:
                    f"{lista_y([MOMENTO_CALLE[m] for m in op])}. Puede ser una oportunidad.")
     if sab:
         out.append(f"Los sábados, sobre todo {lista_y(sab[:2])}.")
+    dom = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "domingo")]
+    if dom:
+        out.append(f"Los domingos, sobre todo {lista_y(dom[:2])}.")
     sobra = [LOCAL_CALLE[h["tipo"]] for h in qv["huecos"]
              if h.get("sentido") == "sobra" and h.get("tipo") in LOCAL_CALLE]
     if sobra:

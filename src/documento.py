@@ -62,6 +62,10 @@ MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto
 PREGUNTAS = (("quien", "a_quien", "A quién"), ("cuando", "a_que_hora", "A qué hora"),
              ("que", "que_vender", "Qué vender"), ("precio", "a_que_precio", "A qué precio"))
 
+# Días de los gráficos por horas («fin_de_semana» es el sábado; ver supuestos.DIAS_PERFIL).
+DIAS_PDF = (("laborable", "Día de diario"), ("fin_de_semana", "Sábado"),
+            ("domingo", "Domingo"))
+
 
 def _rgb(c: str) -> tuple[int, int, int]:
     return int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16)
@@ -421,17 +425,17 @@ def informe_pdf(res: dict, lugar: str, fu: dict, punto: tuple[float, float] | No
 
     d.seccion("Gente por horas", 72)
     d.texto("Personas que pasan cerca cada hora (estimación). En color más oscuro, las horas "
-            "con más gente. El sábado representa el fin de semana.", 8.5, color=SUAVE)
+            "con más gente. Cada gráfico tiene su propia escala. El domingo sirve también, "
+            "de forma aproximada, para los festivos.", 8.5, color=SUAVE)
     d.ln(2)
     d.cabe(48)
     y = d.get_y()
-    ancho = (d.ancho - 8) / 2
-    for i, (dia, nombre) in enumerate((("laborable", "Día de diario"),
-                                       ("fin_de_semana", "Sábado"))):
+    ancho = (d.ancho - 2 * 6) / 3
+    for i, (dia, nombre) in enumerate(DIAS_PDF):
         horas = [float(v) for v in perfil["horas"].loc[dia]["total"]]
         mejores = [hora_de_grupo(rec, dia, g) for g in grupos_horas(rec, dia)[:2]]
         d.barras_horas(horas, set(horas_punta(rec, dia)), mejores,
-                       d.l_margin + i * (ancho + 8), y, ancho, 42, nombre)
+                       d.l_margin + i * (ancho + 6), y, ancho, 42, nombre)
     d.set_y(y + 44)
 
     d.seccion("La zona", 82)
@@ -560,11 +564,10 @@ def comparacion_pdf(cmp: dict, a: dict, b: dict, fu: dict) -> bytes:
     d.ln(2)
     d.cabe(48)
     y = d.get_y()
-    ancho = (d.ancho - 8) / 2
-    for i, (dia, nombre) in enumerate((("laborable", "Día de diario"),
-                                       ("fin_de_semana", "Sábado"))):
+    ancho = (d.ancho - 2 * 6) / 3
+    for i, (dia, nombre) in enumerate(DIAS_PDF):
         d.lineas_horas(cmp["personas_por_hora"]["a"][dia], cmp["personas_por_hora"]["b"][dia],
-                       d.l_margin + i * (ancho + 8), y, ancho, 42, nombre)
+                       d.l_margin + i * (ancho + 6), y, ancho, 42, nombre)
     d.set_y(y + 44)
 
     _bloque_fuentes(d, fu)

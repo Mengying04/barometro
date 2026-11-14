@@ -116,8 +116,18 @@ CONFIANZA = {
     },
 }
 
-# Fin de semana: para el transporte se usa el horario de un sábado típico (el domingo
-# suele tener aún menos servicio). Para lo demás, perfiles de fin de semana genéricos.
+# TIPOS DE DÍA. El perfil distingue tres: «laborable» (martes a jueves típico),
+# «fin_de_semana» y «domingo». OJO: por compatibilidad, la clave «fin_de_semana» es el
+# SÁBADO (antes no había domingo y el sábado representaba todo el fin de semana; se
+# conserva el nombre para no cambiar las claves que ya usan la aplicación, el informe y el
+# servidor MCP). El domingo vale también, de forma aproximada, para los festivos (ver
+# DOMINGO_Y_FESTIVOS más abajo). Transporte: horario real de cada tipo de día (GTFS).
+DIAS_PERFIL = ["laborable", "fin_de_semana", "domingo"]
+
+# DOMINGO_Y_FESTIVOS: el CRTM usa en sus GTFS el mismo servicio los domingos y festivos, y
+# en la demanda publicada el único festivo de las 8 semanas usadas (lunes 12 de octubre de
+# 2026: 2.976.180 viajeros) quedó en el 104 % del domingo mediano (2.864.258). Un solo día:
+# indicio, no prueba. SUPUESTO: un festivo se parece a un domingo.
 
 
 def perfil(**horas: float) -> dict[int, float]:
@@ -239,6 +249,9 @@ PERFIL_EDUCATIVO = {
 }
 # En fin de semana no hay clase. ESTIMACIÓN: se ignoran actividades de sábado.
 EDUCATIVO_FIN_DE_SEMANA = 0.0
+# Domingo: colegios, institutos, universidades, academias y escuelas de idiomas o música
+# cerrados. SUPUESTO (se ignoran actividades sueltas, como exámenes o competiciones).
+EDUCATIVO_DOMINGO = 0.0
 
 # ================================================================== UNIVERSIDADES
 # Estudiantes: Grado + máster presenciales por universidad del último curso publicado
@@ -360,9 +373,27 @@ PERFIL_SANITARIO = {
         # Solo algunas abren el sábado por la mañana: un 30 % de la actividad.
         "consulta": perfil(h10=0.1, h11=0.15, h12=0.15, h13=0.1),
     },
+    # Domingo. SUPUESTOS:
+    #  - centro de salud y consultorio: cerrados (los del SERMAS abren de lunes a viernes;
+    #    la atención de urgencia de domingo y festivo está en otros dispositivos);
+    #  - hospital: como el sábado (sin consultas externas; urgencias y visitas a planta,
+    #    que el domingo son habituales); mismo factor HOSPITAL_DOMINGO que el sábado;
+    #  - diálisis: cerrado (los turnos habituales son lunes-miércoles-viernes y
+    #    martes-jueves-sábado);
+    #  - consultas y clínicas privadas: cerradas.
+    "domingo": {
+        "centro_salud": {},
+        "consultorio": {},
+        "hospital": perfil(h8=0.05, h9=0.08, h10=0.1, h11=0.12, h12=0.14, h13=0.12,
+                           h14=0.08, h15=0.08, h16=0.12, h17=0.14, h18=0.14, h19=0.12,
+                           h20=0.1, h21=0.06, h22=0.04, h23=0.02),
+        "dialisis": {},
+        "consulta": {},
+    },
 }
 # Factor de fin de semana del total de pacientes del hospital (menos consultas).
 HOSPITAL_FIN_DE_SEMANA = 0.5
+HOSPITAL_DOMINGO = 0.5   # SUPUESTO: igual que el sábado
 
 # ================================================== DESFIBRILADORES: trabajo, deporte...
 # El registro de desfibriladores (DEA) del portal es obligatorio en sitios con mucha
@@ -398,7 +429,8 @@ DEA_FUSION_M = 50
 # Recintos de eventos: probabilidad de que haya un evento un día cualquiera y fracción
 # del aforo que acude. ESTIMACIÓN: en un recinto grande hay eventos algunos días a la
 # semana, sobre todo en fin de semana.
-EVENTOS_PROB = {"laborable": 0.1, "fin_de_semana": 0.3}
+EVENTOS_PROB = {"laborable": 0.1, "fin_de_semana": 0.3,
+               "domingo": 0.3}   # domingo: como el sábado (fútbol y otros eventos). SUPUESTO
 EVENTOS_OCUPACION = 0.6
 
 # Horarios típicos de cada tipo (pasos por persona y día).
@@ -432,6 +464,30 @@ PERFIL_DEA = {
         "eventos": perfil(h11=0.15, h12=0.25, h14=0.25, h15=0.15, h17=0.15, h18=0.3,
                           h19=0.15, h20=0.15, h21=0.3, h22=0.15),
     },
+    # Domingo. SUPUESTOS:
+    #  - oficina o fábrica sin horario conocido: la mitad que el sábado (casi nadie trabaja
+    #    en domingo; quedan guardias y turnos de mantenimiento);
+    #  - administración: cerrada;
+    #  - comercio grande: como el sábado. En la Comunidad de Madrid hay libertad de horarios
+    #    comerciales (Ley 2/2012, de dinamización de la actividad comercial): los grandes
+    #    establecimientos pueden abrir todos los domingos y festivos;
+    #  - turnos (hoteles, residencias): como el sábado, trabajan todos los días;
+    #  - deporte: sobre todo por la mañana (partidos de deporte base, actividades dirigidas);
+    #    por la tarde poco, porque muchos polideportivos, sobre todo municipales, cierran o
+    #    reducen horario el domingo por la tarde. 1,46 pasos por usuario frente a 1,88 el
+    #    sábado;
+    #  - eventos: partidos a mediodía y por la tarde; la salida es más temprana que el
+    #    sábado porque al día siguiente se trabaja.
+    "domingo": {
+        "oficina": escalar(perfil(h8=0.5, h9=0.5, h14=0.5, h15=0.5), 0.075),
+        "administracion": {},
+        "comercio": perfil(h9=0.5, h15=0.5, h16=0.5, h21=0.2, h22=0.3),
+        "turnos": perfil(h6=0.2, h7=0.3, h14=0.2, h15=0.5, h22=0.3, h23=0.5),
+        "deporte": perfil(h8=0.08, h9=0.2, h10=0.28, h11=0.28, h12=0.24, h13=0.14,
+                          h14=0.04, h16=0.04, h17=0.06, h18=0.06, h19=0.04),
+        "eventos": perfil(h10=0.1, h11=0.2, h12=0.2, h13=0.1, h14=0.15, h15=0.1, h16=0.15,
+                          h17=0.25, h18=0.2, h19=0.2, h20=0.25, h21=0.1),
+    },
 }
 
 # Desfibriladores con horario «HORARIO AUTOBUS URBANO» o parecido: están dentro de
@@ -457,7 +513,10 @@ HORARIO_EXPRESIONES = {
 #    comer fuera (dos pasos: ida y vuelta);
 #  - si el edificio abre más de 12 horas, se supone que hay dos turnos con la mitad de la
 #    plantilla cada uno;
-#  - en fin de semana, si el texto dice que abre, trabaja la mitad de la plantilla.
+#  - en fin de semana, si el texto dice que abre, trabaja la mitad de la plantilla;
+#  - el domingo, lo mismo que el sábado si el texto dice que abre el domingo («L-D»,
+#    «S y D», «todos los días», festivos…); si su horario de fin de semana solo nombra el
+#    sábado («S 9-14», «sábados de 10 a 14»), cerrado el domingo. SUPUESTO.
 JORNADA_LLEGADA = (0.7, 0.3)
 JORNADA_SALIDA = (0.4, 0.6)
 SALEN_A_COMER = 0.3
@@ -471,9 +530,15 @@ PLANTILLA_FIN_DE_SEMANA = 0.5
 # =================================================================== TRANSPORTE PÚBLICO
 # Personas que suben o bajan en una parada por cada vehículo que pasa.
 #
+# DOMINGO: se usa el servicio de domingo de cada GTFS, elegido con el mismo criterio que el
+# laborable y el sábado (abajo), y se calibra con la demanda real de los domingos de las
+# mismas semanas (el Excel del CRTM los trae todos). En Cercanías, las estaciones con dato
+# propio conservan su proporción frente a la media de la red. Metro Ligero (sin demanda
+# publicada): el mismo valor de respaldo que los otros días.
+#
 # CALIBRACIÓN (src/procesar_perfil.py): con la demanda diaria real de cada red publicada
 # por el CRTM (Observatorio de la Demanda; Metro, EMT, concesiones por carretera y
-# Cercanías) se calcula, para un laborable y un sábado típicos:
+# Cercanías) se calcula, para un laborable, un sábado y un domingo típicos:
 #     personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS
 # El 2 es porque cada viaje sube en una parada y baja en otra. Supuestos: todas las
 # paradas de una red reciben la misma gente por vehículo (no hay datos por estación de
@@ -502,7 +567,8 @@ DEMANDA_COLUMNA = {
     "cercanias": "Renfe Cercanías",
 }
 # Días de la demanda que se usan: las últimas DEMANDA_SEMANAS semanas publicadas; el
-# laborable típico es la mediana de martes a jueves y el sábado, la de los sábados.
+# laborable típico es la mediana de martes a jueves, el sábado, la de los sábados, y el
+# domingo, la de los domingos.
 # Se descartan los días con menos del 80 % de la mediana (festivos, huelgas).
 DEMANDA_SEMANAS = 8
 DEMANDA_DESCARTE = 0.8
@@ -529,7 +595,7 @@ def peso_parada(d_m: float, radio: float = RADIO_M) -> float:
 # donde sale la gente a la calle), no al andén. Accesos del GTFS (location_type 2).
 
 # Para elegir un día típico de cada GTFS se miran los martes, miércoles y jueves (y los
-# sábados) de las primeras semanas de vigencia. Se descartan los días con menos del 80 %
+# sábados, y los domingos) de las primeras semanas de vigencia. Se descartan los días con menos del 80 %
 # de los viajes del día mediano (festivos, días especiales). De los que quedan se toma el
 # día en que circulan más líneas y, entre los empatados, el de número de viajes mediano.
 # Lo de «más líneas» hace falta porque el GTFS de interurbanos publica mal el calendario
@@ -537,6 +603,17 @@ def peso_parada(d_m: float, radio: float = RADIO_M) -> float:
 # jueves solo valen para un día suelto y, fuera de él, solo «circulan» los martes.
 GTFS_SEMANAS_MUESTRA = 4
 GTFS_DIA_MINIMO_VIAJES = 0.8
+
+# Mismo defecto de calendario en el servicio de DOMINGO de interurbanos y urbanos: el GTFS
+# de noviembre de 2026 publica el servicio de domingo de 55 líneas interurbanas (430 a
+# 471, 560 a 575, 650 a 658, nocturnas…) y 19 urbanas con validez para un solo día, el
+# primer domingo del fichero (1 de noviembre); los demás domingos «no circulan» (Griñón,
+# por ejemplo, se quedaba sin autobuses en domingo). ARREGLO: al domingo elegido se le
+# añade, solo para las líneas que ese día no tienen ningún viaje, el servicio que tienen
+# en el primer domingo con servicio del calendario. Las líneas que ya circulan el domingo
+# elegido no se tocan. El número de vehículos de esas líneas es el de un domingo real del
+# GTFS; que siga valiendo los demás domingos es un SUPUESTO.
+GTFS_COMPLETAR_DOMINGO = ("interurbanos", "urbanos")
 
 # Líneas que el GTFS trae algún día suelto pero que hoy no circulan de forma habitual: se
 # dejan fuera para no contar trenes que no hay. C9 (Cercedilla-Cotos): cerrada por obras
@@ -582,7 +659,10 @@ GTFS_LINEAS_RECONSTRUIDAS = {
 # torno a la mitad empiezan o acaban en casa y cada uno supone pasar por la calle de
 # casa; a eso se suman paseos y recados cortos. ESTIMACIÓN: 2 pasos en laborable y 1,6
 # en fin de semana (menos desplazamientos al trabajo).
-PASOS_VECINO = {"laborable": 2.0, "fin_de_semana": 1.6}
+PASOS_VECINO = {"laborable": 2.0, "fin_de_semana": 1.6,
+                # domingo: 1,4. SUPUESTO: menos recados que el sábado (cierra casi todo el
+                # comercio de barrio y los mercados) y sin desplazamientos al trabajo.
+                "domingo": 1.4}
 
 # Reparto por horas de esos pasos (se normaliza para que sume 1). ESTIMACIÓN basada en
 # las horas habituales de salida al trabajo y al colegio, compras de mañana, vuelta a
@@ -596,6 +676,14 @@ REPARTO_VECINOS = {
                             h8=2.0, h9=4.0, h10=6.5, h11=8.0, h12=8.0, h13=7.5, h14=6.0,
                             h15=4.0, h16=4.0, h17=6.0, h18=7.0, h19=7.5, h20=6.5, h21=5.5,
                             h22=4.0, h23=2.5),
+    # Domingo. SUPUESTO: la madrugada (0 a 5) es la vuelta de la noche del sábado, la más
+    # concurrida de la semana; mañana tardía; pico de 12 a 14 (aperitivo, vermut, misa,
+    # mercadillos); de 14 a 17 se come y se queda en casa; paseo de tarde; noche temprana
+    # porque al día siguiente se trabaja.
+    "domingo": perfil(h0=1.5, h1=1.0, h2=0.7, h3=0.4, h4=0.3, h5=0.2, h6=0.2, h7=0.4,
+                      h8=1.0, h9=2.5, h10=5.0, h11=7.5, h12=9.0, h13=9.0, h14=6.5, h15=3.5,
+                      h16=3.5, h17=5.5, h18=7.0, h19=7.0, h20=5.5, h21=3.5, h22=2.0,
+                      h23=1.0),
 }
 # La población de cada sección se supone repartida de forma uniforme por su superficie.
 
@@ -740,10 +828,9 @@ GAMA_CLIENTE = {
                                 # tarjeta o ticket de comida de la empresa
     "deporte_eventos": 2.0,     # gente de toda la zona o de fuera; gasto de ocio medio
 }
-# La gama ajustada de la semana suma 5 laborables y 1 sábado. El perfil por horas no
-# modela el domingo aparte (su «fin de semana» usa el horario de transporte del sábado),
-# así que el domingo no entra en la media.
-DIAS_SEMANA = {"laborable": 5, "fin_de_semana": 1}
+# La gama ajustada de la semana suma 5 laborables, 1 sábado y 1 domingo. ESTIMACIÓN: el
+# viernes se cuenta como laborable (el perfil usa un martes-jueves típico).
+DIAS_SEMANA = {"laborable": 5, "fin_de_semana": 1, "domingo": 1}
 
 # ------------------------------------------------------- propensión a pararse a consumir
 # Qué parte de la gente que pasa de cada tipo puede pararse a consumir, frente a un vecino.
@@ -785,7 +872,7 @@ APERTURA_VALORAR = 0.3
 # falta un mínimo de locales con horario en el radio.
 HORARIOS_MINIMO_LOCALES = 3
 # Día de la semana que representa al laborable y al sábado en opening_hours.
-DIA_OSM = {"laborable": "We", "fin_de_semana": "Sa"}
+DIA_OSM = {"laborable": "We", "fin_de_semana": "Sa", "domingo": "Su"}
 # Una franja es un posible hueco horario si tiene movimiento suficiente («abrir») y abre
 # en ella menos de este porcentaje de los locales con horario conocido.
 HUECO_HORARIO = 0.4
@@ -853,7 +940,8 @@ TABLA_MOMENTOS = {
 # Si una celda tiene varios momentos, su gente se reparte a partes iguales entre ellos
 # (para no contarla dos veces).
 # Momentos que solo existen ciertos días: el menú del día es de lunes a viernes; en
-# sábado ese público hace el aperitivo (cañas y raciones).
+# sábado y domingo ese público hace el aperitivo (cañas y raciones). SUPUESTO: no se crea
+# un momento aparte para la comida de domingo.
 MOMENTO_SOLO_LABORABLE = {"menu_del_dia": "canas_raciones"}
 # Se recomiendan los momentos con al menos este porcentaje de la gente del momento más
 # fuerte del día.

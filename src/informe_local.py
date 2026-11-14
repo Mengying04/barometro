@@ -432,9 +432,10 @@ def b_precios(pr: dict, rc: float, perfil: dict | None = None) -> dict:
          "src/supuestos.py) ponderada por la gente de cada tipo en el perfil por horas "
          "multiplicada por su propensión a pararse a consumir (viajeros 0,3; padres y "
          "niños 0,6) (5 "
-         "laborables y 1 sábado; el domingo no se modela)."
+         "laborables, 1 sábado y 1 domingo)."
          + (f" Laborable: {aj['gama']['laborable']} ({dec(aj['valor']['laborable'], 2)}); "
             f"sábado: {aj['gama']['fin_de_semana']} ({dec(aj['valor']['fin_de_semana'], 2)})"
+            f"; domingo: {aj['gama']['domingo']} ({dec(aj['valor']['domingo'], 2)})"
             f"; semana: {aj['gama']['semana']} ({dec(aj['valor']['semana'], 2)}) en una "
             "escala de 1 (económica) a 3 (alta)." if aj else ""),
          f"IPC de la Comunidad de Madrid, tasa interanual de {mes} (**dato**): "

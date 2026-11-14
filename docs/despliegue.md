@@ -234,8 +234,9 @@ dependencias, alrededor de un minuto) y depende de la red de cada fuente.
 - La hora programada es aproximada: GitHub puede retrasarla.
 - El commit de la propuesta lo firma `github-actions[bot]`. Al aceptar con «Squash and
   merge», el commit que entra en `main` es tuyo.
-- `procesar_perfil.py` elige el laborable y el sábado típicos según la fecha: los
-  viajeros pueden cambiar algo de una semana a otra aunque los horarios sean los mismos.
+- `procesar_perfil.py` elige el laborable, el sábado y el domingo típicos según la
+  fecha: los viajeros pueden cambiar algo de una semana a otra aunque los horarios sean
+  los mismos.
 
 ## Privacidad en el servicio
 

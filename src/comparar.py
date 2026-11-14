@@ -30,7 +30,7 @@ AVISO = ("Es una orientación con datos abiertos y estimaciones, no una garantí
          "sitios.")
 NIVELES = ["baja", "media", "alta"]
 NO_DECIDE = "Diferencia pequeña, no decide."
-DIAS = {"laborable": "Día de diario", "fin_de_semana": "Sábado"}
+DIAS = {"laborable": "Día de diario", "fin_de_semana": "Sábado", "domingo": "Domingo"}
 MODOS_CORTO = {"Autobús urbano": "autobús", "Autobús interurbano": "autobús"}
 
 
@@ -133,9 +133,10 @@ def comparar(a: dict, b: dict) -> dict:
         _lado(mb["nombre"], f"Nivel {mb['nivel']} de 5: {mb['frase']}.", mb["nivel"]),
         mejor, ver, "media", "movimiento"))
 
-    # ---- gente en un día de diario y en sábado
+    # ---- gente en un día de diario, en sábado y en domingo
     for dia, nombre_dia, corto in (("laborable", "un día de diario", ""),
-                                   ("fin_de_semana", "un sábado", "gente en sábado")):
+                                   ("fin_de_semana", "un sábado", "gente en sábado"),
+                                   ("domingo", "un domingo", "gente en domingo")):
         ga, gb = _gente(a, dia), _gente(b, dia)
         mejor, ver = _mayor(ga, gb, na, nb, f"gente en {nombre_dia}", "media")
         filas.append(_fila(
@@ -149,14 +150,17 @@ def comparar(a: dict, b: dict) -> dict:
     # ---- quién pasa
     qa, qb = _quien(a, "laborable"), _quien(b, "laborable")
     sa, sb = _quien(a, "fin_de_semana"), _quien(b, "fin_de_semana")
+    da_, db_ = _quien(a, "domingo"), _quien(b, "domingo")
+
+    def finde(s: list[str], d: list[str]) -> str:
+        return " ".join(x for x in (f"Los sábados, sobre todo {s[0]}." if s else "",
+                                    f"Los domingos, sobre todo {d[0]}." if d else "") if x)
     ra = rec_dia(a["rec"]["a_quien"]["recomendaciones"], "laborable")
     rb = rec_dia(b["rec"]["a_quien"]["recomendaciones"], "laborable")
     filas.append(_fila(
         "quien", "Quién pasa",
-        _lado(mayus(lista_y(qa)) if qa else "Poca gente",
-              f"Los sábados, sobre todo {sa[0]}." if sa else ""),
-        _lado(mayus(lista_y(qb)) if qb else "Poca gente",
-              f"Los sábados, sobre todo {sb[0]}." if sb else ""),
+        _lado(mayus(lista_y(qa)) if qa else "Poca gente", finde(sa, da_)),
+        _lado(mayus(lista_y(qb)) if qb else "Poca gente", finde(sb, db_)),
         None, ("Pasa el mismo tipo de gente en los dos." if set(qa) == set(qb) else
                "Públicos distintos: no es mejor ni peor, depende de lo que quieras "
                "ofrecer."),
@@ -328,4 +332,5 @@ def comparar(a: dict, b: dict) -> dict:
             "resumen": resumen, "personas_por_hora": {"a": horas(a), "b": horas(b)},
             "nota": ("«Sale mejor» solo se dice cuando la diferencia pasa del "
                      f"{100 * S.COMPARAR_DIFERENCIA_PEQUENA:.0f} % y la fiabilidad no es "
-                     "baja. El sábado representa el fin de semana.")}
+                     "baja. El domingo sirve también, de forma aproximada, para los "
+                     "festivos.")}

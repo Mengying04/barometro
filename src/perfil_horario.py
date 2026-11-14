@@ -2,7 +2,8 @@
 
     from perfil_horario import perfil_horario
     r = perfil_horario(40.4046, -3.6106)
-    r["horas"]      # 48 filas (laborable y fin de semana × 24 horas) × tipos de cliente
+    r["horas"]      # 72 filas (laborable, sábado y domingo × 24 horas) × tipos de cliente
+                    # (el sábado se llama «fin_de_semana»: ver supuestos.DIAS_PERFIL)
     r["franjas"]    # lo mismo agrupado en franjas del día
     r["confianza"]  # confianza de cada tipo de cliente, para el horario y la cantidad
 
@@ -30,8 +31,9 @@ import supuestos as S
 from procesar import CRS, PROC
 from procesar_perfil import ENSENANZAS, col_ensenanza
 
-DIAS = ["laborable", "fin_de_semana"]
+DIAS = S.DIAS_PERFIL   # laborable, «fin_de_semana» (= sábado) y domingo
 TIPOS = list(S.TIPOS_CLIENTE)
+NOMBRE_DIA = {"laborable": "laborable", "fin_de_semana": "sábado", "domingo": "domingo"}
 _A_UTM = Transformer.from_crs(4326, CRS, always_xy=True)
 
 
@@ -106,10 +108,9 @@ def perfil_dea(fila, dia: str) -> np.ndarray:
     """Pasos por persona y hora de un sitio del registro de desfibriladores."""
     perfil = fila["perfil"]
     lab = dia == "laborable"
-    abre = fila["abre_lab"] if lab else fila["abre_fds"]
-    cierra = fila["cierra_lab"] if lab else fila["cierra_fds"]
-    cerrado_fds = pd.notna(fila["fds"]) and not bool(fila["fds"])
-    if not lab and cerrado_fds:
+    suf = {"laborable": "lab", "fin_de_semana": "fds", "domingo": "dom"}[dia]
+    abre, cierra = fila[f"abre_{suf}"], fila[f"cierra_{suf}"]
+    if not lab and pd.notna(fila[suf]) and not bool(fila[suf]):
         return np.zeros(24)
     tiene_rango = fila["horario_tipo"] in ("rango", "expresion") and not pd.isna(abre)
 
@@ -121,14 +122,23 @@ def perfil_dea(fila, dia: str) -> np.ndarray:
         p = jornada(abre, cierra)
         return p if lab else p * S.PLANTILLA_FIN_DE_SEMANA
     if perfil == "universidad":
-        p = vec(S.PERFIL_EDUCATIVO["universidad"]) * (1.0 if lab else
-                                                      S.EDUCATIVO_FIN_DE_SEMANA)
+        p = vec(S.PERFIL_EDUCATIVO["universidad"]) * factor_educativo(dia)
         return con_mascara(p, abre, cierra) if tiene_rango else p
     p = vec(S.PERFIL_DEA[dia][perfil])
     return con_mascara(p, abre, cierra) if tiene_rango else p
 
 
 # --------------------------------------------------------------- cálculo por tipo
+def factor_educativo(dia: str) -> float:
+    return {"laborable": 1.0, "fin_de_semana": S.EDUCATIVO_FIN_DE_SEMANA,
+            "domingo": S.EDUCATIVO_DOMINGO}[dia]
+
+
+def factor_hospital(dia: str) -> float:
+    return {"laborable": 1.0, "fin_de_semana": S.HOSPITAL_FIN_DE_SEMANA,
+            "domingo": S.HOSPITAL_DOMINGO}[dia]
+
+
 def padres_ninos(c: dict, punto, radio) -> tuple[dict, int]:
     out = {d: np.zeros(24) for d in DIAS}
     e = cerca(c["educativos"], punto, radio)
@@ -140,8 +150,8 @@ def padres_ninos(c: dict, punto, radio) -> tuple[dict, int]:
                 v += n * (1 + S.ACOMPANANTES.get(ens, 0)) * vec(S.PERFIL_EDUCATIVO[ens])
         if f["alumnos_otros"] > 0:
             v += f["alumnos_otros"] * vec(S.PERFIL_EDUCATIVO[f["perfil_otros"]])
-        out["laborable"] += f["peso"] * v
-        out["fin_de_semana"] += f["peso"] * v * S.EDUCATIVO_FIN_DE_SEMANA
+        for d in DIAS:
+            out[d] += f["peso"] * v * factor_educativo(d)
     return out, len(e)
 
 
@@ -156,8 +166,7 @@ def pacientes(c: dict, punto, radio) -> tuple[dict, int]:
         n += 1
         horario = S.HORARIO_SANITARIO.get(f["centro_tipo"], "consulta")
         for d in DIAS:
-            factor = S.HOSPITAL_FIN_DE_SEMANA if (d != "laborable"
-                                                  and horario == "hospital") else 1.0
+            factor = factor_hospital(d) if horario == "hospital" else 1.0
             out[d] += f["peso"] * pac * factor * vec(S.PERFIL_SANITARIO[d][horario])
     return out, n
 
@@ -179,14 +188,14 @@ def viajeros(c: dict, punto, radio) -> tuple[dict, int, int]:
     reconstruida porque no tiene viajes en el GTFS)."""
     p = cerca(c["paradas"], punto, radio)
     p["peso"] = p["distancia_m"].map(lambda d: S.peso_parada(d, radio)).astype(float)
-    lab = p[[f"lab_{h:02d}" for h in range(24)]].to_numpy()
-    sab = p[[f"sab_{h:02d}" for h in range(24)]].to_numpy()
-    fl = (p["peso"] * p["pp_lab"].astype(float)).to_numpy()[:, None]
-    fs = (p["peso"] * p["pp_sab"].astype(float)).to_numpy()[:, None]
+    out = {}
+    for d, pre in (("laborable", "lab"), ("fin_de_semana", "sab"), ("domingo", "dom")):
+        x = p[[f"{pre}_{h:02d}" for h in range(24)]].to_numpy()
+        f = (p["peso"] * p[f"pp_{pre}"].astype(float)).to_numpy()[:, None]
+        out[d] = (x * f).sum(axis=0)
     n_est = int(p["origen_pasos"].str.contains("estimación").sum()) \
         if "origen_pasos" in p else 0
-    return ({"laborable": (lab * fl).sum(axis=0), "fin_de_semana": (sab * fs).sum(axis=0)},
-            len(p), n_est)
+    return out, len(p), n_est
 
 
 def fraccion_ponderada(geoms: np.ndarray, punto, radio) -> np.ndarray:
@@ -214,7 +223,7 @@ def universitarios(c: dict, punto, radio) -> tuple[dict, int, float]:
     est = float((cp["estudiantes"].to_numpy(dtype=float)
                  * fraccion_ponderada(cp.geometry.to_numpy(), punto, radio)).sum())
     v = est * S.UNIVERSIDAD_ASISTENCIA * vec(S.PERFIL_EDUCATIVO["universidad"])
-    return {"laborable": v, "fin_de_semana": v * S.EDUCATIVO_FIN_DE_SEMANA}, len(cp), est
+    return {d: v * factor_educativo(d) for d in DIAS}, len(cp), est
 
 
 def vecinos(c: dict, punto, radio) -> tuple[dict, float]:
@@ -233,7 +242,8 @@ def vecinos(c: dict, punto, radio) -> tuple[dict, float]:
 
 # ------------------------------------------------------------------------ principal
 def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
-    """Tabla de 24 horas por tipo de cliente para laborable y fin de semana (ESTIMACIÓN).
+    """Tabla de 24 horas por tipo de cliente para laborable, sábado («fin_de_semana») y
+    domingo (ESTIMACIÓN).
 
     Devuelve un diccionario con:
       horas:     DataFrame con índice (dia, hora) y una columna por tipo de cliente +
@@ -340,11 +350,11 @@ def main(argv: list[str]) -> int:
     for k, v in r["elementos"].items():
         print(f"  {k}: {v}")
     for d in DIAS:
-        print(f"\n=== {d.replace('_', ' ')}: por horas")
+        print(f"\n=== {NOMBRE_DIA[d]}: por horas")
         print(_nombres(r["horas"].loc[d]).to_string())
-        print(f"\n=== {d.replace('_', ' ')}: por franjas")
+        print(f"\n=== {NOMBRE_DIA[d]}: por franjas")
         print(_nombres(r["franjas"].loc[d]).to_string())
-        print(f"\n=== {d.replace('_', ' ')}: horas con más movimiento")
+        print(f"\n=== {NOMBRE_DIA[d]}: horas con más movimiento")
         print(horas_punta(r, d).to_string(index=False))
     print("\n=== Confianza")
     print(r["confianza"][["nombre", "confianza_horario", "confianza_cantidad"]].to_string())
