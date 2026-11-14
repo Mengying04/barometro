@@ -43,17 +43,21 @@ function desplazarCuandoEste(id) {
 // Enlaces de la portada a secciones de la misma página (#como-funciona, #fuentes) y enlace
 // «Fuentes y licencias» del pie: si la sección está en la página, se va a ella; si no (en el
 // Resumen o con una dirección sin confirmar), se le pide al servidor la vista que la tiene.
+// «Planes» (portada, pie, etiquetas «Plan …» del resultado) es una página aparte: se le pide
+// al componente que haya, sea la barra o el buscador de la portada, sin recargar la página.
 if (!window.__bmEnlaces) {
   window.__bmEnlaces = true;
   document.addEventListener("click", (ev) => {
-    const a = ev.target.closest && ev.target.closest('.pt-nav a[href^="#"], .pie-bm a[href^="#"]');
+    const a = ev.target.closest && ev.target.closest(
+      '.pt-nav a[href^="#"], .pie-bm a[href^="#"], a.plan-etq, .planes-me a[href^="#"]');
     if (!a) return;
     ev.preventDefault();
     const id = a.getAttribute("href").slice(1);
     if (desplazar(id)) return;
-    const barra = document.querySelector(".bm.bm-barra");
+    const barra = document.querySelector(".bm.bm-barra") ||
+      (a.dataset.ir === "planes" ? document.querySelector(".bm") : null);
     if (a.dataset.ir && barra && barra._api) {
-      window.__bmIrA = id;
+      if (a.dataset.ir !== "planes") window.__bmIrA = id;   // «Planes» se abre arriba del todo
       barra._api.setTriggerValue(a.dataset.ir, true);
     }
   });

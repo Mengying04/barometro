@@ -326,6 +326,8 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 - **La segunda dirección de una comparación tampoco se guarda:** vive, como la primera,
   solo en la sesión. El PDF se genera en memoria y no queda en el servidor.
 - **La aplicación no recoge estadísticas de uso.**
+- **La página de planes no recoge nada:** no hay formularios, pagos, cuentas ni
+  correos; solo un enlace al repositorio.
 - **Lenguaje de orientación,** nunca de garantía, y fiabilidad visible en cada
   respuesta.
 - **Atribución de todas las fuentes** en la aplicación, con sus fechas. «Powered by
@@ -432,6 +434,52 @@ Ejemplo de pregunta: *«Quiero abrir un bar en la Plaza de la Constitución 1 de
 Fuenlabrada. ¿Qué me conviene ofrecer y a qué horas?»*
 
 Para probarlo sin asistente: `python mcp/probar_cliente.py`.
+
+En el [modelo de negocio](#modelo-de-negocio), el acceso por MCP sería del plan
+Profesional. Durante DATAMAD 2026 es libre, como todo lo demás.
+
+## Modelo de negocio
+
+> **Durante DATAMAD 2026, todas las funciones están abiertas y son gratuitas.** La página
+> «Planes» de la aplicación (enlazada desde la barra de la portada y desde el pie) describe
+> cómo se sostendría el proyecto. No hay pagos, cuentas, registro, recogida de correos ni
+> contadores de uso, y nada está bloqueado, limitado ni oculto.
+
+| Plan | Para quién | Qué incluye | Por qué le sirve | Cómo se pagaría |
+|---|---|---|---|---|
+| **Gratis** | El hostelero | El Resumen de cualquier dirección, sin límite y sin registrarse | De un vistazo sabe si la zona encaja con su idea, sin pagar un estudio de mercado | Gratis, siempre |
+| **Informe** | El hostelero que va en serio: a punto de firmar un alquiler o un traspaso, o de cambiar la carta o el horario | Informe completo, comparación de dos locales y descarga del informe en PDF | Decide con más datos antes de una inversión grande y puede llevar el informe al socio, al banco o al propietario | Pago único por informe |
+| **Profesional** | Gestorías, inmobiliarias de locales y asesores de traspasos | Informes ilimitados con su propio logotipo (*por hacer*; las fuentes y atribuciones se mantienen siempre) y acceso mediante el [servidor MCP](#servidor-mcp-barómetro-desde-un-asistente) | Contesta a cada cliente con un informe completo que puede entregar con su marca | Suscripción |
+| **Institucional** | Ayuntamientos y asociaciones de hostelería | Visión de todo un municipio, zona a zona: dónde falta o sobra oferta (*por hacer*) | Ayuda a orientar a quien quiere abrir y a cuidar el comercio de cada barrio | Licencia anual |
+
+**Precio por definir con hosteleros y gestorías.** No se ha puesto ninguna cifra: los
+precios se validarán con entrevistas antes de fijar ninguno. Lo marcado *por hacer* aún no
+existe en el prototipo.
+
+En la aplicación, una etiqueta pequeña bajo los botones dice a qué plan pertenecería cada
+función («Plan Gratis» el Resumen; «Plan Informe» el Informe completo, la comparación y la
+descarga), junto al aviso de que durante DATAMAD 2026 todo está abierto. La etiqueta lleva
+a la página de planes, que tiene un único enlace, «Me interesa», al repositorio.
+
+**Por qué es compatible con los datos abiertos.** El plan gratuito mantiene libre el acceso
+a lo que los datos abiertos dicen de cualquier dirección. Lo que se cobraría es el servicio
+y el análisis, no los datos: siguen en sus portales, y los procesados, en este
+repositorio. Todas las fuentes permiten el uso comercial citando su origen (comprobado en
+[`datos/LICENCIAS.md`](datos/LICENCIAS.md) y [`docs/fuentes.md`](docs/fuentes.md)), con
+estas condiciones:
+
+- **OpenStreetMap (ODbL):** una base de datos derivada que se use en público debe
+  ofrecerse con la misma licencia; las de este repositorio ya lo están.
+- **CRTM:** permite expresamente el uso comercial, pero pide «Powered by CRTM», mantener
+  los datos actualizados (el flujo semanal), decir que son datos explotados, conservar las
+  fechas y compartir los datos derivados con el mismo tipo de licencia.
+- **Todas:** citar la fuente y no sugerir que las entidades respaldan el producto. Un
+  informe con el logotipo de una gestoría tendría que conservar las fuentes, las
+  atribuciones y esa nota.
+- **Las teselas del mapa de OpenStreetMap** no son una licencia de datos, sino un servicio
+  con su propia política de uso: para un uso intensivo habría que pasar a otro proveedor.
+
+![Página de planes en portátil](docs/capturas/portatil-planes.png)
 
 ## Uso de inteligencia artificial
 

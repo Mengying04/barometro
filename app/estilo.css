@@ -414,7 +414,8 @@ header[data-testid="stHeader"] {display:none;}
          background:var(--oscuro); color:#cbbdb1; font-size:0.9rem; line-height:1.55;}
 .pie-dentro {max-width:calc(var(--ancho) + 2 * var(--margen)); margin:0 auto;
              padding:2.6rem var(--margen) 1.6rem var(--margen); display:grid;
-             grid-template-columns:minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr); gap:1.6rem 3rem;}
+             grid-template-columns:minmax(0, 1.2fr) minmax(0, 1.6fr) minmax(0, 0.9fr) minmax(0, 0.8fr);
+             gap:1.6rem 2.5rem;}
 .pie-bm .marca {display:flex; align-items:center; gap:0.55rem; color:#fff; font-weight:800;
                 font-size:1.15rem; letter-spacing:-0.02em;}
 .pie-bm .marca svg {width:1.9rem; height:1.9rem;}
@@ -430,6 +431,9 @@ header[data-testid="stHeader"] {display:none;}
 .pie-legal {grid-column:1 / -1; border-top:1px solid rgba(255,255,255,.12); padding-top:1.1rem;
             display:flex; flex-wrap:wrap; gap:0.3rem 2.5rem;}
 .pie-legal p {margin:0; max-width:none;}
+@media (max-width:1200px) and (min-width:861px) {   /* dos filas de dos columnas */
+  .pie-dentro {grid-template-columns:minmax(0, 1fr) minmax(0, 1.3fr);}
+}
 @media (max-width:860px) {
   .pie-dentro {grid-template-columns:minmax(0, 1fr); gap:1.6rem;}
 }
@@ -574,5 +578,55 @@ header[data-testid="stHeader"] {display:none;}
   [class*="st-key-caja_"] {padding:1rem 1rem;}
   [id] {scroll-margin-top:7.5rem;}
 }
+/* En los móviles más estrechos no caben los cuatro enlaces de la portada: el del repositorio
+   sigue en el pie. */
+@media (max-width:430px) {.pt-nav nav a.nav-repo {display:none;}}
 @media (max-width:1100px) and (min-width:641px) {:root {--margen:1.5rem;}}
+/* ------------------------------------------------------------------- planes */
+/* Etiquetas discretas bajo los botones: a qué plan pertenecería cada función. Llevan a la
+   página de planes; nada se bloquea. */
+.planes-nota {display:flex; flex-wrap:wrap; align-items:center; gap:0.35rem 1.1rem;
+              font-size:0.85rem; color:var(--tenue); line-height:1.4;}
+[data-testid="stElementContainer"]:has(> .stMarkdown .planes-nota) {margin-top:calc(0.55rem - var(--hueco));}
+.planes-nota > span {display:inline-flex; align-items:center; gap:0.4rem;}
+.planes-nota .abierto {color:var(--suave);}
+a.plan-etq {display:inline-block; padding:0.05rem 0.55rem; border-radius:999px; font-size:0.78rem;
+            font-weight:700; background:var(--teja-fondo); color:var(--teja) !important;
+            text-decoration:none !important; white-space:nowrap; border:1px solid transparent;}
+a.plan-etq:hover {border-color:var(--teja);}
+.planes-entrada {font-size:1.12rem; line-height:1.5; color:var(--suave); max-width:var(--lectura);
+                 margin:0.6rem 0 0 0;}
+.planes-abierto {display:flex; gap:0.8rem; align-items:flex-start; margin-top:1.2rem;
+                 background:#e6f3ea; border:1px solid #b9dcc4; border-radius:1rem;
+                 padding:1rem 1.2rem; font-size:1.05rem; line-height:1.5; color:var(--tinta);}
+.planes-abierto > .ico {flex:none; font-size:1.4rem; color:#2f7d4f; margin-top:0.05rem;}
+.planes-abierto b {font-weight:800;}
+.planes {display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:var(--hueco);}
+.plan {background:#fff; border-radius:var(--radio); box-shadow:var(--sombra); padding:1.4rem 1.4rem 1.2rem 1.4rem;
+       display:flex; flex-direction:column; border-top:0.35rem solid var(--teja); min-width:0;}
+.plan.gratis {border-top-color:#2f7d4f;}
+.plan-nombre {font-size:1.45rem; font-weight:800; letter-spacing:-0.02em; color:var(--tinta);}
+.plan-para {font-size:1rem; font-weight:600; color:var(--teja); line-height:1.35; margin-top:0.25rem;}
+.plan.gratis .plan-para {color:#2f7d4f;}
+.plan-t {font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;
+         color:var(--tenue); margin-top:1.1rem;}
+.plan p {font-size:0.98rem; line-height:1.5; color:var(--tinta); margin:0.3rem 0 0 0;}
+.plan ul {margin:0.35rem 0 0 0; padding-left:1.1rem;}
+.plan li {font-size:0.98rem; line-height:1.5; color:var(--tinta); margin:0 0 0.35rem 0;}
+.por-hacer {display:inline-block; padding:0 0.45rem; border-radius:999px; font-size:0.75rem;
+            font-weight:700; background:var(--ocre-fondo); color:var(--ocre-tinta); white-space:nowrap;}
+.plan-pago {margin-top:auto; padding-top:1rem; border-top:1px solid var(--borde);}
+.plan-pago b {display:block; font-size:1.05rem; font-weight:800; color:var(--tinta); margin-top:1rem;}
+.plan-pago span {display:block; font-size:0.88rem; color:var(--suave); margin-top:0.15rem;}
+.planes-precio {font-size:0.95rem; color:var(--suave); margin:1.3rem 0 0 0; max-width:var(--lectura);}
+.planes-datos p {font-size:1.05rem; line-height:1.55; color:var(--tinta); max-width:var(--lectura); margin:0;}
+.planes-datos p.planes-me {margin-top:0.9rem; font-size:0.98rem; color:var(--suave);}
+.planes-me a {color:var(--teja) !important; font-weight:700;}
+@media (max-width:1100px) {.planes {grid-template-columns:repeat(2, minmax(0, 1fr));}}
+@media (max-width:640px) {
+  .planes {grid-template-columns:minmax(0, 1fr);}
+  .plan {padding:1.2rem 1.1rem 1rem 1.1rem;}
+  .planes-entrada {font-size:1.02rem;}
+  .planes-abierto {font-size:0.98rem; padding:0.9rem 1rem;}
+}
 @media print {.bm-top, .bm-indice, .pt-nav, .stButton, iframe {display:none !important;}}

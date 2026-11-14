@@ -29,6 +29,12 @@ Desde el resultado se puede además:
   - «Descargar informe»: un PDF (src/documento.py) del local o de la comparación, que se
     genera en memoria al pulsar el botón y no se guarda en el servidor.
 
+«Planes» (enlazada desde la barra de la portada, el pie y las etiquetas «Plan …» que hay
+bajo los botones del resultado y de la comparación): cómo se sostendría el proyecto, en
+cuatro niveles (Gratis, Informe, Profesional e Institucional), sin precios. Es solo una
+descripción: durante DATAMAD 2026 todo está abierto, nada se bloquea y no hay pagos,
+cuentas, registro ni recogida de datos.
+
 Rejilla (app/estilo.css): un solo ancho máximo de contenido y un margen lateral simétrico
 para todas las vistas; la barra, el índice, el contenido y el pie comparten bordes. En el
 Informe completo cada sección tiene una columna de lectura (texto, listas y desplegables del
@@ -239,6 +245,8 @@ ICONOS = {
     "aguja": '<path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-6"/>',
     "libro": '<path d="M5 4.5h11a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     "cesta": '<path d="M4 9h16l-1.5 10h-13z"/><path d="M8.5 9l3.5-5 3.5 5"/>',
+    "etiqueta": '<path d="M3.5 4.5h8l9 9-7 7-9-9z"/><circle cx="8" cy="9" r="1.5"/>',
+    "abierto": '<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2"/>',
 }
 
 
@@ -763,6 +771,7 @@ def elegir_punto(lat: float, lon: float, ejemplo: str | None = None,
     st.session_state["abierta"] = None
     st.session_state["todas_comprobaciones"] = False
     st.session_state.pop("pendiente", None)
+    st.session_state.pop("pagina", None)
     quitar_comparacion()
     buscador_nuevo()
 
@@ -828,7 +837,7 @@ def buscador_nuevo() -> None:
 
 
 def volver_al_inicio() -> None:
-    for clave in ("resultado", "pendiente", "lugar"):
+    for clave in ("resultado", "pendiente", "lugar", "pagina"):
         st.session_state.pop(clave, None)
     st.session_state.update(punto=None, ejemplo=None, abierta=None, vista="Resumen")
     quitar_comparacion()
@@ -852,6 +861,7 @@ def dejar_pendiente(cand: dict, lat: float, lon: float) -> None:
     st.session_state["ejemplo"] = None
     st.session_state.pop("resultado", None)
     st.session_state["abierta"] = None
+    st.session_state.pop("pagina", None)
     quitar_comparacion()
     buscador_nuevo()
 
@@ -923,8 +933,12 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
                      ir_a=st.session_state.get("ir_a"))
     r = BUSCADOR(key=clave, data=datos, on_q_change=_nada, on_elegida_change=_nada,
                  on_ejemplo_change=_nada, on_ubicacion_change=_nada, on_inicio_change=_nada,
-                 on_vista_change=_nada, on_fuentes_change=_nada)
+                 on_vista_change=_nada, on_fuentes_change=_nada, on_planes_change=_nada)
+    if r.planes:    # enlace «Planes» de la portada, del pie o de una etiqueta de plan
+        st.session_state["pagina"] = "planes"
+        st.rerun()
     if r.fuentes:   # enlace «Fuentes y licencias» del pie
+        st.session_state.pop("pagina", None)
         if st.session_state.get("resultado"):
             ir_a_fuentes()
         else:       # sin resultado (dirección sin confirmar): las fuentes están en la portada
@@ -957,9 +971,11 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
         volver_al_inicio()
         st.rerun()
     if r.vista in VISTAS and (r.vista != st.session_state.get("vista")
-                              or st.session_state.get("cmp_fase")):
+                              or st.session_state.get("cmp_fase")
+                              or st.session_state.get("pagina")):
         st.session_state["vista"] = r.vista
         st.session_state.pop("ir_a", None)
+        st.session_state.pop("pagina", None)
         cerrar_comparacion()   # desde la comparación, las vistas vuelven al primer local
         st.rerun()
 
@@ -1090,7 +1106,8 @@ SECCIONES = (("movimiento", "Nivel de movimiento"), ("quien", "A quién"),
              ("fuentes", "Fuentes y licencias"))
 ICONO_SECCION = {"movimiento": "aguja", "quien": "personas", "hora": "reloj", "vender": "taza",
                  "precio": "euro", "perfil": "grafico", "mercado": "cesta", "riesgos": "aviso",
-                 "comprobar": "lista", "fuentes": "libro", "como-funciona": "info"}
+                 "comprobar": "lista", "fuentes": "libro", "como-funciona": "info",
+                 "planes": "etiqueta"}
 
 
 def cabecera_seccion(clave: str, titulo: str | None = None, primera: bool = False) -> str:
@@ -1340,7 +1357,8 @@ def lugar_b() -> str:
 
 def acciones() -> None:
     """Los dos botones del resultado: comparar con otra dirección y descargar el informe.
-    El PDF se genera en memoria al pulsar el botón; no se guarda en el servidor."""
+    El PDF se genera en memoria al pulsar el botón; no se guarda en el servidor. Debajo, en
+    pequeño, a qué plan pertenecería cada función (nada se bloquea: ver vista_planes)."""
     lugar, este, donde = lugar_analizado(), res, punto
     with st.container(key="acciones", horizontal=True):
         if st.button("Ver la comparación" if b_cmp else "Comparar con otra dirección",
@@ -1351,6 +1369,10 @@ def acciones() -> None:
             "Descargar informe (PDF)", key="btn_pdf", icon=":material/download:",
             data=lambda: informe_pdf(este, lugar, fu, donde, este["locs"], este.get("paradas")),
             file_name="barometro_informe.pdf", mime="application/pdf")
+    st.markdown(nota_planes(
+        [("Gratis", "este resumen"), ("Informe", "Informe completo, comparar y descargar")]
+        if vista == "Resumen" else [("Informe", "este informe, comparar y descargar")]),
+        unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------- vista Resumen
@@ -1623,6 +1645,7 @@ def vista_comparacion() -> None:
             "Descargar comparación (PDF)", key="btn_pdf_cmp", icon=":material/download:",
             data=lambda: comparacion_pdf(c, a, b, fu),
             file_name="barometro_comparacion.pdf", mime="application/pdf")
+    st.markdown(nota_planes([("Informe", "comparar y descargar")]), unsafe_allow_html=True)
     agujas = tuple(f"<div class='cmp-aguja'>{aguja_svg(x['mov']['nivel'])}</div>"
                    for x in (a, b))
     filas = c["filas"]
@@ -1665,6 +1688,127 @@ def elegir_segunda() -> None:
                        segundo=True)
 
 
+# ------------------------------------------------------------------------- planes
+# Cómo se sostendría el proyecto. Es solo una descripción: no hay pagos, cuentas, registro,
+# recogida de correos ni contadores de uso, y ninguna función se bloquea, se limita ni se
+# esconde. Las etiquetas «Plan …» del resultado y de la comparación llevan aquí. No hay
+# cifras: los precios están por definir con hosteleros y gestorías. Lo que el prototipo
+# todavía no tiene se marca «Por hacer».
+AVISO_ABIERTO = "Durante DATAMAD 2026, todas las funciones están abiertas y son gratuitas."
+AVISO_PLANES = AVISO_ABIERTO + " Esta página describe cómo se sostendría el proyecto."
+PRECIO_POR_DEFINIR = "Precio por definir con hosteleros y gestorías"
+PLANES = [
+    {"nombre": "Gratis", "para": "Para el hostelero",
+     "quien": "Quien tiene un bar o restaurante, o piensa abrirlo, y quiere hacerse una idea "
+              "de su zona.",
+     "incluye": [("El Resumen de cualquier dirección: quién pasa, a qué hora, qué ofrecer y a "
+                  "qué precios.", True),
+                 ("Sin límite de consultas y sin registrarse.", True)],
+     "sirve": "De un vistazo sabe si la zona encaja con su idea, sin pagar un estudio de "
+              "mercado.",
+     "pago": "Gratis", "precio": "Siempre gratis y sin límite"},
+    {"nombre": "Informe", "para": "Para el hostelero que va en serio",
+     "quien": "Quien está a punto de firmar un alquiler o un traspaso, o de cambiar la carta "
+              "o el horario.",
+     "incluye": [("El Informe completo: las cifras, la fiabilidad de cada respuesta, el "
+                  "mercado, los riesgos y las fuentes.", True),
+                 ("Comparar dos locales, lado a lado.", True),
+                 ("Descargar el informe o la comparación en PDF.", True)],
+     "sirve": "Decide con más datos antes de una inversión grande y puede llevar el informe "
+              "al socio, al banco o al propietario.",
+     "pago": "Pago único por informe", "precio": PRECIO_POR_DEFINIR},
+    {"nombre": "Profesional",
+     "para": "Para gestorías, inmobiliarias de locales y asesores de traspasos",
+     "quien": "Quien asesora a muchos hosteleros o enseña locales a quien quiere montar un "
+              "bar.",
+     "incluye": [("Informes completos ilimitados.", True),
+                 ("Los informes con su propio logotipo. Las fuentes y sus atribuciones se "
+                  "mantienen siempre.", False),
+                 ("Acceso mediante el servidor MCP: consultar BARómetro desde un asistente o "
+                  "desde sus propias herramientas.", True)],
+     "sirve": "Contesta a cada cliente con un informe completo que puede entregar con su "
+              "marca.",
+     "pago": "Suscripción", "precio": PRECIO_POR_DEFINIR},
+    {"nombre": "Institucional", "para": "Para ayuntamientos y asociaciones de hostelería",
+     "quien": "Quien piensa en todo un municipio y en todos sus bares, no en un solo local.",
+     "incluye": [("La visión de todo un municipio, zona a zona.", False),
+                 ("Dónde falta oferta para la gente que pasa y dónde sobra.", False)],
+     "sirve": "Ayuda a orientar a quien quiere abrir y a cuidar el comercio de cada barrio, "
+              "con los mismos datos abiertos.",
+     "pago": "Licencia anual", "precio": PRECIO_POR_DEFINIR},
+]
+
+
+def etiqueta_plan(nombre: str) -> str:
+    """Etiqueta pequeña «Plan …» que lleva a la página de planes (app/buscador.js)."""
+    return (f"<a class='plan-etq' href='#planes' data-ir='planes' title='Ver los planes'>"
+            f"Plan {html.escape(nombre)}</a>")
+
+
+def nota_planes(partes: list[tuple[str, str]]) -> str:
+    """Una línea discreta bajo los botones: a qué plan pertenecería cada función y que
+    durante DATAMAD 2026 todo está abierto."""
+    return ("<div class='planes-nota'>"
+            + "".join(f"<span>{etiqueta_plan(p)}{html.escape(q)}</span>" for p, q in partes)
+            + f"<span class='abierto'>{html.escape(AVISO_ABIERTO)}</span></div>")
+
+
+def tarjeta_plan(p: dict) -> str:
+    items = "".join(
+        f"<li>{html.escape(t)}" + ("" if hecho else " <span class='por-hacer'>Por hacer</span>")
+        + "</li>" for t, hecho in p["incluye"])
+    gratis = p["nombre"] == "Gratis"
+    return (
+        f"<article class='plan{' gratis' if gratis else ''}'>"
+        f"<div class='plan-nombre'>Plan {html.escape(p['nombre'])}</div>"
+        f"<div class='plan-para'>{html.escape(p['para'])}</div>"
+        f"<div class='plan-t'>Para quién</div><p>{html.escape(p['quien'])}</p>"
+        f"<div class='plan-t'>Qué incluye</div><ul>{items}</ul>"
+        f"<div class='plan-t'>Por qué le sirve</div><p>{html.escape(p['sirve'])}</p>"
+        f"<div class='plan-pago'><b>{html.escape(p['pago'])}</b>"
+        f"<span>{html.escape(p['precio'])}</span></div></article>")
+
+
+def salir_de_planes() -> None:
+    st.session_state.pop("pagina", None)
+
+
+def vista_planes() -> None:
+    """Los cuatro planes en tarjetas, el aviso de que todo está abierto, por qué el modelo
+    es compatible con los datos abiertos y un enlace «Me interesa» al repositorio."""
+    volver = ("Volver a la comparación" if res and cmp_fase else "Volver al resultado" if res
+              else "Volver" if pendiente else "Volver al inicio")
+    with st.container(key="acciones", horizontal=True):
+        st.button(volver, key="btn_salir_planes", on_click=salir_de_planes,
+                  icon=":material/arrow_back:")
+    st.markdown(
+        cabecera_seccion("planes", "Planes", primera=True)
+        + "<p class='planes-entrada'>Cómo podría sostenerse BARómetro después del datathon: "
+        "lo básico, gratis para siempre; el análisis a fondo y el servicio a profesionales, "
+        "de pago.</p>"
+        f"<div class='planes-abierto'>{ico('abierto')}<div><b>{html.escape(AVISO_ABIERTO)}"
+        "</b> Esta página describe cómo se sostendría el proyecto. Nada está bloqueado, "
+        "limitado ni oculto, y no hay pagos, cuentas ni registro.</div></div>",
+        unsafe_allow_html=True)
+    st.markdown("<div class='planes'>" + "".join(tarjeta_plan(p) for p in PLANES) + "</div>"
+                "<p class='planes-precio'>Sin cifras todavía: los precios se validarán con "
+                "entrevistas a hosteleros y gestorías antes de fijar ninguno. Lo marcado "
+                "«Por hacer» aún no existe en el prototipo.</p>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='seccion'>{ico('libro')}Por qué es compatible con los datos abiertos"
+        "</div><div class='planes-datos'><p>El plan gratuito mantiene libre el acceso a lo "
+        "que los datos abiertos dicen de cualquier dirección. Lo que se cobraría es el "
+        "servicio y el análisis, no los datos: siguen en sus portales, y los procesados, en "
+        "el repositorio. Todas las fuentes permiten el uso comercial citando su origen; "
+        "OpenStreetMap y el Consorcio Regional de Transportes piden además compartir los "
+        "datos derivados con su misma licencia, y el Consorcio, mantenerlos al día, como ya "
+        "se hace cada semana.</p>"
+        "<p class='planes-me'><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a>"
+        f" · <a href='{REPOSITORIO}' target='_blank' rel='noopener'>Me interesa</a>"
+        "<span>: el enlace lleva al repositorio del proyecto.</span></p></div>",
+        unsafe_allow_html=True)
+
+
 # ------------------------------------------------------------------------ portada
 def portada() -> None:
     """Pantalla inicial: el nombre, una frase y el buscador; debajo, tres cifras."""
@@ -1674,7 +1818,8 @@ def portada() -> None:
         f"<div class='pt-nav'><span class='marca'>{logo}<b>BARómetro</b></span><nav>"
         "<a href='#como-funciona'>Cómo funciona</a>"
         "<a href='#fuentes'>Fuentes<span class='ancho'> y licencias</span></a>"
-        f"<a href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a>"
+        "<a href='#planes' data-ir='planes'>Planes</a>"
+        f"<a class='nav-repo' href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a>"
         "</nav></div>", unsafe_allow_html=True)
     with st.container(key="portada"):
         st.markdown(
@@ -1706,10 +1851,16 @@ def portada() -> None:
 
 
 # ------------------------------------------------------------------- qué se enseña
-if res or pendiente:   # resultado sobre fondo claro, con la barra fija arriba
+pagina = st.session_state.get("pagina")
+if res or pendiente or pagina:   # resultado sobre fondo claro, con la barra fija arriba
+    alto_movil = "7.4rem" if res or pendiente else "5rem"   # sin vistas, una sola fila
     st.markdown("<style>.block-container {padding-top:5rem;} @media (max-width:640px) "
-                "{.block-container {padding-top:7.4rem;}}</style>", unsafe_allow_html=True)
-if res and cmp_fase == "ver" and b_cmp:   # la comparación: ninguna vista marcada en la barra
+                f"{{.block-container {{padding-top:{alto_movil};}}}}</style>",
+                unsafe_allow_html=True)
+if pagina == "planes":   # se vuelve con el botón o con la barra a lo que se estaba viendo
+    parte_buscador("barra", lugar_analizado() if res else "", "Planes" if res else "")
+    vista_planes()
+elif res and cmp_fase == "ver" and b_cmp:   # la comparación: ninguna vista marcada en la barra
     parte_buscador("barra", lugar_analizado(), "Comparación")
     vista_comparacion()
 elif res and cmp_fase == "elegir":
@@ -1759,6 +1910,9 @@ st.markdown(
     "<div class='pie-col'><b>Datos</b><ul>"
     f"<li>Descargados el {html.escape(fu['portal_descarga'])}</li>"
     "<li><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a></li>"
+    "</ul></div>"
+    "<div class='pie-col'><b>Proyecto</b><ul>"
+    "<li><a href='#planes' data-ir='planes'>Planes</a></li>"
     f"<li><a href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a></li>"
     "</ul></div>"
     f"<div class='pie-legal'><p>{AVISO_SENCILLO} Toda cifra de personas es una estimación."
