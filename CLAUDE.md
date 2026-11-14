@@ -16,3 +16,7 @@ Prototipo para el datathon DATAMAD 2026 de la Comunidad de Madrid: a partir de l
 - Python. Dentro de este entorno usa un entorno virtual llamado .venv-linux (añádelo a .gitignore).
 - Datos descargados en datos/originales; datos limpios en datos/procesados.
 - No hagas git push; lo hace la autora desde su Mac.
+
+## Git
+- En los mensajes de commit no se añade la línea `Co-Authored-By` de Claude ni ninguna otra atribución a Claude.
+- La autora de los commits es Mengying Xia Ruan.
