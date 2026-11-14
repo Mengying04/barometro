@@ -615,6 +615,17 @@ GTFS_DIA_MINIMO_VIAJES = 0.8
 # GTFS; que siga valiendo los demás domingos es un SUPUESTO.
 GTFS_COMPLETAR_DOMINGO = ("interurbanos", "urbanos")
 
+# El mismo defecto, más pequeño, en el SÁBADO: el GTFS de noviembre de 2026 publica el
+# servicio de sábado de 10 líneas interurbanas (441 a 450 y nocturnas N801 y N805, todas
+# de Madrid a Getafe o de Getafe a Leganés y Alcorcón) y de 16 urbanas (5 de Getafe y 11
+# de Alcalá de Henares) con validez solo para el primer sábado del fichero (31 de
+# octubre); los demás sábados «no circulan». ARREGLO, con el mismo criterio que el
+# domingo: al sábado elegido se le añade, solo para las líneas que ese día no tienen ningún
+# viaje, el servicio que tienen en el primer sábado con servicio del calendario. Las
+# líneas que ya circulan el sábado elegido no se tocan. Que ese sábado concreto valga para
+# los demás es un SUPUESTO.
+GTFS_COMPLETAR_SABADO = ("interurbanos", "urbanos")
+
 # Líneas que el GTFS trae algún día suelto pero que hoy no circulan de forma habitual: se
 # dejan fuera para no contar trenes que no hay. C9 (Cercedilla-Cotos): cerrada por obras
 # de renovación desde mayo de 2024; el GTFS de noviembre de 2026 solo le pone viajes 5

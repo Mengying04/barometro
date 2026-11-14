@@ -28,6 +28,7 @@ import pandas as pd
 import shapely
 
 import supuestos as S
+from fecha import hoy
 from informe_local import (_A_UTM, a_markdown as _md_informe, dec, en_radio, informe_local,
                            locales)
 from perfil_horario import DIAS, TIPOS, horas_punta, perfil_horario
@@ -477,9 +478,9 @@ def riesgos(perfil: dict, inf: dict) -> list[dict]:
                         "Por eso la competencia real probablemente es mayor que la contada."],
                        "media", "dato", clave="cobertura_baja"))
     # Festivos: solo los de los próximos S.RIESGO_FESTIVO_DIAS días, diciendo cuál y cuándo.
-    hoy = date.today()
+    hoy_ = hoy()
     cerca = [p for p in bloque(inf, "festivos")["datos"]["proximos"]
-             if (date.fromisoformat(p["fecha"]) - hoy).days <= S.RIESGO_FESTIVO_DIAS]
+             if (date.fromisoformat(p["fecha"]) - hoy_).days <= S.RIESGO_FESTIVO_DIAS]
     if cerca:
         def cual(p: dict) -> str:
             f = date.fromisoformat(p["fecha"])
@@ -585,7 +586,7 @@ def recomendar(lat: float, lon: float, radio: float = S.RADIO_M,
     vender = que_vender(perfil, inf)
     return {
         "punto": {"lat": lat, "lon": lon}, "radio_m": radio, "municipio": inf["municipio"],
-        "fecha": date.today().isoformat(),
+        "fecha": hoy().isoformat(),
         "aviso": "Orientaciones a partir de datos abiertos y supuestos explícitos, no "
                  "garantías. Toda cifra de personas es una estimación.",
         "a_quien": a_quien(perfil),

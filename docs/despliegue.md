@@ -29,9 +29,15 @@ cómo mantenerla.
   300 MB tras los tres puntos. La carga tarda menos de un segundo.
 - **Versión de Python:** con las versiones fijadas en `requirements.txt` hay paquetes
   para Python **3.12, 3.13 y 3.14**. Para 3.11 y anteriores no (numpy 2.5.4 no existe
-  para ellas).
+  para ellas). El devcontainer (`.devcontainer/`, para Codespaces) usa también 3.12.
 - **Paquetes del sistema:** no hace falta `packages.txt`; geopandas, pyogrio y pyproj
   traen sus bibliotecas dentro.
+- **PDF y fecha (comprobado el 2026-11-14 en la imagen de Docker, Python 3.12.16):**
+  fpdf2 2.9.0 es Python puro (con fonttools y Pillow, que ya trae Streamlit) y genera el
+  informe sin programas del sistema. `tzdata` da la hora de Madrid aunque el servidor no
+  tenga zonas horarias. Las huellas de los tres ejemplos son las mismas que con Python
+  3.14. Community Cloud funciona en UTC: la fecha de hoy (festivos, avisos, fecha del
+  informe) se calcula en hora de Madrid (`src/fecha.py`).
 
 ## Antes de publicar
 

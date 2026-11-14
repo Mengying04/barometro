@@ -1,6 +1,8 @@
 # BARómetro — dependencias de los scripts de src/ y de la aplicación web.
-# Probado con Python 3.14. Con estas versiones hay paquetes para Python 3.12, 3.13 y 3.14
-# (no para 3.11 ni anteriores): al desplegar hay que elegir una de esas tres.
+# Probado con Python 3.14 (entorno de trabajo) y 3.12 (imagen de Docker, la versión del
+# despliegue; comprobado el 2026-11-14 con fpdf2 y tzdata). Con estas versiones hay paquetes
+# para Python 3.12, 3.13 y 3.14 (no para 3.11 ni anteriores): al desplegar hay que elegir
+# una de esas tres.
 # src/descargar_datos.py y src/descargar_externas.py solo usan la biblioteca estándar.
 # Instalación:  python -m pip install -r requirements.txt
 
@@ -19,6 +21,10 @@ pyarrow==26.0.1
 openpyxl==3.1.5
 
 # src/procesar_informe.py solo usa pandas.
+
+# src/fecha.py (la fecha de hoy en hora de Madrid: base de zonas horarias para zoneinfo
+# cuando el sistema no la trae; ya llegaba como dependencia de pandas, aquí se fija)
+tzdata==2026.6
 
 # app/app.py (aplicación web)
 streamlit==1.67.0

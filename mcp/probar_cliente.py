@@ -155,6 +155,11 @@ async def main() -> int:
             comprobar(json.dumps(z["bloques"], sort_keys=True, default=str)
                       == json.dumps(inf["bloques"], sort_keys=True, default=str),
                       "informe_de_zona: los bloques no coinciden con informe_local()")
+            # El servidor no hereda TZ del cliente: la fecha tiene que ser la de Madrid
+            # (src/fecha.py), no la del reloj UTC del proceso.
+            from fecha import hoy
+            comprobar(z["fecha"] == r["fecha"] == hoy().isoformat(),
+                      "informe_de_zona: la fecha no es la de hoy en Madrid")
             comprobar([b["clave"] for b in z["bloques"]] == [
                 "competencia", "mercado", "precios", "turismo", "festivos", "sector",
                 "accesos", "entorno"], "informe_de_zona: no están los ocho bloques")

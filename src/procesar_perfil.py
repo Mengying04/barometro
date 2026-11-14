@@ -46,10 +46,11 @@ import pandas as pd
 import shapely
 
 import supuestos as S
+from fecha import hoy
 from descargar_datos import actualizar_bloque
 from procesar import CRS, ORIG, PROC, escribir_parquet, guardar, informe, leer_csv
 
-HOY = date.today()
+HOY = hoy()   # en hora de Madrid (src/fecha.py)
 
 
 def sin_tildes(s: str) -> str:
@@ -649,14 +650,15 @@ def elegir_dias(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame,
     return out
 
 
-def completar_domingo(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame,
-                      dia: date) -> tuple[pd.DataFrame, date | None]:
-    """Viajes que se añaden al domingo elegido (supuestos.GTFS_COMPLETAR_DOMINGO): los del
-    primer domingo con servicio del calendario de las líneas que el día elegido no tienen
-    ningún viaje. Devuelve esos viajes y la fecha de la que salen."""
+def completar_dia(cal: pd.DataFrame, cd: pd.DataFrame, trips: pd.DataFrame,
+                  dia: date) -> tuple[pd.DataFrame, date | None]:
+    """Viajes que se añaden al sábado o al domingo elegido (supuestos.GTFS_COMPLETAR_SABADO
+    y GTFS_COMPLETAR_DOMINGO): los del primer día de la misma semana con servicio del
+    calendario (el primer sábado o el primer domingo) de las líneas que el día elegido no
+    tienen ningún viaje. Devuelve esos viajes y la fecha de la que salen."""
     activos = trips[trips["service_id"].isin(servicios_activos(cal, cd, dia))]
     ini, fin = _rango_fechas(cal, cd)
-    primero = ini + timedelta(days=(6 - ini.weekday()) % 7)
+    primero = ini + timedelta(days=(dia.weekday() - ini.weekday()) % 7)
     while primero <= fin:
         t = trips[trips["service_id"].isin(servicios_activos(cal, cd, primero))]
         if len(t):
@@ -989,17 +991,18 @@ def gtfs(conservar_dias: bool = False) -> None:
         todas = g.leer("stops.txt", usecols=lambda c: c in {
             "stop_id", "stop_name", "stop_lat", "stop_lon", "location_type", "parent_station"})
         paradas = geometria_accesos(todas)
-        tablas, estimadas, completadas = {}, {}, {}
+        tablas, estimadas, completadas = {}, {}, {"sabado": {}, "domingo": {}}
+        completar = {"sabado": S.GTFS_COMPLETAR_SABADO, "domingo": S.GTFS_COMPLETAR_DOMINGO}
         for tipo, (_, dia, _) in dias.items():
             tablas[tipo] = salidas_por_hora(g, servicios_activos(cal, cd, dia), trips, st,
                                             freq, expandir)
-            if tipo == "domingo" and red in S.GTFS_COMPLETAR_DOMINGO:
-                extra, origen = completar_domingo(cal, cd, trips, dia)
+            if red in completar.get(tipo, ()):
+                extra, origen = completar_dia(cal, cd, trips, dia)
                 if len(extra):
                     tablas[tipo] = tablas[tipo].add(salidas_por_hora(
                         g, set(extra["service_id"]), extra, st, freq, expandir),
                         fill_value=0).astype(int)
-                    completadas[red] = (extra["linea_id"].nunique(), len(extra), origen)
+                    completadas[tipo][red] = (extra["linea_id"].nunique(), len(extra), origen)
             rec = lineas_reconstruidas(g, red, trips, st, tablas[tipo])
             tablas[tipo] = con_reconstruidas(tablas[tipo], rec)
             for linea, x in rec.items():
@@ -1040,10 +1043,13 @@ def gtfs(conservar_dias: bool = False) -> None:
                      + (" (viajes-plantilla de frequencies.txt expandidos)" if expandir else "")
                      + f"; ese laborable circulan {dias['laborable'][2]} de las "
                        f"{n_lineas} líneas del fichero"
-                     + f"; ese domingo, {dias['domingo'][2]}"
-                     + (f" (más {completadas[red][0]} líneas con el servicio de domingo que "
-                        f"el GTFS solo publica para el {completadas[red][2]}: "
-                        f"{completadas[red][1]} viajes)" if red in completadas else "")
+                     + "".join(
+                         f"; ese {nombre}, {dias[tipo][2]}"
+                         + (f" (más {completadas[tipo][red][0]} líneas con el servicio de "
+                            f"{nombre} que el GTFS solo publica para el "
+                            f"{completadas[tipo][red][2]}: {completadas[tipo][red][1]} viajes)"
+                            if red in completadas[tipo] else "")
+                         for tipo, nombre in (("sabado", "sábado"), ("domingo", "domingo")))
                      + (f"; línea {', '.join(arr['excluidas'])} excluida (sin servicio "
                         "habitual: cerrada por obras)" if arr.get("excluidas") else "")
                      + (f"; {arr['sin_hora']} viajes de {arr['sin_hora_lineas']} líneas sin "
@@ -1087,6 +1093,11 @@ def gtfs(conservar_dias: bool = False) -> None:
         "elegido se le añaden, solo para las líneas que ese día no tienen ningún viaje, los "
         "viajes de ese primer domingo (ver `GTFS_COMPLETAR_DOMINGO` en src/supuestos.py). "
         "Los domingos sirven también, de forma aproximada, para los festivos.",
+        "Sábado de interurbanos y urbanos (**supuesto**): el mismo defecto, en líneas de Getafe "
+        "y de Alcalá de Henares (26 en el GTFS de noviembre de 2026), que solo tienen servicio de sábado el "
+        "primer sábado del fichero. Se completa igual: al sábado elegido se le añaden, solo "
+        "para las líneas que ese día no tienen ningún viaje, los viajes del primer sábado "
+        "con servicio (ver `GTFS_COMPLETAR_SABADO` en src/supuestos.py).",
         "Viajes sin hora en cada parada (interurbanos y urbanos): son viajes reales, con "
         "su calendario y su hora de salida, en los que todas las paradas llevan la misma "
         "hora (la de salida o, si viene la hora de relleno 01:00:00, la que figura en el "

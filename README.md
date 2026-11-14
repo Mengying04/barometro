@@ -249,6 +249,12 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   y urbanos para que salgan 21 líneas de la Sierra y se reconstruyó la línea 3 de
   Metro. En los tres puntos de prueba solo cambian los viajeros (entre el −1 % y el
   −20 %); el nivel de movimiento, el titular y las recomendaciones son los mismos.
+- **Sábados y domingos con líneas olvidadas.** El GTFS de autobuses publica el sábado de
+  26 líneas (de Getafe y de Alcalá de Henares) y el domingo de 74 solo
+  para un día suelto. Se completan con ese día, solo en las líneas que no tienen ningún
+  viaje el día elegido. En el centro de Getafe los viajeros del sábado pasan de 10 a
+  unos 300. En los tres puntos de prueba la gente del sábado baja como mucho un 0,1 % y
+  el laborable y el domingo no cambian.
 - **Sin cambios en lo anterior.** Al añadir el nivel de movimiento, los accesos y el
   entorno, el perfil, las recomendaciones y los seis bloques anteriores del informe de
   los tres puntos quedaron idénticos.
@@ -256,6 +262,10 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   limpio del repositorio con Python 3.12, sin datos originales.
 - **Contenedor.** La imagen de Docker, construida desde un clon limpio, da en los tres
   puntos la misma huella que el entorno de trabajo, y la aplicación enseña lo mismo.
+  Comprobado de nuevo el 2026-11-14 con Python 3.12, el PDF (fpdf2) y la fecha.
+- **La fecha es la de Madrid.** Los festivos, sus avisos y la fecha del informe usan la
+  hora de Madrid aunque el servidor funcione en UTC (como Streamlit Community Cloud o el
+  servidor MCP). Antes, entre las 00:00 y la 01:00 salían con un día de retraso.
 - **Calidad de los datos.** `src/comprobar_datos.py` hace 37 comprobaciones sobre los
   datos publicados (filas, columnas prohibidas, población, transporte y posición). Se
   probó también con datos estropeados a propósito: los detecta y se detiene.
@@ -308,8 +318,9 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 - **El domingo es un modelo con supuestos propios** (qué abre y a qué horas sale la
   gente; ver `src/supuestos.py`) y vale para los festivos solo de forma aproximada. El
   transporte del domingo sí es real (horarios y demanda de domingo del CRTM), pero el
-  GTFS de autobuses publica el domingo de 74 líneas para un solo día y se completa con
-  ese día. El calendario escolar es un supuesto.
+  GTFS de autobuses publica el domingo de 74 líneas y el sábado de 26 para un solo día,
+  y se completan con ese día: que valga para los demás es un supuesto. El calendario
+  escolar es un supuesto.
 - **El dato del sector mezcla hostelería con comercio y transporte,** y el índice de
   precios mezcla restaurantes con hoteles. No hay datos abiertos más finos.
 - **Los horarios de la competencia** solo están en OpenStreetMap, en muy pocos locales.

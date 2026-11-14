@@ -33,6 +33,7 @@ import shapely
 from pyproj import Transformer
 
 import supuestos as S
+from fecha import hoy
 from procesar import CRS, PROC, leer_csv
 
 PORTAL = "https://datos.comunidad.madrid/dataset"
@@ -495,9 +496,9 @@ def b_turismo(punto, muni: dict) -> dict:
 
 # ------------------------------------------------------------------------ 5. festivos
 def b_festivos(muni: dict) -> dict:
-    hoy = date.today()
-    fin = date(hoy.year + (hoy.month + S.FESTIVOS_MESES - 1) // 12,
-               (hoy.month + S.FESTIVOS_MESES - 1) % 12 + 1, min(hoy.day, 28))
+    hoy_ = hoy()
+    fin = date(hoy_.year + (hoy_.month + S.FESTIVOS_MESES - 1) // 12,
+               (hoy_.month + S.FESTIVOS_MESES - 1) % 12 + 1, min(hoy_.day, 28))
     loc = leer_csv(INFORME / "festivos_locales.csv")
     reg = leer_csv(INFORME / "festivos_regionales.csv")
     loc = loc[loc["municipio_codigo"] == muni["cod"][2:]]
@@ -509,7 +510,7 @@ def b_festivos(muni: dict) -> dict:
     d = pd.DataFrame(filas).drop_duplicates()
     d["fecha"] = pd.to_datetime(d["fecha"]).dt.date
     anyo_max = max(d["fecha"]).year
-    proximos = d[(d["fecha"] >= hoy) & (d["fecha"] <= fin)].sort_values("fecha")
+    proximos = d[(d["fecha"] >= hoy_) & (d["fecha"] <= fin)].sort_values("fecha")
     notas = ["Festivos regionales y locales publicados en el portal (**dato**)."]
     orientacion = []
     if fin.year > anyo_max:
@@ -531,7 +532,7 @@ def b_festivos(muni: dict) -> dict:
         f"({len(locales_txt)} {'local' if len(locales_txt) == 1 else 'locales'}); los de "
         f"{anyo_max + 1} aún no están publicados."
         if fin.year > anyo_max else f"{len(prox)} festivos en los próximos 12 meses.",
-        {"desde": hoy.isoformat(), "hasta": fin.isoformat(), "proximos": prox,
+        {"desde": hoy_.isoformat(), "hasta": fin.isoformat(), "proximos": prox,
          "orientacion_siguiente_anyo": orientacion,
          "festivos_locales_del_anyo": [{"fecha": r.fecha.isoformat(), "ambito": r.ambito}
                                        for r in d[d["festivo"] == "local"]
@@ -829,7 +830,7 @@ def informe_local(lat: float, lon: float, radio: float = S.RADIO_M,
     rc = renta_comunidad()
     return {
         "punto": {"lat": lat, "lon": lon}, "radio_m": radio, "municipio": muni,
-        "fecha_informe": date.today().isoformat(),
+        "fecha_informe": hoy().isoformat(),
         "bloques": [b_competencia(punto, radio, muni), b_mercado(punto, radio, pr),
                     b_precios(pr, rc, perfil), b_turismo(punto, muni), b_festivos(muni),
                     b_sector(), b_accesos(punto, radio), b_entorno(punto, radio, muni, pr)],
