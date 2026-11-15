@@ -630,3 +630,11 @@ a.plan-etq:hover {border-color:var(--teja);}
   .planes-abierto {font-size:0.98rem; padding:0.9rem 1rem;}
 }
 @media print {.bm-top, .bm-indice, .pt-nav, .stButton, iframe {display:none !important;}}
+
+/* Selector «¿Qué tipo de local?» (encima de las respuestas, en las tres vistas). */
+.st-key-caja_tipo {background:#fff; margin-bottom:var(--hueco);}
+.tipo-t {display:flex; gap:0.5rem; align-items:center; font-size:1.1rem; font-weight:800;
+         letter-spacing:-0.01em;}
+.tipo-t .ico {color:var(--teja, #9c3d1b);}
+.tipo-s {font-size:0.95rem; color:var(--suave); margin:0.15rem 0 0.5rem 0;}
+.st-key-caja_tipo .nota {margin-top:0.6rem;}

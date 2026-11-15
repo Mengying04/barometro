@@ -1104,3 +1104,247 @@ ENTORNO_POCOS_VECINOS_CERCA = 300
 # diferencia mínima son además COMPARAR_LOCALES_MINIMOS locales.
 COMPARAR_DIFERENCIA_PEQUENA = 0.15
 COMPARAR_LOCALES_MINIMOS = 3
+
+
+# #########################################################################################
+# TIPO DE LOCAL (src/tipo_local.py): «¿Cuándo tendrías más clientes?» según el tipo de local.
+# El perfil por horas cuenta gente que PASA; cuándo hay CLIENTES depende del tipo de local.
+# TODO ESTO SON SUPUESTOS: valores elegidos a mano a partir de costumbres generales de la
+# hostelería española y de las horas de las comidas (COMIDAS, arriba), no medidas. No están
+# calibrados: la primera validación con un hostelero (docs/validacion.md) es un solo bar y
+# estos valores se escribieron conociendo su testimonio, así que no sirve para calibrar.
+# Propuesta y diagnóstico: docs/registro/2026-11-15-propuesta-tipo-de-local.md; cambios
+# aprobados: docs/registro/2026-11-15-tipo-de-local.md.
+# #########################################################################################
+TIPOS_LOCAL = {
+    "bar_barrio": "Bar de barrio (raciones y desayunos)",
+    "cafeteria": "Cafetería de desayunos o café para llevar",
+    "menu_dia": "Menú del día",
+    "comida_llevar": "Comida para llevar",
+    "restaurante_cenas": "Restaurante de cenas",
+}
+# Nombre corto, para frases («para un bar de barrio»).
+TIPOS_LOCAL_CORTO = {
+    "bar_barrio": "un bar de barrio",
+    "cafeteria": "una cafetería o un café para llevar",
+    "menu_dia": "un local de menú del día",
+    "comida_llevar": "un local de comida para llevar",
+    "restaurante_cenas": "un restaurante de cenas",
+}
+
+
+def tramos(d: dict[tuple[int, int], float]) -> dict[int, float]:
+    """tramos({(7, 10): 0.05}) → {7: 0.05, 8: 0.05, 9: 0.05}: de la hora a a la b, sin
+    incluir b (una b > 24 pasa a la madrugada)."""
+    return {h % 24: x for (a, b), x in d.items() for h in range(a, b)}
+
+
+# ------------------------------------------------------- A. tasa de parada por paso
+# Para cada tipo de cliente que NO es vecino: qué parte de sus pasos de cada hora se
+# convierte en una visita a locales de ese tipo del radio. Las horas que no se citan
+# valen 0. Se aplica igual los tres tipos de día (el perfil ya dice cuánta gente de cada
+# tipo pasa cada día). SUPUESTOS, con su porqué:
+TASA_PARADA = {
+    # Bar de barrio, sin menú: desayunos, almuerzo de media mañana, raciones y cañas.
+    "bar_barrio": {
+        # A las 8 el viajero va con prisa y casi no se para en un bar de raciones; lo más
+        # probable es la caña a la vuelta del trabajo.
+        "viajeros": tramos({(7, 10): 0.01, (10, 18): 0.02, (18, 21): 0.04}),
+        # El almuerzo (bocadillo y café hacia las 10:30-11:30) es típico de bar; sin menú, a
+        # mediodía solo raciones o un bocadillo; la caña a la salida.
+        "trabajadores": tramos({(7, 10): 0.06, (10, 12): 0.15, (12, 16): 0.10,
+                                (17, 21): 0.10}),
+        # Buscan precio; café entre clases y cañas al salir.
+        "universitarios": tramos({(8, 10): 0.03, (10, 16): 0.05, (18, 21): 0.08}),
+        # Café de los padres tras dejar a los niños; algo de merienda. Los pasos cuentan a
+        # niños y adultos, por eso la tasa es baja.
+        "padres_ninos": tramos({(8, 10): 0.05, (16, 18): 0.03}),
+        # Desayuno al salir de un análisis en ayunas; café del acompañante.
+        "pacientes": tramos({(9, 13): 0.05, (16, 19): 0.02}),
+        # Aperitivo tras el partido de la mañana; cañas tras el evento.
+        "deporte_eventos": tramos({(12, 15): 0.10, (18, 23): 0.10}),
+    },
+    # Cafetería de desayunos o café para llevar.
+    "cafeteria": {
+        # El café para llevar es justo la compra de quien va al transporte.
+        "viajeros": tramos({(6, 10): 0.05, (10, 13): 0.03, (13, 16): 0.01,
+                            (16, 19): 0.03, (19, 21): 0.01}),
+        # Desayuno antes de entrar y pausa de media mañana; café después de comer.
+        "trabajadores": tramos({(7, 12): 0.15, (13, 19): 0.05}),
+        # Café antes de clase y entre clases.
+        "universitarios": tramos({(8, 10): 0.10, (10, 13): 0.08, (13, 16): 0.05,
+                                  (16, 19): 0.06}),
+        # Café tras dejar a los niños; merienda a la salida.
+        "padres_ninos": tramos({(8, 10): 0.08, (16, 18): 0.06}),
+        "pacientes": tramos({(8, 13): 0.08, (16, 19): 0.03}),
+        # Poco: no es su momento.
+        "deporte_eventos": tramos({(9, 13): 0.03, (16, 19): 0.03}),
+    },
+    # Menú del día.
+    "menu_dia": {
+        # Comen en su destino.
+        "viajeros": tramos({(7, 10): 0.005, (13, 16): 0.01}),
+        # Su cliente principal: los pasos de las 14-16 h son sobre todo de quien sale a
+        # comer (SALEN_A_COMER, arriba).
+        "trabajadores": tramos({(7, 10): 0.03, (10, 12): 0.05, (13, 16): 0.40,
+                                (17, 20): 0.03}),
+        # Menú barato al cambiar de turno.
+        "universitarios": tramos({(13, 16): 0.15}),
+        # A mediodía recogen a los niños y comen en casa.
+        "padres_ninos": {},
+        "pacientes": tramos({(9, 12): 0.02, (13, 16): 0.03}),
+        "deporte_eventos": tramos({(13, 16): 0.05}),
+    },
+    # Comida para llevar.
+    "comida_llevar": {
+        # Algo para comer en el trabajo o la cena para casa al volver.
+        "viajeros": tramos({(13, 16): 0.02, (19, 22): 0.03}),
+        "trabajadores": tramos({(13, 16): 0.10, (18, 21): 0.03}),
+        "universitarios": tramos({(13, 16): 0.08, (19, 22): 0.05}),
+        "padres_ninos": tramos({(13, 15): 0.01, (16, 18): 0.01}),
+        "pacientes": tramos({(13, 16): 0.02}),
+        "deporte_eventos": tramos({(13, 15): 0.05, (19, 23): 0.08}),
+    },
+    # Restaurante de cenas (abre también a mediodía, sobre todo el fin de semana).
+    "restaurante_cenas": {
+        "viajeros": tramos({(20, 23): 0.005}),
+        "trabajadores": tramos({(13, 16): 0.05, (20, 23): 0.02}),   # alguna comida de trabajo
+        "universitarios": tramos({(20, 23): 0.02}),                 # poco, por precio
+        "padres_ninos": {},
+        "pacientes": {},
+        "deporte_eventos": tramos({(20, 24): 0.10}),                # cena tras el evento
+    },
+}
+
+# --------------------------------------------- B. vecinos que van a propósito
+# Los vecinos NO se cuentan por sus pasos: van al bar de su barrio aunque no pase por
+# delante. Se cuentan así:
+#     clientes vecinos = población del radio × VISITAS_VECINO × REPARTO_VISITAS_VECINO
+# (población del perfil por horas, repartida por superficie y ponderada por la distancia).
+# Así no se cuenta dos veces a quien pasa por delante y entra.
+#
+# VISITAS_VECINO: visitas por vecino y día a los locales de ese tipo del radio (laborable,
+# sábado, domingo). Se cuentan todos los vecinos, también los niños, igual que el gasto por
+# persona de la Encuesta de Presupuestos Familiares (abajo).
+#
+# CONTRASTE CON EL GASTO (EPF). La propuesta inicial (bar de barrio 0,15 / 0,20 / 0,20;
+# cafetería 0,12 / 0,12 / 0,10; menú 0,05 / 0,04 / 0,04; comida para llevar 0,04 / 0,07 /
+# 0,07; cenas 0,02 / 0,06 / 0,04) suponía, con los precios de PRECIO_VISITA, unos 1.180 €
+# por persona y año: el 95 % del gasto medio por persona en restauración de la Comunidad
+# (1.239,81 € en 2025, EPF, portal de la Comunidad). No supera el gasto, pero NO ES
+# COHERENTE: dejaría casi nada para lo que se gasta lejos de casa (la comida en el trabajo,
+# el ocio en el centro, los viajes y las vacaciones). Con el límite PARTE_GASTO_CERCA_DE_CASA
+# (la mitad), se dividieron todas las visitas por 2, aproximadamente, y redondeadas: unos
+# 597 € por persona y año, el 48 % del gasto. La forma del día no cambia; sí el peso de los
+# vecinos frente a la gente que pasa. Lo comprueba src/comprobar_datos.py.
+VISITAS_VECINO = {
+    "bar_barrio": {"laborable": 0.08, "fin_de_semana": 0.10, "domingo": 0.10},
+    "cafeteria": {"laborable": 0.06, "fin_de_semana": 0.06, "domingo": 0.05},
+    "menu_dia": {"laborable": 0.025, "fin_de_semana": 0.02, "domingo": 0.02},
+    "comida_llevar": {"laborable": 0.02, "fin_de_semana": 0.035, "domingo": 0.035},
+    "restaurante_cenas": {"laborable": 0.01, "fin_de_semana": 0.03, "domingo": 0.02},
+}
+# Reparto por horas de esas visitas (pesos; se normalizan para que cada día sume 1).
+REPARTO_VISITAS_VECINO = {
+    # Bar de barrio: desayuno y media mañana moderados (jubilados, recados, teletrabajo);
+    # máximos en el aperitivo y las raciones (13-16 h) y en las cañas de la tarde (18-21 h).
+    # Sábado y domingo: el aperitivo de 12 a 15 h es lo más fuerte; el domingo, más.
+    "bar_barrio": {
+        "laborable": perfil(h7=3, h8=6, h9=7, h10=7, h11=6, h12=6, h13=9, h14=10, h15=8,
+                            h16=4, h17=5, h18=8, h19=9, h20=7, h21=4, h22=2),
+        "fin_de_semana": perfil(h8=2, h9=5, h10=7, h11=8, h12=10, h13=12, h14=11, h15=7,
+                                h16=4, h17=5, h18=7, h19=8, h20=7, h21=5, h22=2),
+        "domingo": perfil(h8=2, h9=4, h10=6, h11=9, h12=13, h13=15, h14=12, h15=6, h16=3,
+                          h17=5, h18=7, h19=7, h20=6, h21=3, h22=2),
+    },
+    # Cafetería: máximo de 8 a 10 h en laborable, media mañana y merienda (17-19 h); cierra
+    # hacia las 21 h. Fin de semana: desayuno tardío (10-12 h) y merienda.
+    "cafeteria": {
+        "laborable": perfil(h7=8, h8=13, h9=13, h10=11, h11=9, h12=6, h13=4, h14=3, h15=4,
+                            h16=6, h17=8, h18=8, h19=5, h20=2),
+        "fin_de_semana": perfil(h8=4, h9=9, h10=13, h11=13, h12=10, h13=6, h14=3, h15=4,
+                                h16=7, h17=10, h18=10, h19=7, h20=4),
+        "domingo": perfil(h8=3, h9=8, h10=13, h11=14, h12=11, h13=6, h14=3, h15=4, h16=7,
+                          h17=10, h18=10, h19=7, h20=4),
+    },
+    # Menú del día: casi todo de 13 a 16 h, con el máximo a las 14 h (COMIDAS).
+    "menu_dia": {
+        "laborable": perfil(h8=4, h9=5, h10=4, h11=3, h12=3, h13=12, h14=30, h15=22, h16=4,
+                            h17=3, h18=4, h19=4, h20=2),
+        "fin_de_semana": perfil(h10=4, h11=5, h12=7, h13=14, h14=28, h15=22, h16=5, h19=5,
+                                h20=6, h21=4),
+        "domingo": perfil(h10=3, h11=5, h12=8, h13=16, h14=30, h15=24, h16=6, h20=4, h21=4),
+    },
+    # Comida para llevar: de 13 a 15 h y de 20 a 23 h (cena en casa).
+    "comida_llevar": {
+        "laborable": perfil(h12=4, h13=12, h14=16, h15=8, h19=6, h20=16, h21=24, h22=12,
+                            h23=2),
+        "fin_de_semana": perfil(h12=4, h13=12, h14=14, h15=8, h19=6, h20=16, h21=24, h22=14,
+                                h23=2),
+        "domingo": perfil(h12=5, h13=15, h14=18, h15=9, h19=6, h20=16, h21=20, h22=9, h23=2),
+    },
+    # Restaurante de cenas: sobre todo de 21 a 23 h; el domingo, la comida (14-16 h).
+    "restaurante_cenas": {
+        "laborable": perfil(h13=6, h14=12, h15=7, h20=10, h21=35, h22=25, h23=5),
+        "fin_de_semana": perfil(h13=6, h14=15, h15=12, h16=3, h20=8, h21=25, h22=25, h23=6),
+        "domingo": perfil(h13=10, h14=28, h15=22, h16=5, h20=8, h21=18, h22=9),
+    },
+}
+
+# Precio medio por visita y persona, en euros de 2026. SUPUESTO de orden de magnitud: no hay
+# datos abiertos de cartas (ver «A qué precio»). Solo sirve para el contraste con el gasto
+# de la EPF, nunca se enseña como precio.
+#  - bar de barrio 5 €: café con tostada o caña con tapa (3-4 €), a veces una ración
+#    compartida;
+#  - cafetería 3,5 €: café y bollería, o café para llevar;
+#  - menú del día 14 €: lo habitual en Madrid está entre 12 y 16 €;
+#  - comida para llevar 10 €: un plato o un menú para llevar;
+#  - restaurante de cenas 30 €: cena a la carta.
+# La EPF es de 2025 y los precios, de 2026: con la subida de los precios de restauración
+# (IPC), el contraste exagera algo la parte del gasto, es decir, va del lado prudente.
+PRECIO_VISITA = {"bar_barrio": 5.0, "cafeteria": 3.5, "menu_dia": 14.0,
+                 "comida_llevar": 10.0, "restaurante_cenas": 30.0}
+# Parte del gasto en restauración que, como mucho, se hace en los locales a menos de RADIO_M
+# de casa. SUPUESTO: la mitad. El resto se gasta cerca del trabajo o del centro de estudios,
+# en el ocio fuera del barrio y en viajes y vacaciones. No hay dato abierto de dónde se
+# gasta.
+PARTE_GASTO_CERCA_DE_CASA = 0.5
+
+# ------------------------------------------- C. qué vende cada tipo en cada franja
+# Momentos nuevos, solo para los tipos de local (no cambian el resultado general).
+MOMENTOS_TIPO_LOCAL = {"comida_llevar": "Comida para llevar", "comida": "Comida a la carta"}
+NOMBRE_MOMENTO = {**MOMENTOS, **MOMENTOS_TIPO_LOCAL}
+# Los clientes de cada franja se reparten entre los momentos que encajan a la vez con el
+# cliente (TABLA_MOMENTOS) y con el local; si no encaja ninguno, entre los del local en esa
+# franja. Una franja sin momentos: el local no vende en ella (sus clientes no se cuentan en
+# «qué ofrecer»).
+MOMENTOS_LOCAL = {
+    "bar_barrio": {F1: ["desayuno"], F2: ["almuerzo"], F3: ["canas_raciones"],
+                   F4: ["merienda", "canas_raciones"], F5: ["canas_raciones"],
+                   F6: ["copas"]},
+    "cafeteria": {F1: ["desayuno"], F2: ["almuerzo"], F3: ["comida_llevar"],
+                  F4: ["merienda"], F5: ["merienda"], F6: []},
+    "menu_dia": {F1: ["desayuno"], F2: ["almuerzo"], F3: ["menu_del_dia"],
+                 F4: ["merienda"], F5: ["canas_raciones"], F6: []},
+    "comida_llevar": {F1: [], F2: [], F3: ["comida_llevar"], F4: [],
+                      F5: ["comida_llevar"], F6: []},
+    "restaurante_cenas": {F1: [], F2: [], F3: ["comida"], F4: [], F5: ["cenas"], F6: []},
+}
+# Sábado y domingo no hay menú del día: en un local de menú ese público come a la carta; en
+# los demás, como en el resultado general, hace el aperitivo (MOMENTO_SOLO_LABORABLE).
+MOMENTO_SOLO_LABORABLE_LOCAL = {"menu_dia": {"menu_del_dia": "comida"}}
+
+# ------------------------------------------------- D. sensibilidad del horario
+# El horario de clientes depende sobre todo del peso de la gente que pasa (TASA_PARADA)
+# frente al de los vecinos que van a propósito (VISITAS_VECINO). Se repite el cálculo con
+# las tasas por 0,5 y por 2 y con las visitas por 0,5 y por 2 (multiplicar las dos a la vez
+# por lo mismo no cambia ninguna hora). Si en alguno de esos cuatro casos la hora con más
+# clientes cae en otra franja del día, a más de una hora de la de antes, y cambian al menos
+# dos de las tres horas con más clientes, el horario «cambia con poco»: su fiabilidad es baja
+# y la aplicación lo dice. (Pasar de las 9 a las 10 cruza el borde entre dos franjas, pero no
+# es otro momento del día; y si las tres horas que se enseñan son las mismas, la respuesta no
+# cambia.)
+SENSIBILIDAD_FACTORES = (0.5, 2.0)
+# Sin tipo de local elegido: aviso de que el resultado es general.
+AVISO_GENERAL = ("Resultado general, para cualquier bar o restaurante: cuenta la gente que "
+                 "pasa. Elige el tipo de local para saber cuándo tendrías más clientes.")

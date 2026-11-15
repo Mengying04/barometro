@@ -91,7 +91,8 @@ from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
 from documento import comparacion_pdf, informe_pdf  # noqa: E402
 from movimiento import nivel_movimiento, referencia  # noqa: E402
 from calle import (CLIENTE_CALLE, COLOR_TIPO, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
-                   MODO_CALLE, MOMENTO_CALLE, bloque_inf, comprobaciones_calle, dec,
+                   MODO_CALLE, MOMENTO_CALLE, bloque_inf, comparacion_franjas, con_tipo,
+                   comprobaciones_calle, dec,
                    frases_cuando, frases_precio, frases_que, frases_quien, grupos_horas,
                    hora_de_grupo, horas_punta, lista_y, mayus, metrica_bloque, miles,
                    rec_dia, redondo, respuestas, titular_calle, unas)
@@ -345,10 +346,54 @@ def paradas_del_radio(lat: float, lon: float) -> pd.DataFrame:
 
 
 def calcular(lat: float, lon: float) -> dict:
+    """Perfil, informe y nivel de movimiento del punto. Las recomendaciones dependen del tipo
+    de local elegido y se calculan aparte (con_rec), una vez por tipo."""
     perfil = P.perfil_horario(lat, lon)
     inf = I.informe_local(lat, lon, perfil=perfil)
-    rec = recomendar(lat, lon, perfil=perfil, inf=inf)
-    return {"perfil": perfil, "informe": inf, "rec": rec, "mov": nivel_movimiento(perfil)}
+    return {"perfil": perfil, "informe": inf, "recs": {}, "mov": nivel_movimiento(perfil)}
+
+
+def con_rec(r: dict, lat: float, lon: float) -> dict:
+    """Pone en r["rec"] las recomendaciones del tipo de local elegido (o las generales, sin
+    tipo). Se guardan por tipo en la sesión: cambiar de tipo no recalcula el perfil."""
+    tipo = st.session_state.get("tipo_local")
+    clave = tipo or "general"
+    if clave not in r["recs"]:
+        r["recs"][clave] = recomendar(lat, lon, perfil=r["perfil"], inf=r["informe"],
+                                      tipo_local=tipo)
+    r["rec"] = r["recs"][clave]
+    return r
+
+
+# ------------------------------------------------------------- tipo de local
+# El tipo de local elegido vive en la sesión («tipo_local») y se mantiene al cambiar de
+# dirección: quien tiene un bar de barrio lo sigue teniendo. El selector usa otra clave
+# («_tipo_widget») porque Streamlit borra el estado de un control que no se dibuja.
+def _cambiar_tipo() -> None:
+    st.session_state["tipo_local"] = st.session_state.get("_tipo_widget")
+    st.session_state["abierta"] = None
+
+
+def selector_tipo() -> None:
+    """«¿Qué tipo de local?»: siempre visible encima de las respuestas. Sin tipo elegido, lo
+    pide y avisa de que el resultado es general."""
+    tipo = st.session_state.get("tipo_local")
+    if "_tipo_widget" not in st.session_state:
+        st.session_state["_tipo_widget"] = tipo
+    with st.container(border=True, key="caja_tipo"):
+        st.markdown(
+            f"<div class='tipo-t'>{ico('taza')}¿Qué tipo de local?</div><div class='tipo-s'>"
+            + ("Elígelo para saber cuándo tendrías más clientes y qué te pedirían." if not tipo
+               else f"Las respuestas son para {html.escape(S.TIPOS_LOCAL_CORTO[tipo])}. "
+                    "Puedes cambiarlo cuando quieras.") + "</div>",
+            unsafe_allow_html=True)
+        st.pills("Tipo de local", list(S.TIPOS_LOCAL), format_func=S.TIPOS_LOCAL.get,
+                 key="_tipo_widget", on_change=_cambiar_tipo, label_visibility="collapsed")
+        if not tipo:
+            resto = S.AVISO_GENERAL.removeprefix("Resultado general, ")
+            st.markdown(nota("aviso", "<b>Resultado general.</b> "
+                             + html.escape(resto[0].upper() + resto[1:])),
+                        unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------- fuentes.md
@@ -450,7 +495,27 @@ def diez_clientes(rec: dict) -> None:
                 f"<div class='cifra-pie'>{texto}</div>", unsafe_allow_html=True)
 
 
-def cifra_cuando(rec: dict) -> None:
+def cifra_cuando(rec: dict, informe: bool = False) -> None:
+    """La cifra de la hora. Con tipo de local: la hora con más clientes; en el Resumen, sin
+    cifras de clientes (solo la hora y una comparación); en el Informe, con la cifra de
+    visitas posibles."""
+    if con_tipo(rec):
+        pc = rec["a_que_hora"]["detalle"]["laborable"].get("horas_punta_clientes") or []
+        if not pc:
+            return
+        mejor = max(pc, key=lambda h: h["total"])
+        h = int(mejor["hora"][:2])
+        if informe:
+            st.markdown(f"<div class='cifra'>≈{unas(mejor['total'])} visitas</div>"
+                        f"<div class='cifra-pie'>posibles a las {h}, la hora con más clientes "
+                        "de un día de diario, para todos los locales de ese tipo en "
+                        f"{S.RADIO_M} m (estimación).</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='cifra'>A las {h}</div><div class='cifra-pie'>es la hora "
+                        "con más clientes posibles de un día de diario. "
+                        f"{html.escape(comparacion_franjas(rec))}</div>",
+                        unsafe_allow_html=True)
+        return
     punta = rec["a_que_hora"]["detalle"]["laborable"]["horas_punta"]
     if punta:
         mejor = max(punta, key=lambda h: h["total"])
@@ -460,9 +525,11 @@ def cifra_cuando(rec: dict) -> None:
 
 
 def barras_que(rec: dict) -> None:
+    """Resumen: qué se pediría más, de más a menos, sin cifras de clientes (las cifras van
+    en el Informe completo)."""
     mo = rec["que_vender"]["momentos"]["laborable"]
-    datos = pd.DataFrame([{"momento": mayus(MOMENTO_CALLE[m]), "n": n,
-                           "txt": f"unos {unas(n)}"} for m, n in mo.items() if n > 0])
+    datos = pd.DataFrame([{"momento": mayus(MOMENTO_CALLE[m]), "n": n}
+                          for m, n in mo.items() if n > 0])
     if datos.empty:
         return
     datos = datos.sort_values("n", ascending=False).head(5)
@@ -470,19 +537,33 @@ def barras_que(rec: dict) -> None:
         y=alt.Y("momento:N", sort="-x", title=None,
                 axis=alt.Axis(labelFontSize=15, labelLimit=220, labelColor="#1f1b16",
                               ticks=False, domain=False)),
-        x=alt.X("n:Q", axis=None, scale=alt.Scale(domain=[0, datos["n"].max() * 1.7])))
-    st.markdown("<div class='cifra-pie'>Posibles clientes en un día de diario:</div>",
-                unsafe_allow_html=True)
+        x=alt.X("n:Q", axis=None, scale=alt.Scale(domain=[0, datos["n"].max() * 1.15])))
+    st.markdown("<div class='cifra-pie'>Lo que más te pedirían en un día de diario, de más a "
+                "menos:</div>", unsafe_allow_html=True)
     st.altair_chart(
-        (base.mark_bar(color=PRINCIPAL, cornerRadiusEnd=4, height=22)
-         + base.mark_text(align="left", dx=6, fontSize=15, color="#1f1b16").encode(
-             text="txt:N")).properties(height=42 * len(datos)).configure_view(strokeWidth=0),
-        width="stretch")
+        base.mark_bar(color=PRINCIPAL, cornerRadiusEnd=4, height=22)
+        .properties(height=42 * len(datos)).configure_view(strokeWidth=0), width="stretch")
 
 
 def barras_que_mini(rec: dict) -> None:
-    """Lo mismo que barras_que(), para una columna estrecha: una barra fina por momento, con
-    su nombre y su cifra encima. El largo de cada barra es su parte del momento mayor."""
+    """Informe completo: una barra fina por momento, con su nombre y su cifra encima. El largo
+    de cada barra es su parte del momento mayor. Con tipo de local, la cifra es la parte (en
+    %) de los clientes posibles de ese local en un día de diario, en todos sus momentos."""
+    if con_tipo(rec):
+        rp = sorted(rec["que_vender"].get("reparto", {}).get("laborable", {}).items(),
+                    key=lambda kv: -kv[1])
+        if not rp:
+            return
+        tope = rp[0][1]
+        st.markdown(
+            "<div class='lado-t'>Reparto de los clientes posibles en un día de diario</div>"
+            "<div class='mini'>"
+            + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
+                      f"<span>{100 * p:.0f} %</span><i style='width:{100 * p / tope:.0f}%'></i>"
+                      "</div>" for m, p in rp) + "</div>"
+            f"<div class='cifra-pie'>De las {html.escape(rec['tipo_local']['unidad'])} "
+            "(estimación).</div>", unsafe_allow_html=True)
+        return
     mo = sorted(((m, n) for m, n in rec["que_vender"]["momentos"]["laborable"].items()
                  if n > 0), key=lambda kv: -kv[1])[:5]
     if not mo:
@@ -576,6 +657,39 @@ def grafico_resumen(perfil: dict, rec: dict, dia: str) -> list[tuple[str, str]]:
         capas = barras + alt.Chart(marca).mark_text(
             dy=-9, fontSize=14, fontWeight=700, color=TINTA).encode(
             x="hora:O", y="personas:Q", text="txt:N")
+    st.altair_chart(capas.properties(height=300, padding={"top": 14, "left": 2, "right": 6,
+                                                          "bottom": 2})
+                    .configure_view(strokeWidth=0), width="stretch")
+    return [(grupos[0], TEJA), (grupos[1], TEJA_SUAVE)]
+
+
+def grafico_clientes_resumen(rec: dict, dia: str) -> list[tuple[str, str]]:
+    """Clientes posibles por horas, sin cifras: cada barra es la parte de la mejor hora (el
+    Resumen no da cifras de clientes; están en el Informe completo)."""
+    det = rec["a_que_hora"]["detalle"][dia]
+    v = det.get("clientes_por_hora") or [0.0] * 24
+    tope = max(max(v), 1e-9)
+    punta = set(horas_punta(rec, dia, True))
+    grupos = ["Horas con más clientes", "Resto del día"]
+    datos = pd.DataFrame({"hora": list(range(24)), "parte": [x / tope for x in v]})
+    datos["grupo"] = [grupos[0] if h in punta else grupos[1] for h in datos["hora"]]
+    datos["cuando"] = [f"{h} h" for h in datos["hora"]]
+    datos["txt"] = ["la mejor hora" if p >= 0.995 else "casi nadie" if p < 0.05
+                    else "más de la mitad que en la mejor" if p >= 0.5
+                    else "menos de la mitad que en la mejor" for p in datos["parte"]]
+    barras = alt.Chart(datos).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+        x=eje_horas(3, True), y=alt.Y("parte:Q", axis=None, title=None),
+        color=alt.Color("grupo:N", legend=None,
+                        scale=alt.Scale(domain=grupos, range=[TEJA, TEJA_SUAVE])),
+        tooltip=[alt.Tooltip("cuando:N", title="Hora"), alt.Tooltip("txt:N", title="Clientes")])
+    capas = barras
+    mejores = [hora_de_grupo(rec, dia, g, True) for g in grupos_horas(rec, dia, True)[:2]]
+    if mejores:
+        marca = pd.DataFrame([{"hora": h, "parte": v[h] / tope, "txt": f"{h} h"}
+                              for h in mejores])
+        capas = barras + alt.Chart(marca).mark_text(
+            dy=-9, fontSize=14, fontWeight=700, color=TINTA).encode(
+            x="hora:O", y="parte:Q", text="txt:N")
     st.altair_chart(capas.properties(height=300, padding={"top": 14, "left": 2, "right": 6,
                                                           "bottom": 2})
                     .configure_view(strokeWidth=0), width="stretch")
@@ -734,9 +848,17 @@ def leyenda_mapa(paradas: pd.DataFrame | None = None, cuenta: dict | None = None
     return out
 
 
-def grafico_perfil(perfil: dict, rec: dict, dia: str) -> None:
+def grafico_perfil(perfil: dict, rec: dict, dia: str, clientes: bool = False) -> None:
+    """Barras apiladas por tipo de cliente. Con `clientes`, los clientes posibles del tipo de
+    local elegido (visitas posibles para todos los locales de ese tipo en el radio)."""
     orden = list(COLOR_CLIENTE)
-    h = perfil["horas"].loc[dia][orden].reset_index()
+    if clientes:
+        cph = rec["clientes_por_hora"][dia]
+        tabla = pd.DataFrame({t: cph[t] for t in orden + ["total"]})
+        tabla.index.name = "hora"
+    else:
+        tabla = perfil["horas"].loc[dia]
+    h = tabla[orden].reset_index()
     largo = h.melt(id_vars="hora", var_name="tipo", value_name="personas")
     largo["cliente"] = largo["tipo"].map(S.TIPOS_CLIENTE)
     largo["orden"] = largo["tipo"].map({t: i for i, t in enumerate(orden)})
@@ -747,11 +869,12 @@ def grafico_perfil(perfil: dict, rec: dict, dia: str) -> None:
                                         range=[COLOR_CLIENTE[t] for t in orden])),
         order=alt.Order("orden:Q", sort="ascending"),
         tooltip=[alt.Tooltip("hora:O", title="Hora"), alt.Tooltip("cliente:N", title="Cliente"),
-                 alt.Tooltip("personas:Q", title="Personas (≈)", format=",.0f")],
+                 alt.Tooltip("personas:Q", title="Visitas posibles (≈)" if clientes
+                             else "Personas (≈)", format=",.0f")],
     )
-    tot = perfil["horas"].loc[dia]["total"]
+    tot = tabla["total"]
     punta = pd.DataFrame([{"hora": hh, "personas": float(tot.loc[hh]), "txt": "punta"}
-                          for hh in horas_punta(rec, dia)])
+                          for hh in horas_punta(rec, dia, clientes)])
     marcas = alt.Chart(punta).mark_text(dy=-9, fontSize=12, fontWeight=700,
                                         color=TINTA).encode(
         x="hora:O", y="personas:Q", text="txt:N")
@@ -1214,6 +1337,31 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
         presentes = perfil["horas"].loc[dia][list(COLOR_CLIENTE)].sum()
         leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
                              if presentes[t] > 0], "<span>«punta»: horas punta</span>")
+    if con_tipo(rec):
+        st.markdown("<div class='resp-apoyo' style='margin-top:1rem'>Clientes posibles por "
+                    f"hora para {html.escape(S.TIPOS_LOCAL_CORTO[rec['tipo_local']['clave']])}"
+                    f": {html.escape(rec['tipo_local']['unidad'])} (≈, estimación). Los vecinos "
+                    "cuentan aunque no pasen por delante: van a propósito.</div>",
+                    unsafe_allow_html=True)
+        with st.container(border=True, key="caja_perfil_clientes"):
+            grafico_perfil(perfil, rec, dia, clientes=True)
+            cph = rec["clientes_por_hora"][dia]
+            leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
+                                 if sum(cph[t]) > 0],
+                    "<span>«punta»: horas con más clientes</span>")
+        sens = rec["a_que_hora"]["detalle"][dia]["sensibilidad"]
+        with st.expander(f"Sensibilidad: ¿cambia la hora con más clientes? · {dia_txt.lower()}"):
+            st.markdown(
+                f"Con los supuestos tal cual, las horas con más clientes son "
+                f"{', '.join(f'{h} h' for h in sens['horas'])} («{sens['franja']}»). "
+                "Se repite el cálculo moviendo los supuestos a la mitad y al doble:\n\n"
+                + "\n".join(f"- Si {e['descripcion']}: {', '.join(f'{h} h' for h in e['horas'])}"
+                             f" («{e['franja']}»)"
+                             + (" → **cambia de franja**" if e["cambia_franja"] else "")
+                             for e in sens["escenarios"])
+                + ("\n\n**Estable:** la hora con más clientes no cambia de franja."
+                   if sens["estable"] else
+                   "\n\n**Cambia con poco:** la fiabilidad del horario de clientes es baja."))
     with st.expander(f"Perfil por franjas · {dia_txt.lower()} (≈ personas, estimación)"):
         fr = perfil["franjas"].loc[dia].rename(columns={**S.TIPOS_CLIENTE, "total": "Total"})
         fr.index = fr.index.astype(str)
@@ -1335,6 +1483,10 @@ if b_cmp and "res" not in b_cmp:
         with medir("cálculo"):
             b_cmp["res"] = {**calcular(*b_cmp["punto"]), "muni": muni_b}
         hueco.empty()
+if res:   # recomendaciones del tipo de local elegido (o generales), sin recalcular el perfil
+    con_rec(res, *punto)
+if b_cmp and "res" in b_cmp:
+    con_rec(b_cmp["res"], *b_cmp["punto"])
 cmp_fase = st.session_state.get("cmp_fase") if res else None
 pendiente = None if punto else st.session_state.get("pendiente")
 muni = res["muni"] if res else None
@@ -1414,12 +1566,27 @@ def parte_mapa(lat, lon, locs, alto: int, zoom: int = 16, paradas=None,
 def parte_grafico(perfil: dict, rec: dict) -> None:
     """Título, selector de día, gráfico por horas y leyenda."""
     dia_txt = st.session_state.get("dia_resumen") or "Día de diario"
-    st.markdown("<div class='caja-t'>Así se mueve la gente en un "
-                f"{dia_txt.lower()}</div><div class='caja-s'>Personas que pasan cerca, hora a "
-                "hora (estimación).</div>", unsafe_allow_html=True)
+    ver = (st.session_state.get("ver_resumen") or "Gente que pasa") if con_tipo(rec) \
+        else "Gente que pasa"
+    if ver == "Gente que pasa":
+        st.markdown("<div class='caja-t'>Así se mueve la gente en un "
+                    f"{dia_txt.lower()}</div><div class='caja-s'>Personas que pasan cerca, hora "
+                    "a hora (estimación).</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='caja-t'>Cuándo tendrías más clientes en un {dia_txt.lower()}"
+                    "</div><div class='caja-s'>Clientes posibles para "
+                    f"{html.escape(S.TIPOS_LOCAL_CORTO[rec['tipo_local']['clave']])}, hora a "
+                    "hora (estimación). Sin cifras: están en el Informe completo.</div>",
+                    unsafe_allow_html=True)
+    if con_tipo(rec):
+        st.segmented_control("Qué ver", ["Gente que pasa", "Tus clientes"],
+                             default="Gente que pasa", label_visibility="collapsed",
+                             key="ver_resumen")
     st.segmented_control("Día", list(DIA_RESUMEN), default="Día de diario",
                          label_visibility="collapsed", key="dia_resumen")
-    leyenda("", grafico_resumen(perfil, rec, DIA_RESUMEN[dia_txt]))
+    dia = DIA_RESUMEN[dia_txt]
+    leyenda("", grafico_resumen(perfil, rec, dia) if ver == "Gente que pasa"
+            else grafico_clientes_resumen(rec, dia))
 
 
 @fragmento("comprobaciones")
@@ -1445,6 +1612,7 @@ def vista_resumen(rec: dict, perfil: dict, inf: dict) -> None:
     if mov["muy_poco_paso"]:
         st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
     acciones()
+    selector_tipo()
     parte_tarjetas(rec, inf, mov["muy_poco_paso"])
 
     # ------------------------------------------------------- mapa y gente por horas
@@ -1496,6 +1664,7 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
             f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
             unsafe_allow_html=True)
         acciones()
+        selector_tipo()
         st.markdown(cabecera_seccion("movimiento", primera=True), unsafe_allow_html=True)
         with seccion("movimiento") as lado:
             st.markdown(
@@ -1528,7 +1697,8 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         seccion_pregunta("quien", resp["quien"], lambda: detalle_quien(rec),
                          lambda: diez_clientes(rec), aq["nota"])
         seccion_pregunta("hora", resp["cuando"], lambda: por_dias(hr["recomendaciones"]),
-                         lambda: cifra_cuando(rec))
+                         lambda: cifra_cuando(rec, informe=True),
+                         "" if con_tipo(rec) else S.AVISO_GENERAL)
         seccion_pregunta("vender", resp["que"], lambda: por_dias(
             qv["recomendaciones"],
             ("Huecos y cocinas", [r for r in qv["recomendaciones"] if "dia" not in r]
@@ -1646,6 +1816,7 @@ def vista_comparacion() -> None:
             data=lambda: comparacion_pdf(c, a, b, fu),
             file_name="barometro_comparacion.pdf", mime="application/pdf")
     st.markdown(nota_planes([("Informe", "comparar y descargar")]), unsafe_allow_html=True)
+    selector_tipo()
     agujas = tuple(f"<div class='cmp-aguja'>{aguja_svg(x['mov']['nivel'])}</div>"
                    for x in (a, b))
     filas = c["filas"]

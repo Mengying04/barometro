@@ -4,8 +4,8 @@ Permite que un asistente (Claude Desktop, Claude Code u otro cliente MCP) consul
 BARómetro. Expone cinco herramientas que solo llaman a las funciones que ya existen en
 src/, sin repetir cálculos:
 
-  - recomendar_local(lat, lon)   → recomendar()
-  - comparar_locales(lat1, lon1, lat2, lon2) → comparar() (src/comparar.py)
+  - recomendar_local(lat, lon, tipo_local)   → recomendar()
+  - comparar_locales(lat1, lon1, lat2, lon2, tipo_local) → comparar() (src/comparar.py)
   - perfil_por_horas(lat, lon)   → perfil_horario()
   - informe_de_zona(lat, lon)    → informe_local()
   - buscar_direccion(texto)      → geocodificar() y coordenadas() (CartoCiudad)
@@ -74,7 +74,10 @@ servidor = MCPServer(
         "un ganador. Si buscar_direccion no devuelve un portal exacto (una calle sin "
         "número, un municipio…), no calcules: pide antes el número o que confirmen el "
         "sitio. Mira primero el nivel de movimiento de la zona: si es «Muy poco paso», "
-        "dilo con claridad antes de recomendar nada. Presenta siempre los resultados como una orientación con "
+        "dilo con claridad antes de recomendar nada. Pregunta qué tipo de local es (bar "
+        "de barrio, cafetería o café para llevar, menú del día, comida para llevar o "
+        "restaurante de cenas) y pásalo en tipo_local: sin él, el resultado es general y "
+        "cuenta la gente que pasa, no los clientes. Presenta siempre los resultados como una orientación con "
         "estimaciones, nunca como una garantía, y menciona las fuentes y «Powered by CRTM». "
         "No hay nombres de locales ni precios en euros."),
     log_level="WARNING")
@@ -183,14 +186,28 @@ def _a_json(valor):
     return valor.item() if hasattr(valor, "item") else str(valor)
 
 
-def _calcular(lat: float, lon: float, que: str) -> tuple[dict, dict, dict | None, dict | None]:
+def _tipo(tipo_local: str | None) -> str | None:
+    """Tipo de local válido o None. Error claro si no es uno de los cinco."""
+    if tipo_local in (None, ""):
+        return None
+    tipos = _modulos()["supuestos"].TIPOS_LOCAL
+    if tipo_local not in tipos:
+        raise ToolError(f"tipo_local desconocido: «{tipo_local}». Valen: "
+                        + "; ".join(f"{k} ({v})" for k, v in tipos.items())
+                        + ". Sin tipo de local, el resultado es general.")
+    return tipo_local
+
+
+def _calcular(lat: float, lon: float, que: str,
+              tipo_local: str | None = None) -> tuple[dict, dict, dict | None, dict | None]:
     """Municipio, perfil y, si hacen falta, informe y recomendaciones del punto."""
+    tipo = _tipo(tipo_local)
     muni = _municipio(lat, lon)
     m = _modulos()
     with contextlib.redirect_stdout(sys.stderr):
         perfil = m["perfil"].perfil_horario(lat, lon)
         inf = m["informe"].informe_local(lat, lon, perfil=perfil) if que != "perfil" else None
-        rec = (m["rec"].recomendar(lat, lon, perfil=perfil, inf=inf)
+        rec = (m["rec"].recomendar(lat, lon, perfil=perfil, inf=inf, tipo_local=tipo)
                if que == "recomendar" else None)
     return muni, perfil, inf, rec
 
@@ -202,7 +219,8 @@ def _movimiento(perfil: dict) -> dict:
 
 # ------------------------------------------------------------------ herramientas
 @servidor.tool(title="Recomendaciones para un local")
-def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
+def recomendar_local(lat: float, lon: float,
+                     tipo_local: str | None = None) -> dict[str, Any]:
     """Recomendaciones para un bar o restaurante situado en un punto de la Comunidad de
     Madrid: a quién vender, a qué hora, qué vender y a qué precio.
 
@@ -229,12 +247,27 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
     al que se va a propósito o en coche no se puede valorar con estos datos; las cuatro
     respuestas valen entonces muy poco.
 
+    «tipo_local» (opcional) es el tipo de local: «bar_barrio» (bar de barrio, raciones y
+    desayunos), «cafeteria» (cafetería de desayunos o café para llevar), «menu_dia» (menú
+    del día), «comida_llevar» (comida para llevar) o «restaurante_cenas» (restaurante de
+    cenas). Pregúntalo si no lo sabes. Con él, a quién, a qué hora y qué ofrecer salen de los
+    CLIENTES POSIBLES de ese tipo de local (visitas posibles para todos los locales de ese
+    tipo en 300 m, estimación con supuestos), separados de cuándo PASA más gente: en
+    a_que_hora.detalle, «horas_punta» es la gente que pasa y «horas_punta_clientes», los
+    clientes; «sensibilidad» dice si la hora con más clientes cambia al mover los supuestos
+    a la mitad o al doble (si cambia, la confianza es baja: dilo). En que_vender, «reparto»
+    da la parte de cada momento de consumo. Sin tipo_local, el resultado es general
+    («general»: true, con «aviso_general»): cuenta la gente que pasa, no los clientes, y
+    debes decirlo. La gama de precios y los riesgos no dependen del tipo.
+
     Es una orientación con estimaciones, no una garantía: no estima la facturación ni da
     precios en euros, y no nombra locales. Si el punto está fuera de la Comunidad de
     Madrid, devuelve un error."""
-    muni, perfil, inf, rec = _calcular(lat, lon, "recomendar")
-    contenido = {k: rec[k] for k in ("radio_m", "a_quien", "a_que_hora", "que_vender",
-                                     "a_que_precio", "riesgos", "comprobar_en_persona")}
+    muni, perfil, inf, rec = _calcular(lat, lon, "recomendar", tipo_local)
+    contenido = {k: rec[k] for k in ("radio_m", "tipo_local", "general", "aviso_general",
+                                     "a_quien", "a_que_hora", "que_vender",
+                                     "a_que_precio", "riesgos", "comprobar_en_persona",
+                                     "clientes_por_hora")}
     return _respuesta(
         {"municipio": muni["nombre"], "fecha": rec["fecha"],
          "nivel_de_movimiento": _movimiento(perfil), **contenido},
@@ -242,7 +275,8 @@ def recomendar_local(lat: float, lon: float) -> dict[str, Any]:
 
 
 @servidor.tool(title="Comparar dos locales")
-def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict[str, Any]:
+def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float,
+                     tipo_local: str | None = None) -> dict[str, Any]:
     """Compara dos puntos de la Comunidad de Madrid como sitio para un bar o restaurante,
     aspecto por aspecto, con el mismo contenido que la comparación de la aplicación.
 
@@ -262,15 +296,20 @@ def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict
     no hay mejor ni peor. Trae también «personas_por_hora» de los dos sitios (laborable,
     sábado y domingo) y un «resumen» de dos o tres frases.
 
+    «tipo_local» (opcional, el mismo para los dos; ver recomendar_local): con él, se añade
+    la fila «cuándo tendrías más clientes» y «qué conviene ofrecer» compara los clientes
+    posibles de ese tipo de local en todo el día; sin él, el resultado es general.
+
     No declares un ganador: di en qué sale mejor cada uno, repite los veredictos tal cual
     (incluidos los que no deciden) y recuerda que es una orientación con estimaciones, no
     una garantía, y que conviene comprobarlo en persona en los dos sitios. No nombra
     locales ni guarda los puntos. Si alguno está fuera de la Comunidad de Madrid, devuelve
     un error."""
+    _tipo(tipo_local)   # un tipo desconocido da error antes de calcular nada
     lados = []
     for n, (lat, lon) in enumerate(((lat1, lon1), (lat2, lon2)), 1):
         try:
-            muni, perfil, inf, rec = _calcular(lat, lon, "recomendar")
+            muni, perfil, inf, rec = _calcular(lat, lon, "recomendar", tipo_local)
         except ToolError as e:
             raise ToolError(f"Local {n}: {e}") from None
         lados.append({"nombre": f"Local {n} ({muni['nombre']})", "perfil": perfil,
@@ -282,6 +321,7 @@ def comparar_locales(lat1: float, lon1: float, lat2: float, lon2: float) -> dict
          "locales": {k: {"nombre": x["nombre"], "municipio": x["municipio"],
                          "lat": x["lat"], "lon": x["lon"]}
                      for k, x in zip("ab", lados)},
+         "tipo_local": c["tipo_local"], "aviso_general": c["aviso_general"],
          "filas": c["filas"], "resumen": c["resumen"],
          "personas_por_hora": {k: {"laborable": v["laborable"], "sabado": v["fin_de_semana"],
                                    "domingo": v["domingo"]}

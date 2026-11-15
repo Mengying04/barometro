@@ -6,6 +6,7 @@
 Desde la terminal:
     python src/recomendaciones.py 40.4046 -3.6106          # Markdown
     python src/recomendaciones.py 40.4046 -3.6106 --json   # JSON
+    python src/recomendaciones.py 40.4046 -3.6106 bar_barrio   # para un tipo de local
 
 Combina el perfil por horas (src/perfil_horario.py) y el informe del local
 (src/informe_local.py). Cada recomendación lleva:
@@ -32,6 +33,7 @@ from fecha import hoy
 from informe_local import (_A_UTM, a_markdown as _md_informe, dec, en_radio, informe_local,
                            locales)
 from perfil_horario import DIAS, TIPOS, horas_punta, perfil_horario
+from tipo_local import UNIDAD, clientes_local, comprobar_tipo, sensibilidad
 
 NIVELES = ["baja", "media", "alta"]
 NOMBRE_DIA = {"laborable": "laborable", "fin_de_semana": "sábado", "domingo": "domingo"}
@@ -147,7 +149,9 @@ def horarios_competencia(punto, radio: float, dia: str) -> dict:
 
 
 # ============================================================================ A QUIÉN
-def a_quien(perfil: dict) -> dict:
+def a_quien(perfil: dict, cl: dict | None = None) -> dict:
+    """Con `cl` (clientes de un tipo de local, src/tipo_local.py) los pesos son los de sus
+    clientes posibles; sin él, gente que pasa × propensión a pararse (resultado general)."""
     fr = perfil["franjas"]
     tabla, recs = {}, []
     for d in DIAS:
@@ -163,22 +167,48 @@ def a_quien(perfil: dict) -> dict:
         if dia_tot.sum() == 0:
             continue
         paso = dia_tot / dia_tot.sum()
-        clientes = dia_tot * pd.Series(S.PROPENSION_CONSUMO)[TIPOS]
+        if cl is None:
+            clientes = dia_tot * pd.Series(S.PROPENSION_CONSUMO)[TIPOS]
+            fr_cli = fr
+        else:
+            clientes = cl["franjas"].loc[d][TIPOS].sum()
+            fr_cli = cl["franjas"]
+        if clientes.sum() <= 0:
+            continue
         pesos = (clientes / clientes.sum()).sort_values(ascending=False)
         principales = [t for t, p in pesos.items() if p >= S.PESO_MINIMO_CLIENTE][:3]
-        mejor_franja = {t: fr.loc[d][t].idxmax() for t in principales}
+        mejor_franja = {t: fr_cli.loc[d][t].idxmax() for t in principales}
+
+        def motivo(t: str) -> str:
+            if cl is None:
+                return (f"(propensión a pararse {dec(S.PROPENSION_CONSUMO[t])}); su franja "
+                        f"fuerte es «{mejor_franja[t]}».")
+            como = ("van a propósito aunque no pasen por delante" if t == "vecinos"
+                    else "de la gente de este tipo que pasa, se para una parte supuesta")
+            return (f"para {S.TIPOS_LOCAL_CORTO[cl['tipo']]} ({como}); su franja fuerte es "
+                    f"«{mejor_franja[t]}».")
         recs.append(rec(
             f"En {NOMBRE_DIA[d]}, orientar la oferta sobre todo a "
             + ", ".join(f"{nombre(t).lower()} ({pct(pesos[t])})" for t in principales)
             + ".",
             [f"{nombre(t)}: {pct(paso[t])} de la gente que pasa cerca en el día "
              f"(~{miles(dia_tot[t])} pasos) y {pct(pesos[t])} de los clientes posibles "
-             f"(propensión a pararse {dec(S.PROPENSION_CONSUMO[t])}); su franja fuerte "
-             f"es «{mejor_franja[t]}»." for t in principales],
+             + motivo(t) for t in principales],
             conf_min(*(conf_tipo(t, "cantidad") for t in principales
                        if pesos[t] >= S.PESO_CONFIANZA_FRANJA)), "estimación",
             dia=d, pesos={t: round(float(pesos[t]), 3) for t in principales}))
+    if cl is not None:
+        tabla = {d: {f: {"personas": int(round(float(cl["franjas"].loc[(d, f)]["total"]))),
+                         "clientes": [
+                             {"tipo": t, "nombre": nombre(t), "peso": round(float(p), 3)}
+                             for t, p in (cl["franjas"].loc[(d, f)][TIPOS]
+                                          / cl["franjas"].loc[(d, f)]["total"])
+                             .sort_values(ascending=False).items()
+                             if p >= S.PESO_MINIMO_CLIENTE]
+                         if cl["franjas"].loc[(d, f)]["total"] > 0 else []}
+                     for f in FRANJAS} for d in DIAS}
     return {"recomendaciones": recs, "por_franja": tabla,
+            "por_franja_de": "clientes" if cl is not None else "paso",
             "nota": "Tres tipos de día: laborable (martes a jueves típico), sábado y "
                     "domingo, cada uno con el horario real de transporte de ese día y sus "
                     "supuestos. El domingo sirve también, de forma aproximada, para los "
@@ -186,11 +216,16 @@ def a_quien(perfil: dict) -> dict:
 
 
 # ========================================================================= A QUÉ HORA
-def a_que_hora(perfil: dict, punto, radio: float) -> dict:
+def a_que_hora(perfil: dict, punto, radio: float, cl: dict | None = None,
+               sens: dict | None = None) -> dict:
+    """Sin tipo de local, las franjas y horas punta salen de la gente que pasa (resultado
+    general). Con `cl` (clientes de un tipo de local) y `sens` (su sensibilidad), salen de
+    los clientes posibles; las horas punta de paso se guardan igual en el detalle."""
     fr = perfil["franjas"]
     recs, detalle = [], {}
     for d in DIAS:
-        ph = por_hora(fr, d)
+        ph_paso = por_hora(fr, d)
+        ph = por_hora(cl["franjas"], d) if cl is not None else ph_paso
         if ph.max() <= 0:
             continue
         rel = ph / ph.max()
@@ -198,29 +233,74 @@ def a_que_hora(perfil: dict, punto, radio: float) -> dict:
                      "valorar" if r >= S.APERTURA_VALORAR else "no compensa")
                  for f, r in rel.items()}
         comp = horarios_competencia(punto, radio, d)
-        punta = horas_punta(perfil, d, 3)
+        punta_paso = horas_punta(perfil, d, 3)
+        punta = horas_punta(cl, d, 3) if cl is not None else punta_paso
         abrir = [f for f in FRANJAS if clase[f] == "abrir"]
         valorar = [f for f in FRANJAS if clase[f] == "valorar"]
+        base_fr = cl["franjas"] if cl is not None else fr
         tipos_abrir = {t for f in abrir for t in TIPOS
-                       if fr.loc[(d, f)]["total"] > 0
-                       and fr.loc[(d, f)][t] / fr.loc[(d, f)]["total"]
+                       if base_fr.loc[(d, f)]["total"] > 0
+                       and base_fr.loc[(d, f)][t] / base_fr.loc[(d, f)]["total"]
                        >= S.PESO_CONFIANZA_FRANJA}
         conf = conf_min(*(conf_tipo(t, "horario") for t in tipos_abrir))
-        porque = [f"«{f}»: ~{miles(ph[f])} personas por hora ({pct(rel[f])} de la mejor "
-                  "franja)" for f in FRANJAS]
-        porque.append("Horas punta: " + "; ".join(
-            f"{r.hora} (~{miles(r.total)}; {r.reparto})" for r in punta.itertuples()))
-        recs.append(rec(
-            f"En {NOMBRE_DIA[d]}, conviene abrir en: " + ", ".join(abrir)
-            + (f"; valorar: {', '.join(valorar)}" if valorar else "")
-            + f". Horas punta: {', '.join(punta['hora'])}.",
-            porque, conf, "estimación", dia=d, clase=clase))
+        if cl is None:
+            conf_paso = conf
+        else:   # la de las horas de paso, como en el resultado general (para comparar)
+            rel_p = ph_paso / ph_paso.max()
+            conf_paso = conf_min(*(conf_tipo(t, "horario") for f in FRANJAS
+                                   if rel_p[f] >= S.APERTURA_ABRIR for t in TIPOS
+                                   if fr.loc[(d, f)]["total"] > 0
+                                   and fr.loc[(d, f)][t] / fr.loc[(d, f)]["total"]
+                                   >= S.PESO_CONFIANZA_FRANJA))
+        if cl is None:
+            porque = [f"«{f}»: ~{miles(ph[f])} personas por hora ({pct(rel[f])} de la "
+                      "mejor franja)" for f in FRANJAS]
+            porque.append("Horas punta: " + "; ".join(
+                f"{r.hora} (~{miles(r.total)}; {r.reparto})" for r in punta.itertuples()))
+            porque.append(S.AVISO_GENERAL)
+            texto = (f"En {NOMBRE_DIA[d]}, conviene abrir en: " + ", ".join(abrir)
+                     + (f"; valorar: {', '.join(valorar)}" if valorar else "")
+                     + f". Horas punta: {', '.join(punta['hora'])}.")
+        else:
+            sd = sens[d]
+            # Los vecinos ya no cuentan por la hora a la que pasan (confianza «orientativa»):
+            # van a propósito, con un reparto supuesto. La confianza es la del horario de paso
+            # de los demás tipos que pesan, como mucho media (las tasas y las visitas son
+            # supuestos) y baja si la hora con más clientes cambia de franja con poco.
+            conf = conf_min(*(conf_tipo(t, "horario") for t in tipos_abrir if t != "vecinos"),
+                            "media" if sd["estable"] else "baja")
+            corto = S.TIPOS_LOCAL_CORTO[cl["tipo"]]
+            porque = [f"«{f}»: ~{miles(ph[f])} clientes posibles por hora ({pct(rel[f])} de "
+                      "la mejor franja)" for f in FRANJAS]
+            porque.append("Horas con más clientes: " + "; ".join(
+                f"{r.hora} (~{miles(r.total)}; {r.reparto})" for r in punta.itertuples()))
+            porque.append("Horas con más gente de paso: "
+                          + ", ".join(punta_paso["hora"]) + ".")
+            porque.append(f"Clientes posibles para {corto}: {UNIDAD} (estimación). Salen de "
+                          "la gente que "
+                          "pasa (tasa de parada supuesta por tipo de cliente y hora) y de los "
+                          "vecinos que van a propósito (visitas supuestas por vecino y día); "
+                          "src/supuestos.py, sección «TIPO DE LOCAL».")
+            cambios = [e["descripcion"] for e in sd["escenarios"] if e["cambia_franja"]]
+            porque.append(
+                "Sensibilidad: con las tasas de parada o las visitas de los vecinos a la "
+                "mitad o al doble, la hora con más clientes "
+                + ("sigue en la misma franja." if sd["estable"] else
+                   "cambia de franja si " + " o si ".join(cambios)
+                   + ": cambia con poco, la fiabilidad del horario es baja."))
+            texto = (f"En {NOMBRE_DIA[d]}, para {corto}, conviene abrir en: "
+                     + ", ".join(abrir)
+                     + (f"; valorar: {', '.join(valorar)}" if valorar else "")
+                     + f". Horas con más clientes: {', '.join(punta['hora'])}"
+                     + ("" if sd["estable"] else " (cambia con poco: poco fiable)") + ".")
+        recs.append(rec(texto, porque, conf, "estimación", dia=d, clase=clase))
         if comp["por_franja"]:
             huecos = [f for f in abrir if comp["por_franja"][f] < S.HUECO_HORARIO]
             porque_c = [f"«{f}»: abre el {pct(v)} de los {comp['con_horario']} locales "
                         "con horario en OpenStreetMap" for f, v in comp["por_franja"].items()]
+            hay = "hay movimiento" if cl is None else "hay clientes posibles"
             texto = (f"Posible hueco horario en {NOMBRE_DIA[d]}: " + ", ".join(huecos)
-                     + " (hay movimiento y abren pocos locales)." if huecos else
+                     + f" ({hay} y abren pocos locales)." if huecos else
                      f"En {NOMBRE_DIA[d]} la competencia con horario conocido cubre las "
                      "franjas con movimiento: no se ve un hueco horario claro.")
             recs.append(rec(texto, porque_c + [
@@ -235,8 +315,17 @@ def a_que_hora(perfil: dict, punto, radio: float) -> dict:
                  "OpenStreetMap del radio indican su horario (mínimo "
                  f"{S.HORARIOS_MINIMO_LOCALES}); el censo de Madrid no tiene horarios."],
                 "baja", "dato", dia=d))
-        detalle[d] = {"personas_por_hora": ph.round().to_dict(), "clase": clase,
-                      "competencia": comp, "horas_punta": punta.to_dict("records")}
+        detalle[d] = {"personas_por_hora": ph_paso.round().to_dict(), "clase": clase,
+                      "competencia": comp, "horas_punta": punta_paso.to_dict("records"),
+                      "confianza_paso": conf_paso}
+        if cl is not None:
+            tot = cl["horas"].loc[d]["total"]
+            detalle[d].update(
+                clase_de="clientes",
+                clientes_por_hora=[round(float(v), 1) for v in tot],
+                clientes_por_franja=ph.round(1).to_dict(),
+                horas_punta_clientes=punta.to_dict("records"),
+                sensibilidad=sens[d])
     return {"recomendaciones": recs, "detalle": detalle}
 
 
@@ -257,6 +346,37 @@ def momentos(perfil: dict) -> dict:
                     m = S.MOMENTO_SOLO_LABORABLE.get(m, m)
                 tot[m] += n
                 aporte[m].append((t, f, n))
+        out[d] = {"total": tot, "aporte": aporte}
+    return out
+
+
+def momentos_local(cl: dict) -> dict:
+    """Clientes posibles de cada momento de consumo para un tipo de local: los de cada
+    franja se reparten entre los momentos que encajan a la vez con el cliente
+    (TABLA_MOMENTOS) y con el local (MOMENTOS_LOCAL); si no encaja ninguno, entre los del
+    local en esa franja. Una franja en la que el local no vende no cuenta."""
+    tipo, fr = cl["tipo"], cl["franjas"]
+    out = {}
+    for d in DIAS:
+        cambio = {} if d == "laborable" else {
+            **S.MOMENTO_SOLO_LABORABLE, **S.MOMENTO_SOLO_LABORABLE_LOCAL.get(tipo, {})}
+        del_local = {f: list(dict.fromkeys(cambio.get(m, m) for m in ms))
+                     for f, ms in S.MOMENTOS_LOCAL[tipo].items()}
+        nombres = list(dict.fromkeys(m for ms in del_local.values() for m in ms))
+        tot = {m: 0.0 for m in nombres}
+        aporte = {m: [] for m in nombres}
+        for f in FRANJAS:
+            if not del_local[f]:
+                continue
+            for t in TIPOS:
+                n = float(fr.loc[(d, f)][t])
+                if n <= 0:
+                    continue
+                cli = [cambio.get(m, m) for m in S.TABLA_MOMENTOS.get((t, f), [])]
+                ms = [m for m in dict.fromkeys(cli) if m in del_local[f]] or del_local[f]
+                for m in ms:
+                    tot[m] += n / len(ms)
+                    aporte[m].append((t, f, n / len(ms)))
         out[d] = {"total": tot, "aporte": aporte}
     return out
 
@@ -311,16 +431,20 @@ def huecos_competencia(inf: dict) -> list[dict]:
     return out
 
 
-def que_vender(perfil: dict, inf: dict) -> dict:
-    mo = momentos(perfil)
-    recs = []
+def que_vender(perfil: dict, inf: dict, cl: dict | None = None) -> dict:
+    """Sin tipo de local: los momentos con al menos la mitad de clientes posibles que el más
+    fuerte (resultado general). Con `cl`: todos los momentos de ese tipo de local, con su
+    parte (en %) de los clientes posibles del día."""
+    mo = momentos(perfil) if cl is None else momentos_local(cl)
+    recs, reparto = [], {}
     for d in DIAS:
-        tot = pd.Series(mo[d]["total"])
-        if tot.max() <= 0:
+        tot = pd.Series(mo[d]["total"], dtype=float)
+        if tot.empty or tot.max() <= 0:
             continue
         orden = tot.sort_values(ascending=False)
+        reparto[d] = {m: round(float(n / tot.sum()), 3) for m, n in orden.items() if n > 0}
         for m, n in orden.items():
-            if n < S.MOMENTO_RECOMENDAR * orden.iloc[0] or n <= 0:
+            if n <= 0 or (cl is None and n < S.MOMENTO_RECOMENDAR * orden.iloc[0]):
                 break
             agrupado: dict = {}
             for t, f, x in mo[d]["aporte"][m]:
@@ -331,16 +455,27 @@ def que_vender(perfil: dict, inf: dict) -> dict:
                 .groupby(level=0).sum() / n
             fuertes = [t for t, p in por_tipo.items() if p >= S.PESO_CONFIANZA_FRANJA]
             conf = conf_min("media", *(conf_tipo(t, "cantidad") for t in fuertes))
+            if cl is None:
+                texto = (f"{NOMBRE_DIA[d].capitalize()}: {S.MOMENTOS[m].lower()} "
+                         f"(~{miles(n)} clientes posibles; {pct(n / tot.sum())} del total de "
+                         "momentos del día).")
+                como = ("Clientes posibles = gente que pasa × propensión a pararse (viajeros "
+                        "0,3; padres y niños 0,6), repartida entre los momentos de su franja "
+                        "según la tabla TABLA_MOMENTOS de src/supuestos.py (supuesto).")
+            else:
+                texto = (f"{NOMBRE_DIA[d].capitalize()}: {S.NOMBRE_MOMENTO[m].lower()}, "
+                         f"{pct(n / tot.sum())} de los clientes posibles del día para "
+                         f"{S.TIPOS_LOCAL_CORTO[cl['tipo']]} (~{miles(n)} {UNIDAD}; estimación).")
+                como = ("Clientes posibles del tipo de local (src/tipo_local.py), repartidos "
+                        "entre los momentos que encajan a la vez con cada cliente "
+                        "(TABLA_MOMENTOS) y con lo que vende el local en cada franja "
+                        "(MOMENTOS_LOCAL), en src/supuestos.py (supuesto).")
             recs.append(rec(
-                f"{NOMBRE_DIA[d].capitalize()}: {S.MOMENTOS[m].lower()} "
-                f"(~{miles(n)} clientes posibles; {pct(n / tot.sum())} del total de "
-                "momentos del día).",
+                texto,
                 [f"{nombre(t)} en «{f}»: ~{miles(x)} clientes posibles"
-                 for t, f, x in principales]
-                + ["Clientes posibles = gente que pasa × propensión a pararse (viajeros "
-                   "0,3; padres y niños 0,6), repartida entre los momentos de su franja según la tabla "
-                   "TABLA_MOMENTOS de src/supuestos.py (supuesto)."],
-                conf, "estimación", dia=d, momento=m))
+                 for t, f, x in principales] + [como],
+                conf, "estimación", dia=d, momento=m,
+                **({"parte": round(float(n / tot.sum()), 3)} if cl is not None else {})))
     huecos = huecos_competencia(inf)
     # Cruce: hueco de comidas y momento de comida o cena recomendado
     falta_comidas = any(h.get("tipo") == "sirven_comidas" and h.get("sentido") == "falta"
@@ -370,8 +505,11 @@ def que_vender(perfil: dict, inf: dict) -> dict:
                               f"cocina (hacen falta al menos {S.COCINAS_MINIMO_LOCALES} "
                               f"locales y más del {pct(S.COCINAS_MINIMA_FRACCION)})."],
                    "confianza": "baja", "base": "dato"}
-    return {"recomendaciones": recs, "huecos": huecos, "cocinas": cocinas,
-            "momentos": {d: {m: round(v) for m, v in mo[d]["total"].items()} for d in DIAS}}
+    out = {"recomendaciones": recs, "huecos": huecos, "cocinas": cocinas,
+           "momentos": {d: {m: round(v) for m, v in mo[d]["total"].items()} for d in DIAS}}
+    if cl is not None:
+        out["reparto"] = reparto
+    return out
 
 
 # ======================================================================= A QUÉ PRECIO
@@ -528,7 +666,8 @@ def riesgos(perfil: dict, inf: dict) -> list[dict]:
     return out[:S.MAX_RIESGOS]
 
 
-def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict) -> list[str]:
+def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict,
+                   tipo: str | None = None) -> list[str]:
     lab = perfil["horas"].loc["laborable"]
     punta = horas_punta(perfil, "laborable", 1)
     pesos = lab[TIPOS].sum() / max(lab[TIPOS].sum().sum(), 1)
@@ -540,6 +679,13 @@ def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict) -> list[st
                    f"hora punta de un laborable ({h['hora']}) y comparar con la estimación "
                    f"(~{miles(h['total'] / 4)} personas en 15 minutos); repetirlo en una "
                    "hora floja.")
+    pc = hora["detalle"].get("laborable", {}).get("horas_punta_clientes") if tipo else None
+    if pc:
+        h = max(pc, key=lambda x: x["total"])
+        out.append(f"Contar los clientes de 2 o 3 locales como el tuyo ({S.TIPOS_LOCAL[tipo].lower()}) "
+                   f"en la hora con más clientes de un laborable ({h['hora']}) y en la de más "
+                   "gente de paso, para ver si de verdad hay más clientes cuando dice la "
+                   "estimación.")
     out.append("Anotar en 3 a 5 locales del radio el precio del café, la caña, el menú del "
                "día y una ración, y si tienen menú del día.")
     out.append("Comprobar a qué hora abren y cierran de verdad los bares y restaurantes del "
@@ -570,31 +716,48 @@ def comprobaciones(perfil: dict, inf: dict, hora: dict, vender: dict) -> list[st
 
 # ========================================================================== principal
 def recomendar(lat: float, lon: float, radio: float = S.RADIO_M,
-               perfil: dict | None = None, inf: dict | None = None) -> dict:
+               perfil: dict | None = None, inf: dict | None = None,
+               tipo_local: str | None = None) -> dict:
     """Recomendaciones para un bar o restaurante en el punto (ORIENTACIÓN).
 
     `perfil` e `inf` son los resultados de perfil_horario() e informe_local() para el
     mismo punto y radio; si se pasan (por ejemplo, desde la aplicación web), no se
-    vuelven a calcular."""
+    vuelven a calcular.
+
+    `tipo_local` (una clave de supuestos.TIPOS_LOCAL): con él, a quién, a qué hora y qué
+    ofrecer salen de los clientes posibles de ese tipo de local (src/tipo_local.py); sin él,
+    de la gente que pasa (resultado general, y se dice). La gama de precios, los riesgos y
+    las horas punta de paso no dependen del tipo de local."""
+    comprobar_tipo(tipo_local)
     if perfil is None:
         perfil = perfil_horario(lat, lon, radio)
     if inf is None:
         inf = informe_local(lat, lon, radio, perfil=perfil)
     x, y = _A_UTM.transform(lon, lat)
     punto = shapely.Point(x, y)
-    hora = a_que_hora(perfil, punto, radio)
-    vender = que_vender(perfil, inf)
+    cl = clientes_local(perfil, tipo_local) if tipo_local else None
+    sens = sensibilidad(perfil, tipo_local) if tipo_local else None
+    hora = a_que_hora(perfil, punto, radio, cl, sens)
+    vender = que_vender(perfil, inf, cl)
     return {
         "punto": {"lat": lat, "lon": lon}, "radio_m": radio, "municipio": inf["municipio"],
         "fecha": hoy().isoformat(),
         "aviso": "Orientaciones a partir de datos abiertos y supuestos explícitos, no "
                  "garantías. Toda cifra de personas es una estimación.",
-        "a_quien": a_quien(perfil),
+        "tipo_local": ({"clave": tipo_local, "nombre": S.TIPOS_LOCAL[tipo_local],
+                        "unidad": UNIDAD} if tipo_local else None),
+        "general": tipo_local is None,
+        "aviso_general": S.AVISO_GENERAL if tipo_local is None else None,
+        "a_quien": a_quien(perfil, cl),
         "a_que_hora": hora,
         "que_vender": vender,
         "a_que_precio": a_que_precio(perfil, inf),
         "riesgos": riesgos(perfil, inf),
-        "comprobar_en_persona": comprobaciones(perfil, inf, hora, vender),
+        "comprobar_en_persona": comprobaciones(perfil, inf, hora, vender, tipo_local),
+        # Clientes posibles por hora y tipo de cliente (para los gráficos); solo con tipo.
+        "clientes_por_hora": ({d: {t: [round(float(v), 2) for v in cl["horas"].loc[d][t]]
+                                   for t in TIPOS + ["total"]} for d in DIAS}
+                              if cl is not None else None),
     }
 
 
@@ -608,11 +771,15 @@ def a_markdown(r: dict) -> str:
     m = r["municipio"]
     out = [f"## Recomendaciones · {r['punto']['lat']}, {r['punto']['lon']} · {m['nombre']} "
            f"· radio {r['radio_m']:.0f} m", "", f"> {r['aviso']}", ""]
+    out += ([f"**Tipo de local:** {r['tipo_local']['nombre']}. Clientes posibles: "
+             f"{r['tipo_local']['unidad']} (estimación).", ""] if r["tipo_local"]
+            else [f"**{r['aviso_general']}**", ""])
     out += ["### A quién vender", ""]
     for x in r["a_quien"]["recomendaciones"]:
         out += _md_rec(x)
-    out += ["", "Clientes principales por franja (peso ≥ "
-            f"{pct(S.PESO_MINIMO_CLIENTE)}, estimación):", "",
+    out += ["", ("Clientes posibles" if r["tipo_local"] else "Gente que pasa")
+            + " por franja, tipos con peso ≥ "
+            f"{pct(S.PESO_MINIMO_CLIENTE)} (estimación):", "",
             "| Franja | Laborable | Sábado | Domingo |", "|---|---|---|---|"]
     t = r["a_quien"]["por_franja"]
     celda = lambda c: ", ".join(f"{x['nombre']} {pct(x['peso'])}" for x in c["clientes"]) \
@@ -645,7 +812,8 @@ def a_markdown(r: dict) -> str:
 
 def main(argv: list[str]) -> int:
     lat, lon = float(argv[0]), float(argv[1])
-    r = recomendar(lat, lon)
+    tipo = next((a for a in argv[2:] if a in S.TIPOS_LOCAL), None)
+    r = recomendar(lat, lon, tipo_local=tipo)
     if "--json" in argv:
         print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
     else:

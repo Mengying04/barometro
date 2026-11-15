@@ -34,7 +34,9 @@ USO = {
     "1923861": "Viajeros por estación de Cercanías, para ajustar las estaciones grandes",
     "secciones_censales": "Límites de la Comunidad y de los municipios",
     "gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006": "Gasto medio por persona en "
-                                                               "bares y restaurantes",
+                                                               "bares y restaurantes, y "
+                                                               "contraste de las visitas "
+                                                               "por tipo de local",
     "ipc_base_2025": "Cuánto han subido los precios de la restauración y de los alimentos",
     "alojamientos_turisticos": "Alojamientos turísticos del código postal y del municipio",
     "declaraciones_actividad_viviendas_uso_turistico": "Viviendas de uso turístico "

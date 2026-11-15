@@ -11,6 +11,9 @@ salida 1) si algo se sale de lo esperado:
   4. Transporte: las seis redes tienen paradas, líneas y servicio en laborable, en sábado
      y en domingo, con personas por vehículo válidas los tres días.
   5. Mapa: todos los puntos caen dentro de la Comunidad de Madrid (con margen).
+  6. Visitas de los vecinos (tipo de local): el gasto que suponen, con el precio por visita
+     supuesto, no supera la parte supuesta del gasto medio por persona en restauración de
+     la Encuesta de Presupuestos Familiares (src/supuestos.py, «TIPO DE LOCAL»).
 
 No cambia ningún dato. Lo usa el flujo de GitHub Actions que actualiza los datos cada
 semana (.github/workflows/actualizar-datos.yml) antes de proponer los cambios, y se puede
@@ -254,6 +257,26 @@ def comprobar_mapa(tablas: dict[str, pd.DataFrame], inf: Informe) -> None:
                "; ".join(fuera) or "ninguno")
 
 
+def comprobar_gasto(tablas: dict[str, pd.DataFrame], inf: Informe) -> None:
+    """Las visitas supuestas de los vecinos a todos los tipos de local, por su precio
+    supuesto, frente al gasto medio por persona en restauración (EPF, último año)."""
+    import supuestos as S
+    g = tablas.get("informe/gasto_restauracion.csv")
+    if g is None or g.empty:
+        inf.anotar(False, "Visitas de los vecinos frente al gasto (EPF)",
+                   "falta informe/gasto_restauracion.csv")
+        return
+    g = g[g["Concepto"] == "Gasto medio por persona de los hogares en restauración"]
+    anyo = g["Año"].max()
+    gasto = float(g.loc[g["Año"] == anyo, "Valor"].iloc[0])
+    euros = sum(sum(S.DIAS_SEMANA[d] * v for d, v in S.VISITAS_VECINO[t].items())
+                * 365 / 7 * S.PRECIO_VISITA[t] for t in S.TIPOS_LOCAL)
+    limite = S.PARTE_GASTO_CERCA_DE_CASA * gasto
+    inf.anotar(euros <= limite, "Visitas de los vecinos frente al gasto (EPF)",
+               f"{miles(euros)} € por persona y año, {100 * euros / gasto:.0f} % de "
+               f"{miles(gasto)} € ({anyo}); límite {100 * S.PARTE_GASTO_CERCA_DE_CASA:.0f} %")
+
+
 def comprobar(d: Path = PROC) -> Informe:
     inf = Informe()
     tablas: dict[str, pd.DataFrame] = {}
@@ -262,6 +285,7 @@ def comprobar(d: Path = PROC) -> Informe:
     comprobar_poblacion(tablas, inf)
     comprobar_transporte(d, tablas, inf)
     comprobar_mapa(tablas, inf)
+    comprobar_gasto(tablas, inf)
     return inf
 
 

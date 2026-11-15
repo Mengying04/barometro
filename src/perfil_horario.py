@@ -252,6 +252,7 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
       confianza: confianza de cada tipo de cliente para el horario y para la cantidad,
                  y por qué.
       elementos: cuántos elementos de cada fuente hay dentro del radio.
+      poblacion_radio: población del radio ponderada por distancia (estimación).
       punto, radio_m.
     """
     x, y = _A_UTM.transform(lon, lat)
@@ -301,6 +302,9 @@ def perfil_horario(lat: float, lon: float, radio: float = S.RADIO_M) -> dict:
         "horas": horas,
         "franjas": franjas,
         "confianza": confianza,
+        # Población del radio (ponderada por distancia), sin redondear: la usa
+        # src/tipo_local.py para los vecinos que van a propósito.
+        "poblacion_radio": pob,
         "elementos": {
             "centros educativos": n_edu,
             "campus universitarios": n_campus,

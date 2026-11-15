@@ -29,9 +29,9 @@ from fpdf import FPDF
 from fpdf.enums import MethodReturnValue, XPos, YPos
 
 import supuestos as S
-from calle import (COLOR_TIPO, FIABILIDAD, bloque_inf, comprobaciones_calle, dec,
-                   grupos_horas, hora_de_grupo, horas_punta, metrica_bloque, miles,
-                   redondo, respuestas, titular_calle)
+from calle import (COLOR_TIPO, FIABILIDAD, bloque_inf, comprobaciones_calle,
+                   dec, estable, frases_cuando, grupos_horas, hora_de_grupo, horas_punta,
+                   metrica_bloque, miles, redondo, respuestas, titular_calle)
 
 RAIZ = Path(__file__).resolve().parent.parent
 LETRA = RAIZ / "app" / "letra"
@@ -365,13 +365,19 @@ def informe_pdf(res: dict, lugar: str, fu: dict, punto: tuple[float, float] | No
     rec, inf, perfil, mov = res["rec"], res["informe"], res["perfil"], res["mov"]
     resp = respuestas(rec, inf)
     d = _Doc("BARómetro: informe del local")
+    tipo = rec.get("tipo_local")
     d.marca("Informe del local · qué ofrecer, a quién, a qué hora y a qué precio",
             [lugar, f"{inf['municipio']['nombre']} · radio de análisis de {S.RADIO_M} m · "
-                    f"informe del {_fecha(rec['fecha'])}"])
+                    f"informe del {_fecha(rec['fecha'])}",
+             f"Tipo de local: {tipo['nombre']}" if tipo else
+             "Tipo de local: sin elegir (resultado general)"])
 
     d.seccion("Resumen")
     d.texto(titular_calle(rec, mov), 12.5, True, TEJA)
     d.ln(2)
+    if not tipo:
+        d.caja(S.AVISO_GENERAL)
+        d.ln(1)
     col = (d.ancho - 6) / 2
     y_fila = d.get_y()
     for i, t in enumerate(resp.values()):
@@ -414,8 +420,10 @@ def informe_pdf(res: dict, lugar: str, fu: dict, punto: tuple[float, float] | No
         t = resp[clave]
         r = t["rec"]
         d.cabe(30)
-        d.etiqueta(titulo)
+        d.etiqueta(t["pregunta"].strip("¿?") if clave == "cuando" else titulo)
         d.texto(t["respuesta"], 11, True, TEJA)
+        if clave == "cuando" and tipo:
+            d.texto(" ".join(frases_cuando(rec)[:3]), 8.5, color=SUAVE)
         d.ln(0.8)
         d.texto(r["texto"], 8.8, True)
         d.ln(1)
@@ -437,6 +445,24 @@ def informe_pdf(res: dict, lugar: str, fu: dict, punto: tuple[float, float] | No
         d.barras_horas(horas, set(horas_punta(rec, dia)), mejores,
                        d.l_margin + i * (ancho + 6), y, ancho, 42, nombre)
     d.set_y(y + 44)
+
+    if tipo:
+        d.seccion("Clientes posibles por horas", 72)
+        d.texto(f"Para {S.TIPOS_LOCAL_CORTO[tipo['clave']]}: {tipo['unidad']} (estimación). "
+                "Los vecinos cuentan aunque no pasen por delante: van a propósito. En color más "
+                "oscuro, las horas con más clientes. Los supuestos están en src/supuestos.py "
+                "(«TIPO DE LOCAL»).", 8.5, color=SUAVE)
+        d.ln(2)
+        d.cabe(48)
+        y = d.get_y()
+        for i, (dia, nombre) in enumerate(DIAS_PDF):
+            horas = [float(v) for v in rec["clientes_por_hora"][dia]["total"]]
+            mejores = [hora_de_grupo(rec, dia, g, True)
+                       for g in grupos_horas(rec, dia, True)[:2]]
+            d.barras_horas(horas, set(horas_punta(rec, dia, True)), mejores,
+                           d.l_margin + i * (ancho + 6), y, ancho, 42,
+                           nombre + ("" if estable(rec, dia) else " (cambia con poco)"))
+        d.set_y(y + 44)
 
     d.seccion("La zona", 82)
     d.cabe(64)
@@ -511,6 +537,8 @@ def comparacion_pdf(cmp: dict, a: dict, b: dict, fu: dict) -> bytes:
     d.seccion("Resumen")
     d.texto("Esta comparación no dice qué local es mejor: dice en qué se diferencian.", 8.5,
             color=SUAVE)
+    d.texto((f"Tipo de local: {cmp['tipo_local']['nombre']}." if cmp.get("tipo_local") else
+             S.AVISO_GENERAL), 8.5, color=SUAVE)
     d.ln(1.5)
     for frase in cmp["resumen"]:
         d.texto(frase, 9.5)

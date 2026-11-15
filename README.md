@@ -29,8 +29,9 @@ y las fuentes.
 | Responde | No responde |
 |---|---|
 | **¿Quién pasa por aquí?** Vecinos, viajeros, universitarios, familias con niños, pacientes, trabajadores… | **No estima la facturación** ni cuántos clientes entrarán |
-| **¿Cuándo hay más gente?** Por horas, en un día de diario, en sábado y en domingo | **No da precios en euros:** no hay cartas en datos abiertos |
-| **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones… | No modela la gente que va a un local a propósito |
+| **¿Cuándo pasa más gente?** Por horas, en un día de diario, en sábado y en domingo | **No da precios en euros:** no hay cartas en datos abiertos |
+| **¿Cuándo tendrías más clientes?** Según el tipo de local que elijas (bar de barrio, cafetería o café para llevar, menú del día, comida para llevar o restaurante de cenas), con supuestos marcados y un aviso si la hora cambia con poco | **No está calibrado:** de momento hay un solo bar de validación |
+| **¿Qué conviene ofrecer?** Desayunos, menú del día, meriendas, cañas con raciones…; con tipo de local, el reparto entre lo que vende | La gente que va a propósito solo se modela con tipo de local, y con supuestos |
 | **¿A qué precios?** Económicos, medios o altos, según la zona y quién pasa | No dice si un local concreto es bueno o malo: **no muestra nombres de locales** |
 | Qué bares y restaurantes hay ya en 300 metros, avisos y qué comprobar en persona | **No garantiza nada** |
 | **¿Pasa mucha o poca gente?** Cinco niveles, de «Muy poco paso» a «Muchísimo paso», frente al resto de la Comunidad | **No valora un local al que se va a propósito o en coche:** solo mide el negocio de paso |
@@ -47,11 +48,18 @@ Lo que dice la aplicación en los tres puntos de prueba:
 | Movimiento | Mucho paso | Muchísimo paso | Poco paso |
 | Titular | Buena zona para desayunos y menú del día | Zona de desayunos, con mucha competencia cerca | Aquí encajan sobre todo desayunos y meriendas |
 | Quién pasa | Vecinos y universitarios | Viajeros y vecinos | Vecinos y familias con niños |
-| Cuándo | De 8 a 10 y a las 14 | De 7 a 10 | A las 8, a las 14 y a las 16 |
+| Cuándo pasa más gente | De 8 a 10 y a las 14 | De 7 a 10 | A las 8, a las 14 y a las 16 |
+| Cuándo tendría más clientes un bar de barrio | A las 14 y de 18 a 20 | De 18 a 21 | De 8 a 10 y a las 16 |
 | Locales en 300 m | 27 (censo del Ayuntamiento) | 25 (OpenStreetMap) | 2 (OpenStreetMap) |
 | Precios | Económicos | Económicos | Medios |
 | Cómo se llega | Muy bien comunicado | Muy bien comunicado | Poco transporte |
 | A 1 km | ≈46.000 vecinos y 124 locales | ≈78.000 vecinos y 212 locales | ≈4.000 vecinos y 8 locales |
+
+Sin tipo de local elegido, la aplicación lo pide de forma visible («¿Qué tipo de local?»)
+y, mientras tanto, da el resultado general y avisa de que lo es: cuenta la gente que pasa,
+no los clientes. En el Resumen no hay cifras de clientes, solo horas y comparaciones («más
+clientes a mediodía que a primera hora»); las cifras están en el Informe completo, como
+«visitas posibles para todos los locales de ese tipo en 300 m».
 
 Si se escribe una calle sin número, un municipio o un código postal, la aplicación no
 calcula: enseña el punto en el mapa, pregunta «¿Es aquí? Si no, toca el mapa en el sitio
@@ -76,7 +84,7 @@ licencia Creative Commons Attribution y descargados el 2026-11-12.
 | [Desfibriladores externos fuera del ámbito sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Sitios con mucha gente (grandes centros de trabajo, instalaciones deportivas, recintos) y su horario | 2026-11-12 |
 | [Viajeros subidos y bajados en trenes de cercanias por estaciones](https://datos.comunidad.madrid/dataset/1923861) | Viajeros por estación de Cercanías, para ajustar las estaciones grandes | 2026-11-05 |
 | [Secciones censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Límites de la Comunidad y de los municipios | 2025-02-07 |
-| [Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006)](https://datos.comunidad.madrid/dataset/gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006) | Gasto medio por persona en bares y restaurantes | 2026-11-05 |
+| [Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006)](https://datos.comunidad.madrid/dataset/gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006) | Gasto medio por persona en bares y restaurantes, y contraste de las visitas por tipo de local | 2026-11-05 |
 | [Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España](https://datos.comunidad.madrid/dataset/ipc_base_2025) | Cuánto han subido los precios de la restauración y de los alimentos | 2026-11-05 |
 | [Alojamientos turísticos de la Comunidad de Madrid](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Alojamientos turísticos del código postal y del municipio | 2026-11-09 |
 | [Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Viviendas de uso turístico declaradas en el municipio | 2026-10-14 |
@@ -266,9 +274,22 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
 - **La fecha es la de Madrid.** Los festivos, sus avisos y la fecha del informe usan la
   hora de Madrid aunque el servidor funcione en UTC (como Streamlit Community Cloud o el
   servidor MCP). Antes, entre las 00:00 y la 01:00 salían con un día de retraso.
-- **Calidad de los datos.** `src/comprobar_datos.py` hace 37 comprobaciones sobre los
-  datos publicados (filas, columnas prohibidas, población, transporte y posición). Se
-  probó también con datos estropeados a propósito: los detecta y se detiene.
+- **Calidad de los datos.** `src/comprobar_datos.py` hace 38 comprobaciones sobre los
+  datos publicados (filas, columnas prohibidas, población, transporte, posición y la
+  coherencia de las visitas de los vecinos con el gasto). Se probó también con datos
+  estropeados a propósito: los detecta y se detiene.
+- **Validación con hosteleros.** Lo que dice cada hostelero se compara con lo que decía
+  la aplicación antes y después, sin direcciones ni nombres, en
+  [`docs/validacion.md`](docs/validacion.md). El primer bar (de barrio, en Madrid capital)
+  dejó ver que la aplicación daba una sola respuesta para todos los locales: de ahí el
+  selector de tipo de local. Coincide solo en parte, y no cuenta como validación
+  independiente, porque los supuestos se escribieron conociendo su testimonio.
+- **Tipo de local: contraste con el gasto y sensibilidad.** Las visitas supuestas de los
+  vecinos a los cinco tipos de local suponen unos 597 € por persona y año, el 48 % del
+  gasto medio en restauración de la Encuesta de Presupuestos Familiares (1.240 €, 2025);
+  la primera propuesta llegaba al 95 % y se rebajó a la mitad. Cada hora con más clientes
+  se recalcula con los supuestos a la mitad y al doble: si cambia con poco, su fiabilidad
+  sale baja y la aplicación lo dice.
 
 Cada paso está explicado, con sus pruebas y sus cifras, en
 [`docs/registro/`](docs/registro/).
@@ -278,6 +299,14 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
 - **Todo lo que es «gente» es una estimación.** Sirve para comparar horas y tipos de
   cliente entre sí, no como recuento real.
 - **Gente que pasa no es gente que entra.** Pasar de una a otra es un supuesto.
+- **Los clientes por tipo de local son supuestos sin calibrar.** Qué parte de cada tipo de
+  cliente se para en cada hora y cuántas veces va un vecino a cada tipo de local salen de
+  costumbres generales (`src/supuestos.py`, «TIPO DE LOCAL»), contrastados con el gasto
+  medio en restauración. Un solo bar de validación no basta para calibrarlos. Las cifras son
+  visitas posibles para todos los locales de ese tipo en 300 m, no las de un local, y
+  cuentan visitas que llegan, no lo lleno que está el local. Los restaurantes de cenas
+  atraen gente de más lejos y los pedidos a domicilio no son visitas: ahí el modelo se
+  queda corto.
 - **Solo se mide el negocio de paso.** Un local al que se va a propósito o en coche
   (un restaurante de carretera, un asador de fin de semana) no se puede valorar con
   estos datos. Si el nivel es «Muy poco paso», la aplicación lo avisa y atenúa sus
@@ -313,8 +342,9 @@ Cada paso está explicado, con sus pruebas y sus cifras, en
   universitario.
 - **Fuera de Madrid capital,** la competencia sale de OpenStreetMap, al que le faltan
   locales. En municipios pequeños no se puede valorar.
-- **Las cenas y las copas casi nunca salen recomendadas:** dependen de que la gente
-  vaya a propósito, y eso el modelo no lo capta.
+- **En el resultado general, las cenas y las copas casi nunca salen recomendadas:**
+  dependen de que la gente vaya a propósito, y eso solo se modela, con supuestos, al elegir
+  el tipo de local (restaurante de cenas o comida para llevar).
 - **El domingo es un modelo con supuestos propios** (qué abre y a qué horas sale la
   gente; ver `src/supuestos.py`) y vale para los festivos solo de forma aproximada. El
   transporte del domingo sí es real (horarios y demanda de domingo del CRTM), pero el
@@ -399,7 +429,9 @@ domingo): `python src/procesar_perfil.py gtfs --conservar-dias`.
 ```bash
 python src/perfil_horario.py 40.4046 -3.6106     # quién pasa y cuándo
 python src/informe_local.py 40.4046 -3.6106      # contexto de mercado
-python src/recomendaciones.py 40.4046 -3.6106    # las cuatro respuestas
+python src/recomendaciones.py 40.4046 -3.6106    # las cuatro respuestas (resultado general)
+python src/recomendaciones.py 40.4046 -3.6106 bar_barrio   # … para un tipo de local
+python src/tipo_local.py 40.4046 -3.6106         # clientes por tipo de local y sensibilidad
 python src/movimiento.py 40.4046 -3.6106         # nivel de movimiento de la zona
 ```
 
@@ -413,8 +445,8 @@ herramientas, que llaman a las mismas funciones que la aplicación:
 
 | Herramienta | Qué devuelve |
 |---|---|
-| `recomendar_local(lat, lon)` | El nivel de movimiento y las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones |
-| `comparar_locales(lat1, lon1, lat2, lon2)` | La comparación de dos locales fila a fila, con cuál sale mejor en cada aspecto o por qué no decide, y un resumen sin ganador |
+| `recomendar_local(lat, lon, tipo_local)` | El nivel de movimiento y las cuatro respuestas con su porqué, confianza y base, más riesgos y comprobaciones. Con `tipo_local` (opcional), las horas, el público y qué ofrecer salen de los clientes de ese tipo de local; sin él, el resultado es general y lo dice |
+| `comparar_locales(lat1, lon1, lat2, lon2, tipo_local)` | La comparación de dos locales fila a fila, con cuál sale mejor en cada aspecto o por qué no decide, y un resumen sin ganador. Con `tipo_local`, añade cuándo tendrías más clientes |
 | `perfil_por_horas(lat, lon)` | Gente por franja y tipo de cliente, en laborable, sábado y domingo, y el nivel de movimiento |
 | `informe_de_zona(lat, lon)` | Los ocho bloques del informe, con cómo se llega y qué hay a 1 km |
 | `buscar_direccion(texto)` | Coordenadas de una dirección, con CartoCiudad. Dice si es un portal exacto o una calle entera, con un aviso |

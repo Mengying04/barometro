@@ -45,13 +45,25 @@ def bloque_inf(inf: dict, clave: str) -> dict:
     return next(b for b in inf["bloques"] if b["clave"] == clave)
 
 
-def horas_punta(rec: dict, dia: str) -> list[int]:
-    return [int(h["hora"][:2]) for h in rec["a_que_hora"]["detalle"][dia]["horas_punta"]]
+def con_tipo(rec: dict) -> bool:
+    """¿Se ha elegido tipo de local? Sin él, el resultado es general."""
+    return bool(rec.get("tipo_local"))
 
 
-def grupos_horas(rec: dict, dia: str) -> list[list[int]]:
+def _punta(rec: dict, dia: str, clientes: bool) -> list[dict]:
+    det = rec["a_que_hora"]["detalle"].get(dia, {})
+    return det.get("horas_punta_clientes" if clientes else "horas_punta") or []
+
+
+def horas_punta(rec: dict, dia: str, clientes: bool = False) -> list[int]:
+    """Horas punta de la gente que pasa o, con `clientes`, las de más clientes posibles del
+    tipo de local elegido."""
+    return [int(h["hora"][:2]) for h in _punta(rec, dia, clientes)]
+
+
+def grupos_horas(rec: dict, dia: str, clientes: bool = False) -> list[list[int]]:
     """Horas punta agrupadas en tramos seguidos, ordenados por la hora más concurrida."""
-    punta = rec["a_que_hora"]["detalle"][dia]["horas_punta"]
+    punta = _punta(rec, dia, clientes)
     total = {int(h["hora"][:2]): h["total"] for h in punta}
     grupos: list[list[int]] = []
     for h in sorted(total):
@@ -66,9 +78,8 @@ def tramo(g: list[int]) -> str:
     return f"{g[0]} h" if len(g) == 1 else f"{g[0]}–{g[-1] + 1} h"
 
 
-def hora_de_grupo(rec: dict, dia: str, g: list[int]) -> int:
-    total = {int(h["hora"][:2]): h["total"]
-             for h in rec["a_que_hora"]["detalle"][dia]["horas_punta"]}
+def hora_de_grupo(rec: dict, dia: str, g: list[int], clientes: bool = False) -> int:
+    total = {int(h["hora"][:2]): h["total"] for h in _punta(rec, dia, clientes)}
     return max(g, key=lambda h: total[h])
 
 
@@ -97,7 +108,8 @@ ARTICULO = {"padres_ninos": "las", "deporte_eventos": "la"}   # el resto, «los�
 
 MOMENTO_CALLE = {"desayuno": "desayunos", "almuerzo": "almuerzos a media mañana",
                  "menu_del_dia": "menú del día", "merienda": "meriendas",
-                 "canas_raciones": "cañas con raciones", "cenas": "cenas", "copas": "copas"}
+                 "canas_raciones": "cañas con raciones", "cenas": "cenas", "copas": "copas",
+                 "comida_llevar": "comida para llevar", "comida": "comidas a la carta"}
 
 
 FRANJA_CALLE = {"primera hora de la mañana": "a primera hora",
@@ -172,30 +184,50 @@ def titular_calle(rec: dict, mov: dict) -> str:
     return f"Aquí encajan sobre todo {of}"
 
 
+def estable(rec: dict, dia: str = "laborable") -> bool:
+    """¿La hora con más clientes aguanta si los supuestos se mueven a la mitad o al doble?"""
+    sens = rec["a_que_hora"]["detalle"].get(dia, {}).get("sensibilidad")
+    return bool(sens is None or sens["estable"])
+
+
 def respuestas(rec: dict, inf: dict) -> dict:
     """Pregunta, respuesta corta, línea de apoyo y recomendación de la que sale la
-    fiabilidad, para cada una de las cuatro tarjetas."""
+    fiabilidad, para cada una de las cuatro tarjetas. Con tipo de local, la de la hora
+    pregunta «¿Cuándo tendrías más clientes?» y recuerda en el apoyo cuándo pasa más gente;
+    sin él, pregunta «¿Cuándo pasa más gente?» (resultado general). Sin cifras de clientes."""
     aq = rec["a_quien"]["recomendaciones"]
     hr = rec["a_que_hora"]["recomendaciones"]
     qv = rec["que_vender"]
     pr = rec["a_que_precio"]["recomendaciones"]
     lab = clientes_principales(rec)
     sab = clientes_principales(rec, "fin_de_semana")
-    g_sab = grupos_horas(rec, "fin_de_semana")
+    tipo = con_tipo(rec)
+    g_sab = grupos_horas(rec, "fin_de_semana", tipo)
     v_lab = rec_dia(qv["recomendaciones"], "laborable")
     v_sab = rec_dia(qv["recomendaciones"], "fin_de_semana")
     gama = bloque_inf(inf, "precios")["datos"]["gama_ajustada"]["gama"]["semana"]
+    if tipo:
+        g_paso = grupos_horas(rec, "laborable")
+        cuando = {
+            "pregunta": "¿Cuándo tendrías más clientes?",
+            "respuesta": mayus(horas_calle(grupos_horas(rec, "laborable", True)))
+            or "Sin datos",
+            "apoyo": (f"Pasa más gente {horas_calle(g_paso)}" if g_paso else "")
+            + ("" if estable(rec) else ". Cambia con poco: compruébalo"),
+            "rec": (rec_dia(hr, "laborable") or hr)[0]}
+    else:
+        cuando = {
+            "pregunta": "¿Cuándo pasa más gente?",
+            "respuesta": mayus(horas_calle(grupos_horas(rec, "laborable"))) or "Sin datos",
+            "apoyo": f"Los sábados, {horas_calle(g_sab)}" if g_sab else "",
+            "rec": (rec_dia(hr, "laborable") or hr)[0]}
     return {
         "quien": {
-            "pregunta": "¿Quién pasa por aquí?",
+            "pregunta": "¿Quién te compraría?" if tipo else "¿Quién pasa por aquí?",
             "respuesta": mayus(lista_y([CLIENTE_CALLE[t] for t, _ in lab])) or "Poca gente",
             "apoyo": f"Los sábados, sobre todo {CLIENTE_CALLE[sab[0][0]]}" if sab else "",
             "rec": (rec_dia(aq, "laborable") or aq)[0]},
-        "cuando": {
-            "pregunta": "¿Cuándo hay más gente?",
-            "respuesta": mayus(horas_calle(grupos_horas(rec, "laborable"))) or "Sin datos",
-            "apoyo": f"Los sábados, {horas_calle(g_sab)}" if g_sab else "",
-            "rec": (rec_dia(hr, "laborable") or hr)[0]},
+        "cuando": cuando,
         "que": {
             "pregunta": "¿Qué conviene ofrecer?",
             "respuesta": mayus(lista_y([MOMENTO_CALLE[m] for m in ofertas(rec)]))
@@ -240,10 +272,62 @@ def frases_quien(rec: dict) -> list[str]:
     return out
 
 
+def comparacion_franjas(rec: dict, dia: str = "laborable") -> str:
+    """«Más clientes a mediodía que a primera hora»: la franja de la hora con más clientes
+    posibles frente a la de la hora con más gente de paso (o, si es la misma, frente a la
+    siguiente franja con más clientes). Cada franja vale lo que su mejor hora, para que diga
+    lo mismo que las horas punta. Si la diferencia es pequeña, lo dice. Sin cifras."""
+    det = rec["a_que_hora"]["detalle"].get(dia, {})
+    ch = det.get("clientes_por_hora")
+    if not ch or max(ch) <= 0:
+        return ""
+    franja_de = {h: f for f, hs in S.FRANJAS.items() for h in hs}
+    pico = {f: max(ch[h] for h in hs) for f, hs in S.FRANJAS.items()}
+    mejor = franja_de[max(range(24), key=lambda h: ch[h])]
+    punta = det.get("horas_punta") or []
+    paso = franja_de[int(max(punta, key=lambda x: x["total"])["hora"][:2])] if punta else None
+    otra = paso if paso and paso != mejor else max(
+        (f for f in pico if f != mejor and pico[f] > 0), key=pico.get, default=None)
+    if not otra or mejor not in FRANJA_CALLE or otra not in FRANJA_CALLE:
+        return ""
+    if (pico[mejor] - pico[otra]) / pico[mejor] < S.COMPARAR_DIFERENCIA_PEQUENA:
+        return (f"{mayus(FRANJA_CALLE[mejor])} y {FRANJA_CALLE[otra]}, parecidos: la "
+                "diferencia es pequeña.")
+    return (f"Más clientes {FRANJA_CALLE[mejor]} que {FRANJA_CALLE[otra]}"
+            + (f", aunque {FRANJA_CALLE[otra]} pasa más gente" if otra == paso else "")
+            + ".")
+
+
 def frases_cuando(rec: dict) -> list[str]:
     out = []
+    tipo = con_tipo(rec)
     g_lab = grupos_horas(rec, "laborable")
     g_sab = grupos_horas(rec, "fin_de_semana")
+    if tipo:
+        corto = S.TIPOS_LOCAL_CORTO[rec["tipo_local"]["clave"]]
+        c_lab = grupos_horas(rec, "laborable", True)
+        if c_lab:
+            out.append(f"Para {corto}, en un día de diario tendrías más clientes "
+                       f"{horas_calle(c_lab)}.")
+        comp = comparacion_franjas(rec)
+        if comp:
+            out.append(comp)
+        if g_lab:
+            out.append(f"Pasa más gente {horas_calle(g_lab)}: no es lo mismo pasar que entrar.")
+        c_sab = grupos_horas(rec, "fin_de_semana", True)
+        c_dom = grupos_horas(rec, "domingo", True)
+        if c_sab:
+            out.append(f"Los sábados, más clientes {horas_calle(c_sab)}; los domingos, "
+                       f"{horas_calle(c_dom)}." if c_dom else
+                       f"Los sábados, más clientes {horas_calle(c_sab)}.")
+        flojos = [d for d in ("laborable", "fin_de_semana", "domingo") if not estable(rec, d)]
+        if flojos:
+            dias = {"laborable": "los días de diario", "fin_de_semana": "los sábados",
+                    "domingo": "los domingos"}
+            out.insert(1, f"Ojo: {lista_y([dias[d] for d in flojos])}, la hora con más "
+                          "clientes cambia si los supuestos cambian un poco. Es poco fiable: "
+                          "cuenta tú los clientes.")
+        return out
     if g_lab:
         out.append(f"En un día de diario hay más gente {horas_calle(g_lab)}.")
     if g_sab:
@@ -262,6 +346,8 @@ def frases_cuando(rec: dict) -> list[str]:
     flojas = [f for f, c in clase.items() if c != "abrir" and f in FRANJA_CALLE]
     if flojas:
         out.append(f"{mayus(FRANJA_CALLE[flojas[-1]])} pasa muy poca gente.")
+    out.append("Es la gente que pasa, no los clientes: elige el tipo de local para saber "
+               "cuándo tendrías más clientes.")
     return out
 
 
@@ -270,7 +356,11 @@ def frases_que(rec: dict) -> list[str]:
     lab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "laborable")]
     sab = [MOMENTO_CALLE[r["momento"]] for r in rec_dia(qv["recomendaciones"], "fin_de_semana")]
     out = []
-    if lab:
+    if lab and con_tipo(rec):
+        corto = S.TIPOS_LOCAL_CORTO[rec["tipo_local"]["clave"]]
+        out.append(f"En {corto}, en un día de diario lo que más tendrías es {lab[0]}"
+                   + (f"; después, {lista_y(lab[1:3])}." if len(lab) > 1 else "."))
+    elif lab:
         out.append(f"En un día de diario encajan sobre todo {lista_y(lab[:3])}.")
     op = oportunidad_comidas(rec)
     if op:
@@ -308,7 +398,13 @@ def comprobaciones_calle(rec: dict) -> list[str]:
     """La lista de recomendar(), en el mismo orden, dicha con palabras sencillas."""
     g = grupos_horas(rec, "laborable")
     hora = f"a las {hora_de_grupo(rec, 'laborable', g[0])}" if g else "en la mejor hora"
+    gc = grupos_horas(rec, "laborable", True)
+    hora_c = (f"a las {hora_de_grupo(rec, 'laborable', gc[0], True)}" if gc
+              else "en la mejor hora")
+    otra = hora if hora != hora_c else "en una hora floja"
     calle = {
+        "Contar los clientes": f"Cuenta los clientes de dos o tres locales como el tuyo "
+                               f"{hora_c} y {otra}: ¿hay más cuando dice la estimación?",
         "Contar durante": f"Cuenta la gente que pasa por delante {hora}, durante 15 minutos.",
         "Anotar en": "Apunta el precio del café, la caña y el menú en tres bares cercanos.",
         "Comprobar a qué hora": "Mira a qué hora abren y cierran los bares de la zona.",

@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import supuestos as S
 from calle import (CLIENTE_CALLE, FIABILIDAD, MOMENTO_CALLE, PRECIO_CALLE, bloque_inf,
-                   clientes_principales, dec, grupos_horas, hora_de_grupo, horas_calle,
-                   lista_y, mayus, miles, ofertas, rec_dia, redondo, unas)
+                   clientes_principales, con_tipo, dec, estable, grupos_horas, hora_de_grupo,
+                   horas_calle, lista_y, mayus, miles, ofertas, rec_dia, redondo, unas)
 
 AVISO = ("Es una orientación con datos abiertos y estimaciones, no una garantía. No dice "
          "qué local es mejor: dice en qué se diferencian. Compruébalo en persona en los dos "
@@ -90,12 +90,24 @@ def _punta(res: dict) -> tuple[str, float, int | None]:
 
 
 def _oferta(res: dict) -> tuple[str, float, str]:
+    """Qué ofrecer y la cifra que se compara: sin tipo de local, los clientes posibles del
+    primer momento; con tipo, los clientes posibles de todo el día para ese tipo de local."""
     rec = res["rec"]
     of = ofertas(rec)
     mo = rec["que_vender"]["momentos"]["laborable"]
     if not of:
         return "Sin datos", 0.0, ""
-    return mayus(lista_y([MOMENTO_CALLE[m] for m in of])), float(mo.get(of[0], 0)), of[0]
+    cifra = (sum(rec["clientes_por_hora"]["laborable"]["total"]) if con_tipo(rec)
+             else float(mo.get(of[0], 0)))
+    return mayus(lista_y([MOMENTO_CALLE[m] for m in of])), float(cifra), of[0]
+
+
+def _punta_clientes(res: dict) -> tuple[str, int | None]:
+    rec = res["rec"]
+    g = grupos_horas(rec, "laborable", True)
+    if not g:
+        return "Sin datos", None
+    return mayus(horas_calle(g)), hora_de_grupo(rec, "laborable", g[0], True)
 
 
 def _modos(acc: dict) -> str:
@@ -168,33 +180,63 @@ def comparar(a: dict, b: dict) -> dict:
 
     # ---- horas punta
     (ta, va, ha), (tb, vb, hb) = _punta(a), _punta(b)
-    ra = rec_dia(a["rec"]["a_que_hora"]["recomendaciones"], "laborable")
-    rb = rec_dia(b["rec"]["a_que_hora"]["recomendaciones"], "laborable")
-    conf = _conf(ra[0] if ra else None, rb[0] if rb else None)
+    # La fiabilidad de las horas de PASO (con tipo de local, la recomendación de la hora es
+    # la de los clientes y tiene otra fiabilidad).
+    conf = _conf(*({"confianza": x["rec"]["a_que_hora"]["detalle"]["laborable"]
+                    ["confianza_paso"]} for x in (a, b)))
     mejor, ver = _mayor(va, vb, na, nb, "gente en su mejor hora", conf)
     filas.append(_fila(
-        "horas", "Horas punta (día de diario)",
+        "horas", "Cuándo pasa más gente (día de diario)",
         _lado(ta, f"Unas {unas(va)} personas a las {ha}, su mejor hora." if ha is not None
               else "", va),
         _lado(tb, f"Unas {unas(vb)} personas a las {hb}, su mejor hora." if hb is not None
               else "", vb),
         mejor, ver, conf, "gente en la mejor hora"))
 
+    # ---- con tipo de local: cuándo tendrías más clientes
+    tipo = con_tipo(a["rec"]) and con_tipo(b["rec"])
+    if tipo:
+        (tca, hca), (tcb, hcb) = _punta_clientes(a), _punta_clientes(b)
+        ra = rec_dia(a["rec"]["a_que_hora"]["recomendaciones"], "laborable")
+        rb = rec_dia(b["rec"]["a_que_hora"]["recomendaciones"], "laborable")
+
+        def det(res: dict, h: int | None) -> str:
+            if h is None:
+                return ""
+            return (f"Su mejor hora para clientes es a las {h}."
+                    + ("" if estable(res["rec"]) else " Cambia con poco: poco fiable."))
+        filas.append(_fila(
+            "clientes", "Cuándo tendrías más clientes (día de diario)",
+            _lado(tca, det(a, hca)), _lado(tcb, det(b, hcb)), None,
+            ("Los clientes llegan a las mismas horas en los dos." if tca == tcb else
+             "Horas distintas: no es mejor ni peor, cambia cuándo te conviene abrir."),
+            _conf(ra[0] if ra else None, rb[0] if rb else None), "horas de clientes"))
+
     # ---- qué conviene ofrecer
     (oa, ca, moa), (ob, cb, mob) = _oferta(a), _oferta(b)
     ra = rec_dia(a["rec"]["que_vender"]["recomendaciones"], "laborable")
     rb = rec_dia(b["rec"]["que_vender"]["recomendaciones"], "laborable")
     conf = _conf(ra[0] if ra else None, rb[0] if rb else None)
-    mejor, ver = _mayor(ca, cb, na, nb, "posibles clientes en su mejor momento", conf,
-                       plural=True)
+    if tipo:
+        unidad = a["rec"]["tipo_local"]["unidad"]
+        mejor, ver = _mayor(ca, cb, na, nb, "clientes posibles en un día de diario", conf,
+                           plural=True)
+        detalle = lambda c: (f"Unas {unas(c)} {unidad} en un día de diario "  # noqa: E731
+                             "(estimación).")
+    else:
+        mejor, ver = _mayor(ca, cb, na, nb, "posibles clientes en su mejor momento", conf,
+                           plural=True)
+        detalle = None
     if oa != ob and mejor is None and ver == NO_DECIDE:
         ver = "Encajan cosas distintas; en posibles clientes, diferencia pequeña: no decide."
     filas.append(_fila(
         "ofrecer", "Qué conviene ofrecer",
-        _lado(oa, f"Unos {unas(ca)} posibles clientes para {MOMENTO_CALLE[moa]} en un día "
-              "de diario." if moa else "", ca),
-        _lado(ob, f"Unos {unas(cb)} posibles clientes para {MOMENTO_CALLE[mob]} en un día "
-              "de diario." if mob else "", cb),
+        _lado(oa, (detalle(ca) if detalle else
+                   f"Unos {unas(ca)} posibles clientes para {MOMENTO_CALLE[moa]} en un día "
+                   "de diario.") if moa else "", ca),
+        _lado(ob, (detalle(cb) if detalle else
+                   f"Unos {unas(cb)} posibles clientes para {MOMENTO_CALLE[mob]} en un día "
+                   "de diario.") if mob else "", cb),
         mejor, ver, conf, "posibles clientes"))
 
     # ---- gama de precios
@@ -329,6 +371,8 @@ def comparar(a: dict, b: dict) -> dict:
         return {dia: [round(float(v)) for v in res["perfil"]["horas"].loc[dia]["total"]]
                 for dia in DIAS}
     return {"aviso": AVISO, "locales": {"a": na, "b": nb}, "filas": filas,
+            "tipo_local": a["rec"].get("tipo_local") if tipo else None,
+            "aviso_general": None if tipo else S.AVISO_GENERAL,
             "resumen": resumen, "personas_por_hora": {"a": horas(a), "b": horas(b)},
             "nota": ("«Sale mejor» solo se dice cuando la diferencia pasa del "
                      f"{100 * S.COMPARAR_DIFERENCIA_PEQUENA:.0f} % y la fiabilidad no es "

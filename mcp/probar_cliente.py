@@ -2,7 +2,8 @@
 
 Arranca el servidor por stdio, como haría Claude Desktop, y llama a cada herramienta con
 los tres puntos de ejemplo, con una calle sin número y con un punto aislado de campo.
-Comprueba que cada respuesta trae el aviso, las fuentes con
+Comprueba también recomendar_local y comparar_locales con un tipo de local (bar de barrio)
+y que un tipo desconocido da un error claro. Comprueba que cada respuesta trae el aviso, las fuentes con
 licencia y fecha y «Powered by CRTM», que el resultado es el mismo que da la función de
 src/ llamada directamente, y que un punto de fuera de la Comunidad da un error claro.
 
@@ -200,6 +201,42 @@ async def main() -> int:
                       and x["direccion"] != x["direccion"].upper()
                       and "Madrid" in x["direccion"] for x in b["resultados"]),
                   "calle sin número: la dirección no está limpia")
+
+        print("\n== tipo de local: bar de barrio")
+        lat, lon = EJEMPLOS["Campus de Vicálvaro"]
+        perfil = P.perfil_horario(lat, lon)
+        inf = I.informe_local(lat, lon, perfil=perfil)
+        esperado = recomendar(lat, lon, perfil=perfil, inf=inf, tipo_local="bar_barrio")
+        r = datos(await cliente.call_tool("recomendar_local",
+                                          {"lat": lat, "lon": lon, "tipo_local": "bar_barrio"}))
+        comunes("recomendar_local (tipo)", r)
+        for k in ("tipo_local", "general", "a_quien", "a_que_hora", "que_vender",
+                  "clientes_por_hora"):
+            comprobar(json.dumps(r[k], sort_keys=True, default=str)
+                      == json.dumps(esperado[k], sort_keys=True, default=str),
+                      f"recomendar_local con tipo: «{k}» no coincide con recomendar()")
+        det = r["a_que_hora"]["detalle"]["laborable"]
+        comprobar(r["general"] is False and "horas_punta_clientes" in det
+                  and "sensibilidad" in det and "reparto" in r["que_vender"],
+                  "recomendar_local con tipo: faltan horas de clientes, sensibilidad o reparto")
+        g = datos(await cliente.call_tool("recomendar_local", {"lat": lat, "lon": lon}))
+        comprobar(g["general"] is True and g["aviso_general"]
+                  and "general" in g["aviso_general"].lower(),
+                  "recomendar_local sin tipo: no avisa de que el resultado es general")
+        print(f"   horas con más clientes: {[h['hora'] for h in det['horas_punta_clientes']]}"
+              f" · de paso: {[h['hora'] for h in det['horas_punta']]} · "
+              f"{'estable' if det['sensibilidad']['estable'] else 'cambia con poco'}")
+        c = datos(await cliente.call_tool("comparar_locales", {
+            "lat1": p1[0], "lon1": p1[1], "lat2": p2[0], "lon2": p2[1],
+            "tipo_local": "bar_barrio"}))
+        comprobar(any(f["clave"] == "clientes" for f in c["filas"]) and len(c["filas"]) == 13
+                  and c["tipo_local"]["clave"] == "bar_barrio",
+                  "comparar_locales con tipo: falta la fila de clientes")
+        r = await cliente.call_tool("recomendar_local",
+                                    {"lat": lat, "lon": lon, "tipo_local": "discoteca"})
+        texto = r.content[0].text if r.content else ""
+        comprobar(es_error(r) and "desconocido" in texto, "tipo desconocido: no da error claro")
+        print(f"   tipo desconocido: error={es_error(r)} · {texto[:70]}")
 
         print("\n== punto aislado de campo")
         r = datos(await cliente.call_tool("recomendar_local",
