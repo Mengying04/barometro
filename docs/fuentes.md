@@ -5,26 +5,26 @@
 
 Conjuntos descargados del [Portal de Datos Abiertos de la Comunidad de Madrid](https://datos.comunidad.madrid) con `src/descargar_datos.py`.
 
-Fecha de descarga: 2026-11-12.
+Fecha de descarga: 2026-11-16.
 
 Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se regeneran ejecutando el script.
 
 | Título | Ficha | Licencia | Última modificación | Formatos | Filas (CSV) |
 |---|---|---|---|---|---|
 | Centros educativos de la comunidad de Madrid | [centros_educativos](https://datos.comunidad.madrid/dataset/centros_educativos) | Creative Commons Attribution | 2026-05-05 | CSV, JSON | 7.757 |
-| Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 46.148 |
-| Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 13.680 |
-| Oficinas de farmacia | [oficinas_farmacia](https://datos.comunidad.madrid/dataset/oficinas_farmacia) | Creative Commons Attribution | 2026-11-09 | CSV, JSON | 2.957 |
-| Alojamientos turísticos de la Comunidad de Madrid | [alojamientos_turisticos](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Creative Commons Attribution | 2026-11-09 | CSV, JSON | 8.335 |
-| Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas | [declaraciones_actividad_viviendas_uso_turistico](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Creative Commons Attribution | 2026-10-14 | CSV, JSON, ZIP | 1.164 |
+| Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 46.185 |
+| Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 13.680 |
+| Oficinas de farmacia | [oficinas_farmacia](https://datos.comunidad.madrid/dataset/oficinas_farmacia) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 2.958 |
+| Alojamientos turísticos de la Comunidad de Madrid | [alojamientos_turisticos](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 8.300 |
+| Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas | [declaraciones_actividad_viviendas_uso_turistico](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Creative Commons Attribution | 2026-11-16 | CSV, JSON, ZIP | 1.141 |
 | Secciones censales | [secciones_censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Creative Commons Attribution | 2025-02-07 | CSV, JSON, SHP | 4.417 |
 | Festivos regionales y locales año en curso | [festivos_regionales_locales](https://datos.comunidad.madrid/dataset/festivos_regionales_locales) | Creative Commons Attribution | 2026-01-13 | CSV, JSON | 338 + 12 |
 | Gasto medio de los hogares por subgrupo de gasto (3 dígitos COICOP/EPF) (Base 2006) | [gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006](https://datos.comunidad.madrid/dataset/gasto_por_subgrupo_gasto_3_digitos_coicop_epf_base_2006) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 1.680 |
-| Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España | [ipc_base_2025](https://datos.comunidad.madrid/dataset/ipc_base_2025) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 160.709 |
+| Índice de Precios de Consumo (IPC), por grupo. Base 2025. Comunidad de Madrid y España | [ipc_base_2025](https://datos.comunidad.madrid/dataset/ipc_base_2025) | Creative Commons Attribution | 2026-11-13 | CSV, JSON | 161.280 |
 | Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2025) | [demografia_empresarial_cnae25](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae25) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 573 |
 | Demografía empresarial de la Comunidad de Madrid. Unidades empresariales y puestos de trabajo asociados a las unidades empresariales, por rama de actividad (CNAE-2009) | [demografia_empresarial_cnae09](https://datos.comunidad.madrid/dataset/demografia_empresarial_cnae09) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 37.345 |
 | Estadísticas de alumnos de centros educativos de la Comunidad de Madrid | [spacm_estadisticas_alumnos](https://datos.comunidad.madrid/dataset/spacm_estadisticas_alumnos) | Creative Commons Attribution | 2026-07-22 | CSV, JSON | 11.479 + 19.664 + 22.693 + 12.031 + 8.963 + 1.781 + 3.154 + 5.311 + 17.885 + 5.311 + 31.679 + 991 + 7.611 + 6.054 + 5.700 + 399 + 10.705 + 16.567 + 4.631 + 9.377 |
-| Estudiantes matriculados en estudios de Grado presenciales por universidad | [1925489](https://datos.comunidad.madrid/dataset/1925489) | Creative Commons Attribution | 2026-11-12 | CSV, JSON | 198 |
+| Estudiantes matriculados en estudios de Grado presenciales por universidad | [1925489](https://datos.comunidad.madrid/dataset/1925489) | Creative Commons Attribution | 2026-11-13 | CSV, JSON | 198 |
 | Estudiantes matriculados en estudios de máster presenciales por universidad | [1925502](https://datos.comunidad.madrid/dataset/1925502) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 220 |
 | Viajeros subidos y bajados en trenes de cercanias por estaciones | [1923861](https://datos.comunidad.madrid/dataset/1923861) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 540 |
 
@@ -34,7 +34,6 @@ Los recuentos corresponden a la fecha de descarga. Varios conjuntos se reemplaza
 
 ### Discrepancias entre el CSV y la API de datos (datastore_search)
 
-- desfibriladores_externos_fuera_ambito_sanitario/desfibriladores_externos_fuera_ambito_sanitario.csv: CSV 13680 filas ≠ datastore 5739
 - festivos_regionales_locales/festivos_regionales.csv: CSV 12 filas ≠ datastore 24
 
 <!-- fin:portal -->
@@ -49,7 +48,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/ine_adrh/`
 - **Enlace:** https://www.ine.es/dyngs/INEbase/operacion.htm?c=Estadistica_C&cid=1254736177088&idp=1254735976608
 - **Licencia:** Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))
-- **Fecha de descarga:** 2026-11-12
+- **Fecha de descarga:** 2026-11-16
 - **Versión de los datos:** Años 2015–2024 (último disponible: **2024**); tablas actualizadas el 2026-10-15
 - **Ficheros:**
   - 31097.csv (Indicadores de renta media y mediana): 300.660 filas
@@ -62,7 +61,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/ine_seccionado/`
 - **Enlace:** https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259952026632&p=1259952026632&pagename=ProductosYServicios%2FPYSLayout (fichero https://www.ine.es/prodyser/cartografia/seccionado_2025.zip)
 - **Licencia:** Reutilización libre citando la fuente: «Fuente: Instituto Nacional de Estadística (INE)» ([aviso legal](https://www.ine.es/aviso_legal))
-- **Fecha de descarga:** 2026-11-12
+- **Fecha de descarga:** 2026-11-16
 - **Versión de los datos:** Seccionado a 1 de enero de 2025
 - **Ficheros:**
   - seccionado_2025.zip: shapefile `España_Seccionado2025_ETRS89H30/SECC_CE_20250101.shp` (ETRS89 / UTM 30N, EPSG:25830); capa.txt: ruta del .shp dentro del ZIP
@@ -74,12 +73,12 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/madrid_censo_locales/`
 - **Enlace:** https://datos.madrid.es/dataset/200085-0-censo-locales
 - **Licencia:** Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid»
-- **Fecha de descarga:** 2026-11-12
-- **Versión de los datos:** Actualización diaria; ficheros del 2026-11-12
+- **Fecha de descarga:** 2026-11-16
+- **Versión de los datos:** Actualización diaria; ficheros del 2026-11-16
 - **Ficheros:**
-  - locales.csv (Locales; original `200085-0-censo-locales_2_20261112_063053.csv`): 203.799 filas
-  - actividades.csv (Actividades; original `200085-0-censo-locales_4_20261112_063804.csv`): 225.898 filas
-  - terrazas.csv (Terrazas; original `200085-0-censo-locales_5_20261112_064152.csv`): 6.615 filas
+  - locales.csv (Locales; original `200085-0-censo-locales_2_20261116_063050.csv`): 203.806 filas
+  - actividades.csv (Actividades; original `200085-0-censo-locales_4_20261116_063801.csv`): 225.912 filas
+  - terrazas.csv (Terrazas; original `200085-0-censo-locales_5_20261116_064437.csv`): 6.620 filas
   - estructura_ds_ficherocla.pdf (Censo de Locales y Actividades. Contenido y estructura del fichero)
   - estructura_ds_ficherocla_terrazas.pdf (Terrazas de hostelería y restauración. Contenido y estructura del fichero)
 - No se descargan las copias JSON/XML (mismo contenido) ni el fichero «Locales con información de licencia».
@@ -89,10 +88,10 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/osm_hosteleria/`
 - **Enlace:** https://www.openstreetmap.org/copyright
 - **Licencia:** Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright
-- **Fecha de descarga:** 2026-11-12
-- **Versión de los datos:** Datos OSM a 2026-11-12T20:31:36Z
+- **Fecha de descarga:** 2026-11-16
+- **Versión de los datos:** Datos OSM a 2026-11-16T13:00:58Z
 - **Ficheros:**
-  - osm_hosteleria.json: 15.666 elementos (restaurant 7.675, bar 2.343, cafe 2.226, fast_food 1.792, pub 1.630); 5.755 con etiqueta `cuisine`
+  - osm_hosteleria.json: 15.678 elementos (restaurant 7.680, bar 2.343, cafe 2.226, fast_food 1.794, pub 1.635); 5.759 con etiqueta `cuisine`
   - consulta.overpassql: consulta usada
 - Se incluye `amenity=pub` porque en España muchos bares están etiquetados así; se puede filtrar después.
 - Nodos con `lat`/`lon`; vías y relaciones con su punto central (`center`).
@@ -103,8 +102,8 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/osm_universidades/`
 - **Enlace:** https://www.openstreetmap.org/copyright
 - **Licencia:** Open Database License (ODbL) 1.0. Citar: «© colaboradores de OpenStreetMap» con enlace a https://www.openstreetmap.org/copyright
-- **Fecha de descarga:** 2026-11-12
-- **Versión de los datos:** Datos OSM a 2026-11-12T20:33:36Z
+- **Fecha de descarga:** 2026-11-16
+- **Versión de los datos:** Datos OSM a 2026-11-16T13:01:58Z
 - **Ficheros:**
   - osm_universidades.json: 166 elementos (node 42, relation 13, way 111), con geometría completa (`out geom`)
   - consulta.overpassql: consulta usada
@@ -116,8 +115,8 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 - **Carpeta:** `datos/originales/crtm_paradas/`
 - **Enlace:** Portal de datos abiertos del CRTM, https://datos.crtm.es/ — Metro: ficha «Datos abiertos: Elementos de la Red de Metro» (capa https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/M4_Red/FeatureServer/0); resto: fichas GTFS https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro, https://datos.crtm.es/datasets/crtm::gtfs-red-de-metro-ligero, https://datos.crtm.es/datasets/crtm::gtfs-red-de-cercanías, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-interurbanos, https://datos.crtm.es/datasets/crtm::gtfs-red-de-emt, https://datos.crtm.es/datasets/crtm::gtfs-red-de-autobuses-urbanos; demanda: https://datos.crtm.es/datasets/crtm::crtm-evolucion-demanda-diaria (ficheros servidos desde https://www.arcgis.com/sharing/rest/content/items/<id>/data)
 - **Licencia:** [Licencia de datos abiertos y estáticos del CRTM](https://www.crtm.es/licencia-de-uso): uso comercial y no comercial. Obligaciones: mostrar **«Powered by CRTM»** con enlace a [crtm.es](http://www.crtm.es/) en webs y apps; **garantizar que la información mostrada esté siempre actualizada** (volver a ejecutar este script); citar al CRTM como fuente indicando si son datos en bruto o explotados; conservar los metadatos de fecha de actualización; no sugerir que el CRTM patrocina o apoya el producto
-- **Fecha de descarga:** 2026-11-12
-- **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-05; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027; crtm_demanda_diaria.xlsx: publicado el 2026-10-28
+- **Fecha de descarga:** 2026-11-16
+- **Versión de los datos:** metro_estaciones: capa editada el 2026-06-05; gtfs_metro.zip: publicado el 2025-05-30, feed_version 20250527; gtfs_metro_ligero.zip: publicado el 2026-11-05, feed_version 20261028; gtfs_cercanias.zip: publicado el 2026-11-05; gtfs_interurbanos.zip: publicado el 2026-11-05, feed_version 20261027; gtfs_emt.zip: publicado el 2026-11-16; gtfs_urbanos.zip: publicado el 2026-11-05, feed_version 20261027; crtm_demanda_diaria.xlsx: publicado el 2026-11-16
 - **Ficheros:**
   - metro_estaciones.geojson (Metro: estaciones (capa de red)): 293 estaciones
   - gtfs_metro.zip (Metro (solo para frecuencias; publicado en mayo de 2025); original `google_transit_M4.zip`): 1.050 registros en stops.txt (location_type 0: 290, location_type 1: 240, location_type 2: 520), 13 líneas, calendario 20250527–20260527
@@ -151,11 +150,11 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 |---|---|---|---|
 | secciones_censales | 4.518 polígonos | 4.518 | — |
 | centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
-| centros_sanitarios | 15.902 centros | 15.732 | sin coordenadas: 170 |
+| centros_sanitarios | 15.915 centros | 15.745 | sin coordenadas: 170 |
 | desfibriladores | 13.680 filas | 13.679 | fila duplicada exacta: 1 |
-| farmacias | 2.957 filas | 2.953 | sin coordenadas: 4 |
-| hosteleria_osm | 15.666 elementos | 15.666 | — |
-| hosteleria_madrid_capital | 21.600 locales | 17.146 | local cerrado: 1793; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2034; sin coordenadas: 67 |
+| farmacias | 2.958 filas | 2.954 | sin coordenadas: 4 |
+| hosteleria_osm | 15.678 elementos | 15.678 | — |
+| hosteleria_madrid_capital | 21.598 locales | 17.144 | local cerrado: 1793; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2034; sin coordenadas: 67 |
 
 **secciones_censales**
 
@@ -167,7 +166,7 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 
 **centros_sanitarios**
 
-- 46148 filas (una por servicio) agrupadas en 15902 centros por `centro_nro_registro`; `servicios` separa los servicios con « | ».
+- 46185 filas (una por servicio) agrupadas en 15915 centros por `centro_nro_registro`; `servicios` separa los servicios con « | ».
 - 0 centros con tipo o coordenadas distintos entre sus filas (se toma el primero).
 - No se conserva la dirección postal ni el NIF; el original no trae nombre del centro.
 
@@ -190,7 +189,7 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 
 - Hostelería y restauración = división CNAE 56 (servicios de comidas y bebidas) sin catering ni comedores colectivos (562), que no compiten con un bar abierto al público. `categoria` distingue restauración (561) y bares (563). No incluye alojamiento (55) ni discotecas (93).
 - 142 locales con catering o comedor colectivo y además otra actividad de hostelería se conservan, sin el epígrafe 562.
-- Coordenadas: local 16010, edificio (estimación) 641, agrupación 495, sin coordenadas 67.
+- Coordenadas: local 16008, edificio (estimación) 641, agrupación 495, sin coordenadas 67.
 - `tiene_terraza`: terraza en situación «Abierta» en el fichero de terrazas. 412 id_local del fichero de terrazas no están entre los locales de hostelería abiertos.
 - No se conserva el rótulo (puede ser un nombre de persona).
 
@@ -234,7 +233,7 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Los del mismo tipo a menos de 50 m se fusionan en un solo sitio (`n_dea` = cuántos había).
 - `cliente`, `personas_dia` y `perfil` salen de src/supuestos.py (**estimación**).
 - No se guarda el texto libre de `horario_acceso` (ya está interpretado en `horario_tipo` y en las horas de apertura y cierre, y alguna vez nombra el establecimiento).
-- Domingo (`dom`, `abre_dom`, `cierra_dom`; **supuesto**): si el horario abre el fin de semana y nombra el domingo («L-D», «S y D», festivos, todos los días…), las mismas horas que el sábado; si solo nombra el sábado, cerrado. 914 abren el domingo y 19 abren el sábado pero no el domingo.
+- Domingo (`dom`, `abre_dom`, `cierra_dom`; **supuesto**): si el horario abre el fin de semana y nombra el domingo («L-D», «S y D», festivos, todos los días…), las mismas horas que el sábado; si solo nombra el sábado, cerrado. 915 abren el domingo y 19 abren el sábado pero no el domingo.
 
 **salidas_paradas** (15.216 paradas → 15.216)
 
@@ -249,16 +248,16 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - Interurbanos y urbanos comparten `stops.txt`: cada red cuenta solo sus vehículos.
 - Geometría: la parada; en Metro y Metro Ligero, el conjunto de accesos de la estación (`location_type` 2 del GTFS), para medir la distancia a la salida más cercana a la calle.
 - metro: laborable 2026-05-13, sábado 2026-05-09, domingo 2026-05-10 (viajes-plantilla de frequencies.txt expandidos); ese laborable circulan 12 de las 13 líneas del fichero; ese sábado, 12; ese domingo, 12; 271 con la posición de sus accesos; 290 paradas con servicio; 122.515 pasos en laborable
-- metro_ligero: laborable 2026-11-25, sábado 2026-11-21, domingo 2026-11-22; ese laborable circulan 4 de las 4 líneas del fichero; ese sábado, 4; ese domingo, 4; 13 con la posición de sus accesos; 57 paradas con servicio; 12.507 pasos en laborable
+- metro_ligero: laborable 2026-11-26, sábado 2026-11-28, domingo 2026-11-29; ese laborable circulan 4 de las 4 líneas del fichero; ese sábado, 4; ese domingo, 4; 13 con la posición de sus accesos; 57 paradas con servicio; 12.507 pasos en laborable
 - cercanias: laborable 2026-11-12, sábado 2026-11-21, domingo 2026-11-22; ese laborable circulan 11 de las 12 líneas del fichero; ese sábado, 11; ese domingo, 11; línea C9 excluida (sin servicio habitual: cerrada por obras); 93 paradas con servicio; 20.201 pasos en laborable
-- emt: laborable 2026-11-25, sábado 2026-11-21, domingo 2026-11-22; ese laborable circulan 234 de las 238 líneas del fichero; ese sábado, 219; ese domingo, 218; 4935 paradas con servicio; 982.548 pasos en laborable
-- interurbanos: laborable 2026-11-24, sábado 2026-11-21, domingo 2026-11-22; ese laborable circulan 335 de las 354 líneas del fichero; ese sábado, 298 (más 10 líneas con el servicio de sábado que el GTFS solo publica para el 2026-10-31: 743 viajes); ese domingo, 247 (más 55 líneas con el servicio de domingo que el GTFS solo publica para el 2026-11-01: 2300 viajes); 5759 viajes de 68 líneas sin hora en cada parada, contados con la hora estimada (salida + 117 s por parada); 56 repetidos y 11 sin hora de salida, descartados; 6769 paradas con servicio; 880.577 pasos en laborable
-- urbanos: laborable 2026-11-24, sábado 2026-11-21, domingo 2026-11-22; ese laborable circulan 110 de las 117 líneas del fichero; ese sábado, 76 (más 16 líneas con el servicio de sábado que el GTFS solo publica para el 2026-10-31: 1081 viajes); ese domingo, 69 (más 19 líneas con el servicio de domingo que el GTFS solo publica para el 2026-11-01: 653 viajes); 1600 viajes de 24 líneas sin hora en cada parada, contados con la hora estimada (salida + 90 s por parada); 54 repetidos y 0 sin hora de salida, descartados; 3072 paradas con servicio; 240.476 pasos en laborable
+- emt: laborable 2026-11-26, sábado 2026-11-28, domingo 2026-11-29; ese laborable circulan 234 de las 238 líneas del fichero; ese sábado, 219; ese domingo, 218; 4935 paradas con servicio; 982.548 pasos en laborable
+- interurbanos: laborable 2026-11-24, sábado 2026-11-28, domingo 2026-11-29; ese laborable circulan 335 de las 354 líneas del fichero; ese sábado, 298 (más 10 líneas con el servicio de sábado que el GTFS solo publica para el 2026-10-31: 743 viajes); ese domingo, 247 (más 55 líneas con el servicio de domingo que el GTFS solo publica para el 2026-11-01: 2300 viajes); 5759 viajes de 68 líneas sin hora en cada parada, contados con la hora estimada (salida + 117 s por parada); 56 repetidos y 11 sin hora de salida, descartados; 6769 paradas con servicio; 880.577 pasos en laborable
+- urbanos: laborable 2026-11-24, sábado 2026-11-28, domingo 2026-11-29; ese laborable circulan 110 de las 117 líneas del fichero; ese sábado, 76 (más 16 líneas con el servicio de sábado que el GTFS solo publica para el 2026-10-31: 1081 viajes); ese domingo, 69 (más 19 líneas con el servicio de domingo que el GTFS solo publica para el 2026-11-01: 653 viajes); 1600 viajes de 24 líneas sin hora en cada parada, contados con la hora estimada (salida + 90 s por parada); 54 repetidos y 0 sin hora de salida, descartados; 3072 paradas con servicio; 240.476 pasos en laborable
 - metro: **línea 3 reconstruida (estimación)**. El GTFS trae sus andenes pero ningún viaje. En cada andén (18 propios y 1 de otra línea en la misma estación: EL CASAR) se ponen, hora a hora, los trenes de la estación mediana de las líneas 1, 2, 4, 5 (media de las cuatro): 461 trenes al día en laborable, 370 en sábado y 336 en domingo, sumando los dos sentidos.
-- Calibración con la demanda diaria del CRTM (2026-08-30 a 2026-10-25; mediana de martes a jueves, de sábados y de domingos, sin días flojos): personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las paradas de la red.
-- Laborable: Conc. por carretera 1.140.012 viajeros / 1.121.053 pasos → 2.0 personas por paso; EMT 1.768.702 viajeros / 982.548 pasos → 3.6 personas por paso; Metro de Madrid 2.520.976 viajeros / 122.515 pasos → 41.2 personas por paso; Renfe Cercanías 735.479 viajeros / 20.201 pasos → 72.8 personas por paso
-- Sábado: Conc. por carretera 562.112 viajeros / 872.068 pasos → 1.3 personas por paso; EMT 1.037.032 viajeros / 656.740 pasos → 3.2 personas por paso; Metro de Madrid 1.744.264 viajeros / 100.230 pasos → 34.8 personas por paso; Renfe Cercanías 441.096 viajeros / 15.615 pasos → 56.5 personas por paso
-- Domingo: Conc. por carretera 396.460 viajeros / 818.258 pasos → 1.0 personas por paso; EMT 775.976 viajeros / 537.150 pasos → 2.9 personas por paso; Metro de Madrid 1.357.849 viajeros / 95.582 pasos → 28.4 personas por paso; Renfe Cercanías 350.140 viajeros / 15.589 pasos → 44.9 personas por paso
+- Calibración con la demanda diaria del CRTM (2026-09-13 a 2026-11-08; mediana de martes a jueves, de sábados y de domingos, sin días flojos): personas por paso = 2 × viajeros del día / pasos de vehículos del día en el GTFS. **Estimación**: igual en todas las paradas de la red.
+- Laborable: Conc. por carretera 1.139.208 viajeros / 1.121.053 pasos → 2.0 personas por paso; EMT 1.769.325 viajeros / 982.548 pasos → 3.6 personas por paso; Metro de Madrid 2.542.767 viajeros / 122.515 pasos → 41.5 personas por paso; Renfe Cercanías 740.746 viajeros / 20.201 pasos → 73.3 personas por paso
+- Sábado: Conc. por carretera 563.556 viajeros / 872.233 pasos → 1.3 personas por paso; EMT 1.073.299 viajeros / 656.740 pasos → 3.3 personas por paso; Metro de Madrid 1.759.922 viajeros / 100.230 pasos → 35.1 personas por paso; Renfe Cercanías 439.490 viajeros / 15.615 pasos → 56.3 personas por paso
+- Domingo: Conc. por carretera 398.175 viajeros / 823.357 pasos → 1.0 personas por paso; EMT 790.860 viajeros / 537.150 pasos → 2.9 personas por paso; Metro de Madrid 1.357.849 viajeros / 95.582 pasos → 28.4 personas por paso; Renfe Cercanías 339.780 viajeros / 15.589 pasos → 43.6 personas por paso
 - Cercanías: 19 estaciones con viajeros subidos y bajados propios (portal, conjunto 1923861, año 2024); su valor es el de la red multiplicado por la proporción entre la estación y la media de la red: SOL ×3.49, VILLAVERDE BAJO ×1.15, VICALVARO ×1.45, CHAMARTIN ×1.44, VILLAVERDE ALTO ×1.40, ALUCHE ×1.46, MOSTOLES ×1.52, VALLECAS ×1.75, ATOCHA ×4.59, NUEVOS MINISTERIOS ×2.53, MENDEZ ALVARO ×1.78, RECOLETOS ×0.96, FUENLABRADA ×1.75, PARLA ×2.68, EMBAJADORES ×1.49, PRINCIPE PIO ×1.99, ALCALA DE HENARES ×1.71, LEGANES ×1.48, CANTOBLANCO ×1.89. Sin emparejar (sin dato o nombre ambiguo): GETAFE, ENTREVIAS.
 
 **lineas_paradas** (36.484 pares parada-línea-sentido → 36.484)
@@ -268,9 +267,9 @@ Generados con `src/procesar_perfil.py` en `datos/procesados/` (GeoParquet, EPSG:
 - `estimada` vale verdadero en las líneas reconstruidas (línea 3 de Metro): sus vehículos son una **estimación** (ver `salidas_paradas`).
 - Las líneas que «no salen» no tienen viajes ese laborable: no tienen ninguno en el fichero, solo circulan en fin de semana o festivo, o están excluidas por obras (C9 de Cercanías).
 - metro: 13 líneas con servicio el 2026-05-13 (la 3, reconstruida: **estimación**)
-- metro_ligero: 4 líneas con servicio el 2026-11-25
+- metro_ligero: 4 líneas con servicio el 2026-11-26
 - cercanias: 11 líneas con servicio el 2026-11-12; no salen: C9
-- emt: 234 líneas con servicio el 2026-11-25; no salen: 172SF, SE721, SE730, SE766 (sin ningún viaje en el fichero: SE721, SE730, SE766)
+- emt: 234 líneas con servicio el 2026-11-26; no salen: 172SF, SE721, SE730, SE766 (sin ningún viaje en el fichero: SE721, SE730, SE766)
 - interurbanos: 335 líneas con servicio el 2026-11-24; no salen: 196, 199A, 414, 635, 692, 720, 721, 722, 723, 724, 725, 726, 727, 728, 819, FS1, FS2, N702, N908 (sin ningún viaje en el fichero: 635, 720, 721, 722, 723, 724, 725, 726, 727, 728, N702, N908)
 - urbanos: 110 líneas con servicio el 2026-11-24; no salen: 3A, I1, SE (sin ningún viaje en el fichero: 3A, I1, SE)
 
