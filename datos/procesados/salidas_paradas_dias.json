@@ -5,9 +5,9 @@
     "domingo": "2026-05-10"
   },
   "metro_ligero": {
-    "laborable": "2026-11-25",
-    "sabado": "2026-11-21",
-    "domingo": "2026-11-22"
+    "laborable": "2026-11-26",
+    "sabado": "2026-11-28",
+    "domingo": "2026-11-29"
   },
   "cercanias": {
     "laborable": "2026-11-12",
@@ -15,18 +15,18 @@
     "domingo": "2026-11-22"
   },
   "emt": {
-    "laborable": "2026-11-25",
-    "sabado": "2026-11-21",
-    "domingo": "2026-11-22"
+    "laborable": "2026-11-26",
+    "sabado": "2026-11-28",
+    "domingo": "2026-11-29"
   },
   "interurbanos": {
     "laborable": "2026-11-24",
-    "sabado": "2026-11-21",
-    "domingo": "2026-11-22"
+    "sabado": "2026-11-28",
+    "domingo": "2026-11-29"
   },
   "urbanos": {
     "laborable": "2026-11-24",
-    "sabado": "2026-11-21",
-    "domingo": "2026-11-22"
+    "sabado": "2026-11-28",
+    "domingo": "2026-11-29"
   }
 }
