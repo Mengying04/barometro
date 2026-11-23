@@ -1300,7 +1300,7 @@ def fila_clave(tarjetas: list[str], clase: str = "") -> str:
     """La fila de datos clave del principio de cada sección (de 2 a 4 tarjetas; en el
     mercado, una cuadrícula con las 8)."""
     t = [x for x in tarjetas if x]
-    return (f"<div class='dk-fila {clase}' style='--n:{min(len(t), 4)}'>" + "".join(t)
+    return (f"<div class='dk-fila n{len(t)} {clase}' style='--n:{min(len(t), 4)}'>" + "".join(t)
             + "</div>")
 
 

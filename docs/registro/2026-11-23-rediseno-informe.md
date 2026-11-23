@@ -164,3 +164,36 @@ barrio» en «¿Qué tipo de local?». Sin fallos, sin avisos y sin errores de J
 - `README.md`: una frase de qué diferencia a BARómetro al principio, el Informe por
   secciones y la nueva página de planes.
 - `docs/capturas/` y `docs/ejemplos/`: rehechos.
+
+## Corrección: el Informe en una columna de documento
+
+**Problema** (lo vio la autora después del primer commit): en el Informe completo, el texto
+se cortaba a unas 72 letras por línea, mientras que las tarjetas, los desplegables y las
+líneas de sección ocupaban todo el ancho. Quedaban textos a medias y un hueco a la derecha.
+
+**Opciones que se le dieron:** texto a todo el ancho (líneas de unas 120 letras), texto en
+dos columnas o todo el Informe en una columna de documento. Eligió la **columna de
+documento**.
+
+**Qué se ha hecho** (solo `app/estilo.css` y una clase en `app/app.py`):
+
+- Todo el Informe (cabecera, datos clave, texto, desplegables, gráficos y tablas) va en
+  una sola columna centrada de 35 rem (unas 72 letras a 16 px). El índice queda a la
+  izquierda, fuera de la columna. El texto llega siempre hasta el borde de la columna.
+- Datos clave de dos en dos; con tres tarjetas, la respuesta ocupa la fila entera. El
+  mercado, también en dos columnas.
+- Dentro de la columna, los desplegables largos y las notas del mercado van en una sola
+  columna de texto (en dos no cabían).
+- La tabla de fuentes, dentro del Informe, se ve como una ficha por fuente (fuente y,
+  debajo, licencia, fecha y enlace), igual que en el móvil; en la portada sigue siendo una
+  tabla.
+- Comparación y dirección sin confirmar: se quita el límite de ancho en los textos que van
+  dentro de una caja ancha (veredicto de cada fila, explicación de «¿Es aquí?»).
+- Atribuciones de la portada: los párrafos se reparten en columnas y llenan la caja.
+
+La letra pequeña (0,875 rem) llega a unas 76 letras por línea dentro de la columna.
+
+**Pruebas:** AppTest, 17 de 17 bien. Chromium a 390, 1.280, 1.440 y 1.920 px, bajando hasta
+el pie: sin errores de JavaScript, desplazamiento horizontal, solapes ni índice sobre el pie.
+Rehechas las 87 capturas afectadas y los dos PDF. Las dos de recarga lenta
+(`*-barra-recarga.png`) no cambian, porque solo enseñan la cabecera y la aguja de carga.

@@ -33,6 +33,7 @@
      (--lectura: unas 72 letras de Inter a 16 px). La barra, el índice, el contenido y el pie
      se alinean con los mismos bordes (--borde-pagina). */
   --ancho:1280px; --margen:2.5rem; --lectura:34rem; --lectura-nota:30rem; --indice:12.5rem;
+  --columna:35rem;   /* la columna de documento del Informe completo */
   --borde-pagina:max(var(--margen), calc((100% - var(--ancho)) / 2));
 }
 body, [data-testid="stApp"] {background:var(--crema); font-variant-numeric:tabular-nums;}
@@ -240,7 +241,6 @@ header[data-testid="stHeader"] {display:none;}
 @media (min-width:1280px) {
   .bm-barra.con-indice .bm-indice {display:block;}
   .bm-barra .menu-secciones {display:none;}
-  .st-key-informe {margin-left:calc(var(--indice) + 2.5rem); width:calc(100% - var(--indice) - 2.5rem) !important;}
 }
 
 /* ------------------------------------------------------------- resultado */
@@ -373,8 +373,7 @@ header[data-testid="stHeader"] {display:none;}
                 font-style:normal; font-weight:700; font-size:var(--f-nota); margin-top:0.05rem;}
 .confirma {font-size:var(--f-seccion); font-weight:700; letter-spacing:-0.02em; line-height:var(--lh-titulo);
            color:var(--tinta); margin:0 0 0.4rem 0;}
-.confirma-pie {font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--suave); margin:0;
-               max-width:var(--lectura);}
+.confirma-pie {font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--suave); margin:0;}
 
 /* ------------------------------------------------------- informe completo */
 /* Cabecera del informe: rótulo, dirección como título de página y datos del cálculo. */
@@ -480,8 +479,10 @@ header[data-testid="stHeader"] {display:none;}
 .tabla-fuentes tr:last-child td {border-bottom:0;}
 .tabla-fuentes a, .atribuciones a, .cond a, .planes-datos a {color:var(--teja) !important; font-weight:600;}
 .atribuciones {background:#fff; border:1px solid var(--borde); border-left:0.35rem solid var(--teja);
-               border-radius:var(--radio); padding:1.1rem 1.3rem; display:grid; gap:0.6rem;}
-.atribuciones p {max-width:var(--lectura); margin:0; font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--tinta);}
+               border-radius:var(--radio); padding:1.1rem 1.3rem; display:grid; gap:0.6rem 2.5rem;
+               grid-template-columns:repeat(auto-fit, minmax(min(100%, 22rem), 1fr));}
+.atribuciones .rotulo {grid-column:1 / -1;}
+.atribuciones p {margin:0; font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--tinta);}
 .atribuciones b {font-weight:600;}
 p.cond {font-size:var(--f-nota) !important; line-height:1.5; margin:0; overflow-wrap:anywhere;}
 @media (max-width:760px) {   /* la tabla, una ficha por fuente */
@@ -623,7 +624,7 @@ p.cond {font-size:var(--f-nota) !important; line-height:1.5; margin:0; overflow-
             text-transform:uppercase; letter-spacing:0.08em;}
 .cmp-ver {display:flex; gap:0.55rem; align-items:flex-start; margin-top:0.9rem; padding-top:0.8rem;
           border-top:1px solid var(--borde); font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--suave);}
-.cmp-ver span {display:block; max-width:var(--lectura);}
+.cmp-ver span {display:block;}
 .cmp-ver.decide {color:var(--tinta); font-weight:600;}
 .cmp-ver .ico {flex:none; margin-top:0.2rem; color:var(--tenue);}
 .cmp-ver.decide .ico {color:var(--teja);}
@@ -818,4 +819,35 @@ a.plan-me {color:var(--teja) !important; font-weight:600; font-size:var(--f-text
   .cmp-elegir-t {font-size:var(--f-bloque); letter-spacing:0;}
   [class*="st-key-caja_"] {padding:1rem 1rem;}
   [id] {scroll-margin-top:7.5rem;}
+}
+
+/* ------------------------------------------------- Informe completo: columna de documento */
+/* Todo el Informe (cabecera, datos clave, texto, desplegables, gráficos y tablas) va en una
+   sola columna centrada de unas 72 letras de ancho, como la página de un informe: el texto
+   llega siempre hasta el borde de la columna y no deja huecos a la derecha. En pantallas
+   anchas, el índice va a la izquierda, fuera de la columna. */
+.st-key-informe {width:100% !important; max-width:var(--columna); margin-left:auto; margin-right:auto;}
+.st-key-informe [data-testid="stMarkdownContainer"] > p, .st-key-informe [data-testid="stMarkdownContainer"] > ul,
+.st-key-informe [data-testid="stMarkdownContainer"] > ol, .st-key-informe [data-testid="stCaptionContainer"],
+.st-key-informe [data-testid="stExpander"] [data-testid="stMarkdownContainer"] > p,
+.st-key-informe [data-testid="stExpander"] [data-testid="stMarkdownContainer"] > ul,
+.st-key-informe .resp-apoyo, .st-key-informe .sec-fuente {max-width:none;}
+/* Datos clave de dos en dos; con tres tarjetas, la respuesta ocupa la fila entera. */
+.st-key-informe .dk-fila, .st-key-informe .dk-fila.mercado {grid-template-columns:repeat(2, minmax(0, 1fr));}
+.st-key-informe .dk-fila.n3 > :first-child, .st-key-informe .dk-fila > :only-child {grid-column:1 / -1;}
+/* La tabla de fuentes, en la columna: una ficha por fuente (como en el móvil). */
+.st-key-informe .tabla-fuentes table, .st-key-informe .tabla-fuentes tbody, .st-key-informe .tabla-fuentes tr,
+.st-key-informe .tabla-fuentes td, .st-key-informe .tabla-fuentes th {display:block; width:auto !important;}
+.st-key-informe .tabla-fuentes thead {display:none;}
+.st-key-informe .tabla-fuentes tr {padding:0.6rem 0; border-bottom:1px solid var(--borde);}
+.st-key-informe .tabla-fuentes td {border:0; padding:0.15rem 1rem;}
+.st-key-informe .tabla-fuentes td:first-child {font-weight:600;}
+.st-key-informe .tabla-fuentes td:not(:first-child)::before {content:attr(data-c) " · "; color:var(--tenue);
+   font-size:var(--f-rotulo); text-transform:uppercase; letter-spacing:0.08em; font-weight:600;}
+.st-key-informe .tabla-fuentes td small {display:inline; margin-left:0.4rem;}
+/* En la columna no caben dos columnas de texto: los desplegables largos, en una. */
+.st-key-informe [class*="st-key-largo_"] {column-count:1;}
+.st-key-informe .st-key-notas_mercado {grid-template-columns:minmax(0, 1fr);}
+@media (max-width:640px) {
+  .st-key-informe .dk-fila, .st-key-informe .dk-fila.mercado {grid-template-columns:minmax(0, 1fr);}
 }
