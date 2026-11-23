@@ -197,3 +197,22 @@ La letra pequeña (0,875 rem) llega a unas 76 letras por línea dentro de la col
 el pie: sin errores de JavaScript, desplazamiento horizontal, solapes ni índice sobre el pie.
 Rehechas las 87 capturas afectadas y los dos PDF. Las dos de recarga lenta
 (`*-barra-recarga.png`) no cambian, porque solo enseñan la cabecera y la aguja de carga.
+
+## Segunda corrección: texto a todo el ancho
+
+La columna de documento no era lo que quería la autora: dejaba mucho espacio vacío a los
+lados. Lo que pedía es que **el texto llegue hasta el borde derecho**, como las tarjetas y
+los desplegables. Se quita, por tanto, el límite de 72 letras por línea:
+
+- El Informe completo vuelve a ocupar todo el ancho del contenido, a la derecha del índice
+  en pantallas anchas; las tarjetas de datos clave, el mercado (cuatro por fila desde
+  1.400 px), los desplegables en dos columnas y la tabla de fuentes vuelven a ser como en
+  el primer rediseño.
+- Ningún texto tiene ya ancho máximo en el Informe, en la explicación de las tarjetas del
+  Resumen ni en la comparación: llega hasta el borde de su caja o del contenido. Las líneas
+  son más largas (unas 120 letras a 1.440 px).
+- Se mantienen centrados los textos que lo están a propósito (portada y cabecera de planes).
+
+**Pruebas:** AppTest, 17 de 17 bien. Chromium a 390, 1.280, 1.440 y 1.920 px (Resumen,
+Informe y comparación, bajando hasta el pie): sin errores de JavaScript, desplazamiento
+horizontal, solapes ni índice sobre el pie. Rehechas las 87 capturas afectadas y los dos PDF.
