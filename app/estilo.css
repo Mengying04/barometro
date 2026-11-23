@@ -478,9 +478,7 @@ header[data-testid="stHeader"] {display:none;}
 .tabla-fuentes tr:last-child td {border-bottom:0;}
 .tabla-fuentes a, .atribuciones a, .cond a, .planes-datos a {color:var(--teja) !important; font-weight:600;}
 .atribuciones {background:#fff; border:1px solid var(--borde); border-left:0.35rem solid var(--teja);
-               border-radius:var(--radio); padding:1.1rem 1.3rem; display:grid; gap:0.6rem 2.5rem;
-               grid-template-columns:repeat(auto-fit, minmax(min(100%, 22rem), 1fr));}
-.atribuciones .rotulo {grid-column:1 / -1;}
+               border-radius:var(--radio); padding:1.1rem 1.3rem; display:grid; gap:0.6rem;}
 .atribuciones p {margin:0; font-size:var(--f-texto); line-height:var(--lh-texto); color:var(--tinta);}
 .atribuciones b {font-weight:600;}
 p.cond {font-size:var(--f-nota) !important; line-height:1.5; margin:0; overflow-wrap:anywhere;}

@@ -216,3 +216,31 @@ los desplegables. Se quita, por tanto, el límite de 72 letras por línea:
 **Pruebas:** AppTest, 17 de 17 bien. Chromium a 390, 1.280, 1.440 y 1.920 px (Resumen,
 Informe y comparación, bajando hasta el pie): sin errores de JavaScript, desplazamiento
 horizontal, solapes ni índice sobre el pie. Rehechas las 87 capturas afectadas y los dos PDF.
+
+## Tercera corrección: atribuciones una debajo de otra
+
+En la portada, la caja de atribuciones repartía sus párrafos en columnas (tres en pantallas
+anchas). A la autora no le gustaba: ahora van uno debajo de otro, a todo el ancho de la caja,
+en la portada y en el Informe. Rehechas las capturas en las que sale la caja (portada,
+Informe entero y 1.920 px); sin fallos ni errores de JavaScript.
+
+## Marcas de los locales en el mapa, con dibujos
+
+A petición de la autora, las cuatro formas geométricas (círculo, cuadrado, triángulo y
+rombo) pasan a ser dibujos más visuales, en blanco sobre un círculo del color de cada tipo:
+
+| Tipo | Dibujo | Color (sin cambios) |
+|---|---|---|
+| Cafetería | Taza de café con su plato | Verde #009E73 |
+| Restaurante | Cuchillo y tenedor | Naranja #D55E00 |
+| Bar | Jarra de cerveza con espuma | Azul #0072B2 |
+| Comida rápida | Hamburguesa | Morado #B5338A |
+
+- Son dibujos propios (SVG en una rejilla de 24, en `app/app.py`), no iconos de terceros.
+- En el mapa miden 24 px (antes 16) para que se reconozca el dibujo; en las leyendas, 22 px.
+- Se siguen distinguiendo con daltonismo: los colores son los mismos y ahora cada tipo
+  tiene además un dibujo distinto.
+- El PDF (`src/documento.py`) no cambia: dibuja sus propios puntos de color.
+
+Rehechas las capturas en las que salen el mapa o la leyenda; sin fallos ni errores de
+JavaScript. AppTest, 17 de 17 bien.

@@ -123,12 +123,37 @@ COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": 
                  "deporte_eventos": "#6250d6"}
 # Tipos de local: cuatro colores bien separados también con daltonismo (comprobados por pares
 # con el validador de paletas: diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia) y,
-# además, una forma distinta por tipo. Los mismos en el mapa, la leyenda y el informe.
-FORMA_TIPO = {  # en una rejilla de 16: círculo, cuadrado, triángulo y rombo
-    "bar": "<circle cx='8' cy='8' r='6'/>",
-    "restaurante": "<rect x='2.4' y='2.4' width='11.2' height='11.2' rx='1.6'/>",
-    "cafeteria": "<path d='M8 1.6L14.8 13.8H1.2z'/>",
-    "comida_rapida": "<path d='M8 0.9L15.1 8L8 15.1L0.9 8z'/>"}
+# además, un dibujo distinto por tipo, en blanco sobre un círculo de su color: una taza de
+# café (cafetería), cuchillo y tenedor (restaurante), una jarra de cerveza (bar) y una
+# hamburguesa (comida rápida). Los mismos en el mapa, la leyenda y el informe. Dibujos
+# propios en una rejilla de 24; «{c}» es el color del tipo (para las vetas de la jarra).
+DIBUJO_TIPO = {
+    "cafeteria": (
+        "<path d='M7 10h8v3.2a3.6 3.6 0 0 1-3.6 3.6h-.8A3.6 3.6 0 0 1 7 13.2z' fill='#fff'/>"
+        "<path d='M15 11h1a1.6 1.6 0 0 1 0 3.2h-1' fill='none' stroke='#fff' stroke-width='1.4'/>"
+        "<path d='M6.3 18.4h10.4' stroke='#fff' stroke-width='1.4' stroke-linecap='round'/>"
+        "<path d='M9.6 5.6c-.7.8.7 1.5 0 2.5M12.6 5.6c-.7.8.7 1.5 0 2.5' fill='none' "
+        "stroke='#fff' stroke-width='1.2' stroke-linecap='round'/>"),
+    "restaurante": (
+        "<path d='M7.4 5.6v3.6a1.9 1.9 0 0 0 3.8 0V5.6M9.3 5.6v12.8' fill='none' stroke='#fff' "
+        "stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/>"
+        "<path d='M15.8 18.4V5.6c-1.7.9-2.4 3.1-2.4 5.4 0 1.2.6 1.9 1.5 1.9h.9' fill='#fff' "
+        "stroke='#fff' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/>"),
+    "bar": (
+        "<path d='M14.6 10.6h1.3a1.5 1.5 0 0 1 1.5 1.5v2.3a1.5 1.5 0 0 1-1.5 1.5h-1.3' "
+        "fill='none' stroke='#fff' stroke-width='1.5'/>"
+        "<rect x='7' y='8.6' width='7.6' height='9.6' rx='1.1' fill='#fff'/>"
+        "<path d='M6.6 9.4a2.1 2.1 0 0 1 2.2-2.9 2.4 2.4 0 0 1 4.3-.2 1.9 1.9 0 0 1 2 3.1z' "
+        "fill='#fff'/>"
+        "<path d='M9.5 11.4v4.8M12.1 11.4v4.8' stroke='{c}' stroke-width='1.1' "
+        "stroke-linecap='round'/>"),
+    "comida_rapida": (
+        "<path d='M6.4 11.3a5.6 4.3 0 0 1 11.2 0z' fill='#fff'/>"
+        "<rect x='5.8' y='12.4' width='12.4' height='1.7' rx='.85' fill='#fff'/>"
+        "<path d='M6.4 15.1h11.2v.6a2.1 2.1 0 0 1-2.1 2.1H8.5a2.1 2.1 0 0 1-2.1-2.1z' fill='#fff'/>"
+        "<path d='M9.4 8.9h.1M12 8.3h.1M14.6 8.9h.1' stroke='{c}' stroke-width='1.1' "
+        "stroke-linecap='round'/>"),
+}
 # Transporte: un icono discreto por modo, en gris oscuro (no compite con los locales). Son
 # dibujos propios (una letra o un autobús en una ficha), no los logotipos de las redes.
 TINTA_MODO = "#3b342c"
@@ -137,13 +162,15 @@ MODO_ICONO = {"metro": "Metro", "cercanias": "Cercanías", "metro_ligero": "Metr
 LETRA_MODO = {"Metro": "M", "Cercanías": "C", "Metro Ligero": "ML"}
 
 
-def marca_tipo(tipo: str, px: int = 16) -> str:
-    """La marca de un tipo de local (forma y color), como SVG suelto: vale para el mapa
-    (que va en un marco aparte, sin la hoja de estilos) y para las leyendas."""
+def marca_tipo(tipo: str, px: int = 22) -> str:
+    """La marca de un tipo de local (su dibujo en blanco sobre un círculo de su color), como
+    SVG suelto: vale para el mapa (que va en un marco aparte, sin la hoja de estilos) y para
+    las leyendas."""
+    color = COLOR_TIPO.get(tipo, "#999999")
+    dibujo = DIBUJO_TIPO.get(tipo, DIBUJO_TIPO["bar"]).replace("{c}", color)
     return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
-            f"viewBox='0 0 16 16' fill='{COLOR_TIPO.get(tipo, '#999999')}' stroke='#ffffff' "
-            f"stroke-width='1.4' stroke-linejoin='round'>"
-            f"{FORMA_TIPO.get(tipo, FORMA_TIPO['bar'])}</svg>")
+            "viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='" + color
+            + "' stroke='#ffffff' stroke-width='1.5'/>" + dibujo + "</svg>")
 
 
 def icono_modo(modo: str, px: int = 18) -> str:
@@ -809,7 +836,7 @@ def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16,
                 marcador(f.lat, f.lon, icono_modo(f.modo, px), px).add_to(m)
         if locs is not None:
             for f in locs.itertuples():   # sin ventanas ni nombres: el tipo, por color y forma
-                marcador(f.lat, f.lon, marca_tipo(f.tipo, 16), 16).add_to(m)
+                marcador(f.lat, f.lon, marca_tipo(f.tipo, 24), 24).add_to(m)
         folium.CircleMarker((lat, lon), radius=9, weight=3, color="#ffffff",
                             fill=True, fill_color=PRINCIPAL, fill_opacity=1,
                             interactive=False).add_to(m)
@@ -838,7 +865,7 @@ def leyenda(titulo: str, items: list[tuple[str, str]], extra: str = "") -> None:
 
 
 def leyenda_mapa(paradas: pd.DataFrame | None = None, cuenta: dict | None = None) -> str:
-    """Leyenda de los locales (los cuatro tipos, con su forma y su color) y, si se dan, de las
+    """Leyenda de los locales (los cuatro tipos, con su dibujo y su color) y, si se dan, de las
     paradas del mapa. Con «cuenta», cada tipo lleva su número (informe)."""
     out = f"<div class='leyenda rejilla{' cuenta' if cuenta else ''}'>" + "".join(
         f"<span>{marca_tipo(t)}{n}" + (f"<b>{miles(cuenta[t])}</b>" if cuenta else "")
