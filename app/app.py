@@ -29,17 +29,21 @@ Desde el resultado se puede además:
   - «Descargar informe»: un PDF (src/documento.py) del local o de la comparación, que se
     genera en memoria al pulsar el botón y no se guarda en el servidor.
 
-«Planes» (enlazada desde la barra de la portada, el pie y las etiquetas «Plan …» que hay
+«Planes» (enlazada desde el menú de la cabecera, el pie y las etiquetas «Plan …» que hay
 bajo los botones del resultado y de la comparación): cómo se sostendría el proyecto, en
 cuatro niveles (Gratis, Informe, Profesional e Institucional), sin precios. Es solo una
 descripción: durante DATAMAD 2026 todo está abierto, nada se bloquea y no hay pagos,
-cuentas, registro ni recogida de datos.
+cuentas, registro ni recogida de datos. «Cómo funciona», desde una vista con resultado, es
+también una página aparte (en la portada es una sección de la misma página).
 
 Rejilla (app/estilo.css): un solo ancho máximo de contenido y un margen lateral simétrico
-para todas las vistas; la barra, el índice, el contenido y el pie comparten bordes. En el
-Informe completo cada sección tiene una columna de lectura (texto, listas y desplegables del
-mismo ancho) y, al lado, un recuadro de apoyo (clase «seccion»). El pie es el mismo en todas
-las vistas. Los avisos («Ojo con esto» y «Riesgos y avisos») son los de recomendar(), tal cual.
+para todas las vistas; la barra, el índice, el contenido y el pie comparten bordes. La
+cabecera es la misma en todas las vistas: logotipo, buscador y cambio Resumen/Informe (con
+resultado) y un menú (Cómo funciona, Fuentes y licencias, Planes y Repositorio). El Informe
+completo se lee como un informe: secciones numeradas con el mismo esquema (una fila de datos
+clave, el porqué y el detalle a todo el ancho y una línea final con la fuente). El texto
+corrido nunca pasa de unas 72 letras por línea. El pie es el mismo en todas las vistas. Los
+avisos («Ojo con esto» y «Riesgos y avisos») son los de recomendar(), tal cual.
 
 Ficheros de la interfaz (en app/): estilo.css (sistema visual), buscador.js (componente del
 buscador y de la barra, montado con st.components.v2, sin iframe) y logo.svg.
@@ -221,7 +225,7 @@ st.set_page_config(page_title="BARómetro", page_icon=str(AQUI / "logo.svg"), la
 
 # ------------------------------------------------------------------- sistema visual
 TEJA, TEJA_SUAVE = PRINCIPAL, "#d6a585"
-TINTA, SUAVE, TENUE, BORDE = "#1f1b16", "#5c5248", "#8a7f73", "#e8dfd3"
+TINTA, SUAVE, TENUE, BORDE = "#1f1b16", "#5c5248", "#6f655a", "#e8dfd3"
 # Aguja del nivel de movimiento: un solo tono, de claro a oscuro (más paso, más intenso).
 RAMPA_NIVEL = ["#ecd9c9", "#e3b697", "#d48b5f", "#bb5d31", "#9c3d1b"]
 # Iconos propios, todos del mismo estilo: trazo de 2 px, sin relleno, en una rejilla de 24.
@@ -421,19 +425,18 @@ def cifras_portada() -> dict:
 # ------------------------------------------------------------------- formato
 
 
-def etiquetas(r: dict) -> str:
+def etiqueta_confianza(r: dict) -> str:
     c = r.get("confianza", "baja")
-    base = r.get("base", "")
-    return (f"<span class='etiqueta conf-{c}'>Confianza {c}</span>"
-            f"<span class='etiqueta'>{html.escape(base.capitalize())}</span>")
+    return f"<span class='etiqueta conf-{c}'>Confianza {c}</span>"
 
 
-def mostrar_rec(r: dict) -> None:
-    """Una recomendación completa: texto, etiquetas y «Por qué» desplegable."""
-    st.markdown(f"{r['texto']}<br>{etiquetas(r)}", unsafe_allow_html=True)
-    if r.get("porque"):
-        with st.expander("Por qué"):
-            st.markdown("\n".join(f"- {p}" for p in r["porque"]))
+def etiqueta_base(r: dict) -> str:
+    """Dato, estimación o dato + estimación."""
+    return f"<span class='etiqueta'>{html.escape(r.get('base', '').capitalize())}</span>"
+
+
+def etiquetas(r: dict) -> str:
+    return etiqueta_confianza(r) + etiqueta_base(r)
 
 
 # ------------------------------------------- lecturas de recomendar() (sin cálculos)
@@ -478,8 +481,8 @@ def tarjetas_resumen(resp: dict) -> None:
                       on_click=alternar, args=(clave,))
 
 
-def diez_clientes(rec: dict) -> None:
-    """«De cada 10 posibles clientes»: diez puntos con el color de cada tipo."""
+def diez_clientes(rec: dict) -> str:
+    """«De cada 10 posibles clientes»: diez puntos con el color de cada tipo (HTML)."""
     r = rec_dia(rec["a_quien"]["recomendaciones"], "laborable")
     pesos = sorted((r[0].get("pesos") or {}).items(), key=lambda kv: -kv[1]) if r else []
     reparto = [(t, round(10 * p)) for t, p in pesos if round(10 * p) > 0]
@@ -490,38 +493,36 @@ def diez_clientes(rec: dict) -> None:
                      for t, n in reparto) + f"<i style='background:{COLOR_OTROS}'></i>" * otros
     texto = " · ".join([f"{n} {CLIENTE_CALLE[t]}" for t, n in reparto if n]
                        + ([f"{otros} de otro tipo"] if otros else []))
-    st.markdown("<div class='cifra-pie'>De cada 10 posibles clientes en un día de diario:"
-                f"</div><div class='diez' style='margin-top:0.6rem'>{puntos}</div>"
-                f"<div class='cifra-pie'>{texto}</div>", unsafe_allow_html=True)
+    return ("<div class='cifra-pie'>De cada 10 posibles clientes en un día de diario:"
+            f"</div><div class='diez' style='margin-top:0.6rem'>{puntos}</div>"
+            f"<div class='cifra-pie'>{texto}</div>")
 
 
-def cifra_cuando(rec: dict, informe: bool = False) -> None:
-    """La cifra de la hora. Con tipo de local: la hora con más clientes; en el Resumen, sin
-    cifras de clientes (solo la hora y una comparación); en el Informe, con la cifra de
-    visitas posibles."""
+def cifra_cuando(rec: dict, informe: bool = False) -> str:
+    """La cifra de la hora (HTML). Con tipo de local: la hora con más clientes; en el
+    Resumen, sin cifras de clientes (solo la hora y una comparación); en el Informe, con la
+    cifra de visitas posibles."""
     if con_tipo(rec):
         pc = rec["a_que_hora"]["detalle"]["laborable"].get("horas_punta_clientes") or []
         if not pc:
-            return
+            return ""
         mejor = max(pc, key=lambda h: h["total"])
         h = int(mejor["hora"][:2])
         if informe:
-            st.markdown(f"<div class='cifra'>≈{unas(mejor['total'])} visitas</div>"
-                        f"<div class='cifra-pie'>posibles a las {h}, la hora con más clientes "
-                        "de un día de diario, para todos los locales de ese tipo en "
-                        f"{S.RADIO_M} m (estimación).</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='cifra'>A las {h}</div><div class='cifra-pie'>es la hora "
-                        "con más clientes posibles de un día de diario. "
-                        f"{html.escape(comparacion_franjas(rec))}</div>",
-                        unsafe_allow_html=True)
-        return
+            return (f"<div class='cifra'>≈{unas(mejor['total'])} visitas</div>"
+                    f"<div class='cifra-pie'>posibles a las {h}, la hora con más clientes "
+                    "de un día de diario, para todos los locales de ese tipo en "
+                    f"{S.RADIO_M} m (estimación).</div>")
+        return (f"<div class='cifra'>A las {h}</div><div class='cifra-pie'>es la hora "
+                "con más clientes posibles de un día de diario. "
+                f"{html.escape(comparacion_franjas(rec))}</div>")
     punta = rec["a_que_hora"]["detalle"]["laborable"]["horas_punta"]
-    if punta:
-        mejor = max(punta, key=lambda h: h["total"])
-        st.markdown(f"<div class='cifra'>Unas {unas(mejor['total'])} personas</div>"
-                    f"<div class='cifra-pie'>pasan cerca a las {int(mejor['hora'][:2])}, la "
-                    "mejor hora de un día de diario.</div>", unsafe_allow_html=True)
+    if not punta:
+        return ""
+    mejor = max(punta, key=lambda h: h["total"])
+    return (f"<div class='cifra'>Unas {unas(mejor['total'])} personas</div>"
+            f"<div class='cifra-pie'>pasan cerca a las {int(mejor['hora'][:2])}, la "
+            "mejor hora de un día de diario.</div>")
 
 
 def barras_que(rec: dict) -> None:
@@ -535,7 +536,7 @@ def barras_que(rec: dict) -> None:
     datos = datos.sort_values("n", ascending=False).head(5)
     base = alt.Chart(datos).encode(
         y=alt.Y("momento:N", sort="-x", title=None,
-                axis=alt.Axis(labelFontSize=15, labelLimit=220, labelColor="#1f1b16",
+                axis=alt.Axis(labelFontSize=14, labelLimit=220, labelColor="#1f1b16",
                               ticks=False, domain=False)),
         x=alt.X("n:Q", axis=None, scale=alt.Scale(domain=[0, datos["n"].max() * 1.15])))
     st.markdown("<div class='cifra-pie'>Lo que más te pedirían en un día de diario, de más a "
@@ -545,7 +546,7 @@ def barras_que(rec: dict) -> None:
         .properties(height=42 * len(datos)).configure_view(strokeWidth=0), width="stretch")
 
 
-def barras_que_mini(rec: dict) -> None:
+def barras_que_mini(rec: dict) -> str:
     """Informe completo: una barra fina por momento, con su nombre y su cifra encima. El largo
     de cada barra es su parte del momento mayor. Con tipo de local, la cifra es la parte (en
     %) de los clientes posibles de ese local en un día de diario, en todos sus momentos."""
@@ -553,44 +554,46 @@ def barras_que_mini(rec: dict) -> None:
         rp = sorted(rec["que_vender"].get("reparto", {}).get("laborable", {}).items(),
                     key=lambda kv: -kv[1])
         if not rp:
-            return
+            return ""
         tope = rp[0][1]
-        st.markdown(
-            "<div class='lado-t'>Reparto de los clientes posibles en un día de diario</div>"
-            "<div class='mini'>"
-            + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
-                      f"<span>{100 * p:.0f} %</span><i style='width:{100 * p / tope:.0f}%'></i>"
-                      "</div>" for m, p in rp) + "</div>"
-            f"<div class='cifra-pie'>De las {html.escape(rec['tipo_local']['unidad'])} "
-            "(estimación).</div>", unsafe_allow_html=True)
-        return
+        return ("<div class='rotulo'>Reparto de los clientes posibles en un día de diario</div>"
+                "<div class='mini'>"
+                + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
+                          f"<span>{100 * p:.0f} %</span>"
+                          f"<i style='width:{100 * p / tope:.0f}%'></i></div>" for m, p in rp)
+                + "</div>"
+                f"<div class='cifra-pie'>De las {html.escape(rec['tipo_local']['unidad'])} "
+                "(estimación).</div>")
     mo = sorted(((m, n) for m, n in rec["que_vender"]["momentos"]["laborable"].items()
                  if n > 0), key=lambda kv: -kv[1])[:5]
     if not mo:
-        return
+        return ""
     tope = mo[0][1]
-    st.markdown(
-        "<div class='lado-t'>Posibles clientes en un día de diario</div><div class='mini'>"
-        + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
-                  f"<span>unos {unas(n)}</span><i style='width:{100 * n / tope:.0f}%'></i></div>"
-                  for m, n in mo) + "</div>", unsafe_allow_html=True)
+    return ("<div class='rotulo'>Posibles clientes en un día de diario</div><div class='mini'>"
+            + "".join(f"<div><span>{html.escape(mayus(MOMENTO_CALLE[m]))}</span>"
+                      f"<span>unos {unas(n)}</span><i style='width:{100 * n / tope:.0f}%'></i>"
+                      "</div>" for m, n in mo) + "</div>")
 
 
-def cifra_precio(inf: dict) -> None:
+def cifra_precio(inf: dict) -> str:
+    """Cuánto han subido los precios de la restauración en un año (HTML; dato del IPC)."""
     v = (bloque_inf(inf, "precios")["datos"].get("ipc_interanual") or {}).get(
         "restaurantes_alojamiento")
-    if v is not None and v > 0:
-        st.markdown(f"<div class='cifra'>Cerca de un {round(v)} % más</div>"
-                    "<div class='cifra-pie'>han subido en un año los precios de bares, "
-                    "restaurantes y hoteles en la región.</div>", unsafe_allow_html=True)
+    if v is None or v <= 0:
+        return ""
+    return (f"<div class='cifra'>Cerca de un {round(v)} % más</div>"
+            "<div class='cifra-pie'>han subido en un año los precios de bares, "
+            "restaurantes y hoteles en la región.</div>")
 
 
 def explicacion(clave: str, resp: dict, rec: dict, inf: dict) -> None:
     """Explicación de la tarjeta abierta: a todo el ancho, debajo de la fila."""
     frases = {"quien": lambda: frases_quien(rec), "cuando": lambda: frases_cuando(rec),
               "que": lambda: frases_que(rec), "precio": lambda: frases_precio(inf)}[clave]()
-    figura = {"quien": lambda: diez_clientes(rec), "cuando": lambda: cifra_cuando(rec),
-              "que": lambda: barras_que(rec), "precio": lambda: cifra_precio(inf)}[clave]
+    figura = {"quien": lambda: st.markdown(diez_clientes(rec), unsafe_allow_html=True),
+              "cuando": lambda: st.markdown(cifra_cuando(rec), unsafe_allow_html=True),
+              "que": lambda: barras_que(rec),
+              "precio": lambda: st.markdown(cifra_precio(inf), unsafe_allow_html=True)}[clave]
     t = resp[clave]
     with st.container(border=True, key="explicacion"):
         st.markdown(f"<div class='explica-titulo'>{t['pregunta']} "
@@ -615,7 +618,7 @@ def avisos_calle(rec: dict) -> list[tuple[str, str]]:
 def eje_horas(cada: int, con_h: bool) -> alt.X:
     """Eje de horas legible en un móvil: una etiqueta cada «cada» horas, en horizontal."""
     return alt.X("hora:O", title=None, scale=alt.Scale(paddingInner=0.22),
-                 axis=alt.Axis(values=list(range(0, 24, cada)), labelAngle=0, labelFontSize=13,
+                 axis=alt.Axis(values=list(range(0, 24, cada)), labelAngle=0, labelFontSize=14,
                                labelExpr="datum.value + ' h'" if con_h else "datum.value",
                                labelColor=SUAVE, labelPadding=8, ticks=False,
                                domainColor=BORDE))
@@ -1050,15 +1053,25 @@ def parte_buscador(modo: str, direccion: str = "", vista: str = "",
     if modo == "portada":
         datos.update(ejemplos=list(EJEMPLOS), privacidad=PRIVACIDAD)
     else:
-        datos.update(logo=logo_svg(), direccion=direccion, vista=vista,
+        datos.update(logo=logo_svg(), direccion=direccion, vista=vista, campo=bool(direccion),
+                     menu=[{"t": t, "href": h, "ir": ir} for t, h, ir in MENU],
                      vistas=VISTAS if vista else [],
                      secciones=[{"id": i, "t": t} for i, t in secciones],
                      ir_a=st.session_state.get("ir_a"))
     r = BUSCADOR(key=clave, data=datos, on_q_change=_nada, on_elegida_change=_nada,
                  on_ejemplo_change=_nada, on_ubicacion_change=_nada, on_inicio_change=_nada,
-                 on_vista_change=_nada, on_fuentes_change=_nada, on_planes_change=_nada)
-    if r.planes:    # enlace «Planes» de la portada, del pie o de una etiqueta de plan
+                 on_vista_change=_nada, on_fuentes_change=_nada, on_planes_change=_nada,
+                 on_como_change=_nada, on_probar_change=_nada)
+    if r.planes:    # enlace «Planes» del menú, del pie o de una etiqueta de plan
         st.session_state["pagina"] = "planes"
+        st.rerun()
+    if r.como:      # «Cómo funciona» desde una vista sin esa sección: página aparte
+        st.session_state["pagina"] = "como"
+        st.rerun()
+    if r.probar:    # «Probar ahora» (plan Gratis): al buscador
+        st.session_state.pop("pagina", None)
+        if not st.session_state.get("resultado"):
+            volver_al_inicio()
         st.rerun()
     if r.fuentes:   # enlace «Fuentes y licencias» del pie
         st.session_state.pop("pagina", None)
@@ -1156,34 +1169,62 @@ def tabla_bloque(b: dict) -> None:
                       "parecidas." if est else ""))
 
 
-def bloque_mercado(b: dict) -> None:
-    with st.container(border=True, key=f"caja_m_{b['clave']}"):
-        try:
-            etiqueta, valor, frase = metrica_bloque(b)
-        except (KeyError, TypeError, ValueError, IndexError):
-            etiqueta, valor, frase = b["titulo"], "—", ""
-        # Competencia: los locales del radio por tipo, con las marcas del mapa.
-        por_tipo = b["datos"].get("comparacion_por_tipo", {}) if b["clave"] == "competencia" \
-            else {}
-        cuenta = ({t: por_tipo[t]["radio"] for t in S.TIPOS_COMPETENCIA}
-                  if all(t in por_tipo for t in S.TIPOS_COMPETENCIA) else None)
-        st.markdown(
-            f"<div class='caja-t'>{html.escape(b['titulo'])} <span class='etiqueta'>"
-            f"{html.escape(b['caracter'].capitalize())}</span></div>"
-            f"<div class='m-etq'>{html.escape(etiqueta)}</div>"
-            f"<div class='m-valor'>{html.escape(valor)}</div>"
-            + (f"<div class='frase'>{html.escape(frase)}</div>" if frase else "")
-            + (leyenda_mapa(cuenta=cuenta) if cuenta else ""), unsafe_allow_html=True)
-        avisos = [n for n in b["notas"] if es_aviso(n)]
-        with st.expander("Detalle, notas y fuentes" + (" · con avisos" if avisos else "")):
-            st.markdown(b["resumen"])
-            tabla_bloque(b)
-            for n in b["notas"]:
-                (st.warning if es_aviso(n) else st.caption)(n)
-            st.caption("Fuentes: " + "; ".join(
-                f"[{f['nombre']}]({f['enlace']}) ({f['licencia']}"
-                + (f"; {f['periodo']}" if f.get("periodo") else "")
-                + f"; descargado el {f['descargado']})" for f in b["fuentes"]))
+def cuenta_competencia(b: dict) -> dict | None:
+    """Competencia: los locales del radio por tipo, para la leyenda con las marcas del mapa."""
+    por_tipo = b["datos"].get("comparacion_por_tipo", {}) if b["clave"] == "competencia" \
+        else {}
+    return ({t: por_tipo[t]["radio"] for t in S.TIPOS_COMPETENCIA}
+            if all(t in por_tipo for t in S.TIPOS_COMPETENCIA) else None)
+
+
+def tarjeta_mercado(b: dict) -> str:
+    """Un bloque del mercado como tarjeta: qué es, la cifra, una frase y si es dato o
+    estimación (y si sus notas traen avisos). Notas, métodos y fuentes van aparte, en un solo
+    desplegable para todo el mercado."""
+    try:
+        etiqueta, valor, frase = metrica_bloque(b)
+    except (KeyError, TypeError, ValueError, IndexError):
+        etiqueta, valor, frase = b["titulo"], "—", ""
+    cuenta = cuenta_competencia(b)
+    avisos = any(es_aviso(n) for n in b["notas"])
+    marcas = (f"<span class='etiqueta'>{html.escape(b['caracter'].capitalize())}</span>"
+              + ("<span class='etiqueta aviso'>Con avisos</span>" if avisos else ""))
+    return tarjeta(
+        f"<div class='rotulo'>{html.escape(b['titulo'])}</div>"
+        f"<div class='dk-etq'>{html.escape(etiqueta)}</div>"
+        f"<div class='dk-valor'>{html.escape(valor)}</div>"
+        + (f"<div class='dk-frase'>{html.escape(frase)}</div>" if frase else "")
+        + (leyenda_mapa(cuenta=cuenta) if cuenta else ""), marcas)
+
+
+def notas_mercado(b: dict) -> None:
+    """Dentro del desplegable del mercado: el resumen, la tabla, las notas y las fuentes de
+    un bloque, con su título."""
+    avisos = [n for n in b["notas"] if es_aviso(n)]
+    with st.container(key=f"nota_m_{b['clave']}"):
+        st.markdown(f"<div class='sub-t'>{html.escape(b['titulo'])}"
+                    + (" <span class='etiqueta aviso'>Con avisos</span>" if avisos else "")
+                    + "</div>", unsafe_allow_html=True)
+        st.markdown(urls_cortas(b["resumen"]))
+        tabla_bloque(b)
+        for n in b["notas"]:
+            (st.warning if es_aviso(n) else st.caption)(urls_cortas(n))
+        st.caption("Fuentes: " + "; ".join(
+            f"[{f['nombre']}]({f['enlace']}) ({urls_cortas(f['licencia'])}"
+            + (f"; {f['periodo']}" if f.get("periodo") else "")
+            + f"; descargado el {f['descargado']})" for f in b["fuentes"]))
+
+
+def seccion_mercado(inf: dict) -> None:
+    st.markdown(cabecera_seccion("mercado")
+                + fila_clave([tarjeta_mercado(b) for b in inf["bloques"]], "mercado"),
+                unsafe_allow_html=True)
+    with st.expander("Notas, métodos y fuentes del mercado"):
+        with st.container(key="notas_mercado"):
+            for b in inf["bloques"]:
+                notas_mercado(b)
+    st.markdown(linea_fuente("cada bloque cita las suyas en «Notas, métodos y fuentes del "
+                             "mercado»", "Dato y estimación"), unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------ riesgos
@@ -1198,27 +1239,31 @@ def nota(icono: str, cuerpo_html: str, clase: str = "") -> str:
 
 
 def seccion_riesgos(rec: dict, inf: dict) -> None:
-    """Los avisos del sitio (los mismos del Resumen, con su fiabilidad y su porqué) y, al
-    lado, los avisos sobre los datos."""
-    with seccion("riesgos") as lado:
-        for r in rec["riesgos"]:
-            icono = ICONO_RIESGO.get(r["clave"], "aviso")
-            st.markdown(nota(icono, f"{html.escape(r['texto'])}<br>{etiquetas(r)}",
-                             "bien" if icono == "ok" else ""), unsafe_allow_html=True)
-            if r.get("porque"):
-                with st.expander("Por qué"):
-                    st.markdown("\n".join(f"- {p}" for p in r["porque"]))
-    with lado:
-        avisos = [es_aviso(n) for b in inf["bloques"] for n in b["notas"] if es_aviso(n)]
-        st.markdown("<div class='lado-t'>Avisos sobre los datos</div>", unsafe_allow_html=True)
-        st.markdown("\n".join(
-            f"- {a}" for a in dict.fromkeys(
-                avisos + ["El domingo sirve también, de forma aproximada, para los "
-                          "festivos.",
-                          "Toda cifra de personas y de gasto es una estimación con supuestos "
-                          "explícitos (src/supuestos.py)."])))
-        st.caption("El texto completo de cada aviso está en la sección Mercado, en «Detalle, "
-                   "notas y fuentes».")
+    """Los avisos del sitio (los mismos del Resumen) como datos clave, con su fiabilidad; su
+    porqué en un desplegable y, debajo, los avisos sobre los datos."""
+    st.markdown(cabecera_seccion("riesgos") + fila_clave([
+        tarjeta(f"<div class='dk-aviso'>{ico(ICONO_RIESGO.get(r['clave'], 'aviso'))}"
+                f"<span>{html.escape(r['texto'])}</span></div>", etiquetas(r),
+                "bien" if ICONO_RIESGO.get(r["clave"]) == "ok" else "atencion")
+        for r in rec["riesgos"]]), unsafe_allow_html=True)
+    con_porque = [r for r in rec["riesgos"] if r.get("porque")]
+    if con_porque:
+        with st.expander("Por qué de cada aviso"):
+            with st.container(key="largo_riesgos"):
+                for r in con_porque:
+                    st.markdown(f"**{r['texto']}**\n" + "\n".join(f"- {p}" for p in r["porque"]))
+    avisos = [es_aviso(n) for b in inf["bloques"] for n in b["notas"] if es_aviso(n)]
+    st.markdown("<div class='porque-t'>Avisos sobre los datos</div>", unsafe_allow_html=True)
+    st.markdown("\n".join(
+        f"- {a}" for a in dict.fromkeys(
+            avisos + ["El domingo sirve también, de forma aproximada, para los "
+                      "festivos.",
+                      "Toda cifra de personas y de gasto es una estimación con supuestos "
+                      "explícitos (src/supuestos.py)."])))
+    st.caption("El texto completo de cada aviso está en la sección Mercado, en «Notas, "
+               "métodos y fuentes del mercado».")
+    st.markdown(linea_fuente("recomendaciones de este informe y notas de las fuentes del "
+                             "mercado", "Estimación"), unsafe_allow_html=True)
 
 
 # ------------------------------------------- informe: una sección por pregunta
@@ -1227,80 +1272,97 @@ SECCIONES = (("movimiento", "Nivel de movimiento"), ("quien", "A quién"),
              ("perfil", "Perfil por horas"), ("mercado", "Mercado"),
              ("riesgos", "Riesgos y avisos"), ("comprobar", "Qué comprobar en persona"),
              ("fuentes", "Fuentes y licencias"))
-ICONO_SECCION = {"movimiento": "aguja", "quien": "personas", "hora": "reloj", "vender": "taza",
-                 "precio": "euro", "perfil": "grafico", "mercado": "cesta", "riesgos": "aviso",
-                 "comprobar": "lista", "fuentes": "libro", "como-funciona": "info",
-                 "planes": "etiqueta"}
+NUMERO_SECCION = {c: f"{i:02d}" for i, (c, _) in enumerate(SECCIONES, 1)}
+# De dónde sale el perfil por horas (src/perfil_horario.py; detalle en docs/fuentes.md).
+FUENTE_PERFIL = ("perfil por horas con datos del CRTM, del Portal de Datos Abiertos de la "
+                 "Comunidad de Madrid, del INE y de OpenStreetMap")
+FUENTE_SUPUESTOS = FUENTE_PERFIL + ", y supuestos explícitos (src/supuestos.py)"
 
 
-def cabecera_seccion(clave: str, titulo: str | None = None, primera: bool = False) -> str:
+def cabecera_seccion(clave: str, titulo: str | None = None, primera: bool = False,
+                     numero: bool = True) -> str:
+    """Título de sección: número (en el Informe completo), nombre y una línea fina encima."""
     titulo = titulo or dict(SECCIONES)[clave]
-    return (f"<div class='sec{' primera' if primera else ''}' id='{clave}'>"
-            f"{ico(ICONO_SECCION[clave])}<b>{html.escape(titulo)}</b></div>")
+    n = NUMERO_SECCION.get(clave) if numero else None
+    return (f"<div class='sec{' primera' if primera else ''}' id='{clave}' role='heading' "
+            f"aria-level='2'>" + (f"<span class='sec-num'>{n}</span>" if n else "")
+            + f"<span class='sec-t'>{html.escape(titulo)}</span></div>")
 
 
-class seccion:
-    """Rejilla de una sección: a la izquierda, la columna de lectura (texto, listas y
-    desplegables, todos del mismo ancho); a la derecha, un recuadro de apoyo con la cifra
-    clave, un gráfico pequeño o la fiabilidad. En pantallas estrechas, uno debajo de otro
-    (app/estilo.css). Uso:
-        with seccion("quien") as lado:
-            ...   # columna de lectura
-        with lado:
-            ...   # recuadro de apoyo"""
+def tarjeta(cuerpo: str, marcas: str = "", clase: str = "") -> str:
+    """Una tarjeta pequeña de datos clave: cifra, etiqueta y, abajo, fiabilidad o
+    dato/estimación."""
+    return (f"<div class='dk {clase}'><div class='dk-cuerpo'>{cuerpo}</div>"
+            + (f"<div class='dk-marcas'>{marcas}</div>" if marcas else "") + "</div>")
 
-    def __init__(self, clave: str):
-        self.fila = st.container(key=f"sec_{clave}")
-        with self.fila:
-            self.texto = st.container(key=f"texto_{clave}")
-            self.lado = st.container(key=f"lado_{clave}")
 
-    def __enter__(self):
-        self.texto.__enter__()
-        return self.lado
+def fila_clave(tarjetas: list[str], clase: str = "") -> str:
+    """La fila de datos clave del principio de cada sección (de 2 a 4 tarjetas; en el
+    mercado, una cuadrícula con las 8)."""
+    t = [x for x in tarjetas if x]
+    return (f"<div class='dk-fila {clase}' style='--n:{min(len(t), 4)}'>" + "".join(t)
+            + "</div>")
 
-    def __exit__(self, *a):
-        return self.texto.__exit__(*a)
+
+def linea_fuente(texto: str, tipo: str) -> str:
+    """La línea pequeña y gris del final de cada sección."""
+    return f"<div class='sec-fuente'>Fuente: {html.escape(texto)} · {html.escape(tipo)}</div>"
+
+
+def nombre_corto(nombre: str) -> str:
+    """El nombre de una fuente sin la parte descriptiva («INE. Atlas de distribución de renta
+    de los hogares (ADRH), provincia…» → «INE. Atlas de distribución de renta de los
+    hogares»)."""
+    return re.split(r" \(|, por |\. Unidades|: ", nombre)[0]
+
+
+def tarjeta_fiabilidad(r: dict) -> str:
+    return tarjeta("<div class='rotulo'>Fiabilidad</div>" + fiabilidad(r),
+                   etiqueta_confianza(r))
 
 
 def rec_detalle(r: dict) -> None:
-    """Una recomendación dentro de un detalle desplegable: texto, etiquetas y sus motivos."""
-    st.markdown(f"{r['texto']}<br>{etiquetas(r)}", unsafe_allow_html=True)
-    if r.get("porque"):
-        st.caption("\n".join(f"- {p}" for p in r["porque"]))
+    """Una recomendación dentro de un detalle desplegable: texto, etiquetas y sus motivos
+    (juntos, para que no se separen al repartirse en dos columnas)."""
+    with st.container():
+        st.markdown(f"{r['texto']}<br>{etiquetas(r)}", unsafe_allow_html=True)
+        if r.get("porque"):
+            st.caption("\n".join(f"- {p}" for p in r["porque"]))
 
 
-def seccion_pregunta(clave: str, t: dict, detalle, figura=None, pie: str = "") -> None:
-    """Las cuatro preguntas tienen la misma estructura: respuesta en grande, porqué (la
-    recomendación principal con sus motivos) y un detalle desplegable con todas las
-    recomendaciones; al lado, la cifra clave o un gráfico pequeño y la fiabilidad."""
+def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = "",
+                     fuente: str = FUENTE_SUPUESTOS) -> None:
+    """Las cuatro preguntas tienen la misma estructura: una fila de datos clave (respuesta,
+    cifra o gráfico pequeño y fiabilidad), el porqué (la recomendación principal con sus
+    motivos), un detalle desplegable con todas las recomendaciones y la fuente."""
     r = t["rec"]
-    st.markdown(cabecera_seccion(clave), unsafe_allow_html=True)
-    with seccion(clave) as lado:
-        st.markdown(
-            f"<div class='resp-grande'>{html.escape(t['respuesta'])}</div>"
-            + (f"<div class='resp-apoyo'>{html.escape(t['apoyo'])}</div>" if t["apoyo"] else "")
-            + f"<div>{etiquetas(r)}</div><div class='porque-t'>Por qué</div>",
-            unsafe_allow_html=True)
-        st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
-        with st.expander("Detalle: todas las recomendaciones"):
-            detalle()
-        if pie:
-            st.caption(pie)
-    with lado:
-        if figura:
-            figura()
-        st.markdown("<div class='lado-t'>Fiabilidad</div>" + fiabilidad(r),
-                    unsafe_allow_html=True)
+    st.markdown(
+        cabecera_seccion(clave) + fila_clave([
+            tarjeta("<div class='rotulo'>Respuesta</div>"
+                    f"<div class='dk-valor'>{html.escape(t['respuesta'])}</div>"
+                    + (f"<div class='dk-etq'>{html.escape(t['apoyo'])}</div>"
+                       if t["apoyo"] else ""), etiqueta_base(r), "dk-resp"),
+            tarjeta(figura, "<span class='etiqueta'>"
+                    + ("Dato" if clave == "precio" else "Estimación") + "</span>")
+            if figura else "",
+            tarjeta_fiabilidad(r)])
+        + "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
+    st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
+    with st.expander("Detalle: todas las recomendaciones"):
+        detalle()
+    if pie:
+        st.caption(pie)
+    st.markdown(linea_fuente(fuente, r.get("base", "estimación").capitalize()),
+                unsafe_allow_html=True)
 
 
-def por_dias(recs: list[dict], extra: tuple[str, list[dict]] | None = None) -> None:
+def por_dias(clave: str, recs: list[dict], extra: tuple[str, list[dict]] | None = None) -> None:
     """Recomendaciones en pestañas: laborable, sábado, domingo y, si hace falta, una más."""
     nombres = list(DIA_ETIQUETA) + ([extra[0]] if extra else [])
     grupos = [rec_dia(recs, d) for d in DIA_ETIQUETA.values()] \
         + ([extra[1]] if extra else [])
-    for tab, grupo in zip(st.tabs(nombres), grupos):
-        with tab:
+    for i, (tab, grupo) in enumerate(zip(st.tabs(nombres), grupos)):
+        with tab, st.container(key=f"largo_{clave}_{i}"):
             for r in grupo:
                 rec_detalle(r)
             if not grupo:
@@ -1308,8 +1370,9 @@ def por_dias(recs: list[dict], extra: tuple[str, list[dict]] | None = None) -> N
 
 
 def detalle_quien(rec: dict) -> None:
-    for r in rec["a_quien"]["recomendaciones"]:
-        rec_detalle(r)
+    with st.container(key="largo_quien"):
+        for r in rec["a_quien"]["recomendaciones"]:
+            rec_detalle(r)
     st.markdown("**Clientes por franja**")
     filas = []
     for f in S.FRANJAS:
@@ -1320,6 +1383,12 @@ def detalle_quien(rec: dict) -> None:
                 f"{x['nombre']} {100 * x['peso']:.0f} %" for x in c["clientes"]) or "—"
         filas.append(fila)
     st.dataframe(pd.DataFrame(filas), hide_index=True, width="stretch")
+
+
+def detalle_precio(rec: dict) -> None:
+    with st.container(key="largo_precio"):
+        for r in rec["a_que_precio"]["recomendaciones"]:
+            rec_detalle(r)
 
 
 def seccion_perfil(rec: dict, perfil: dict) -> None:
@@ -1338,7 +1407,7 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
         leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
                              if presentes[t] > 0], "<span>«punta»: horas punta</span>")
     if con_tipo(rec):
-        st.markdown("<div class='resp-apoyo' style='margin-top:1rem'>Clientes posibles por "
+        st.markdown("<div class='resp-apoyo'>Clientes posibles por "
                     f"hora para {html.escape(S.TIPOS_LOCAL_CORTO[rec['tipo_local']['clave']])}"
                     f": {html.escape(rec['tipo_local']['unidad'])} (≈, estimación). Los vecinos "
                     "cuentan aunque no pasen por delante: van a propósito.</div>",
@@ -1371,57 +1440,154 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
         st.dataframe(conf.rename(columns={"nombre": "Tipo", "confianza_horario": "Horario",
                                           "confianza_cantidad": "Cantidad"}),
                      hide_index=True, width="stretch")
+    st.markdown(linea_fuente(FUENTE_PERFIL, "Estimación"), unsafe_allow_html=True)
 
 
 def pestana_comprobar(rec: dict) -> None:
     lista = rec["comprobar_en_persona"]
     texto_lista = "\n".join(f"{i}. {c}" for i, c in enumerate(lista, 1))
-    with seccion("comprobar") as lado:
-        st.markdown(texto_lista)
-        with st.expander("Copiar la lista"):
-            st.code(texto_lista, language=None, wrap_lines=True)
-    with lado:
-        st.markdown(f"<div class='lado-t'>Para llevar al local</div><div class='cifra'>"
-                    f"{len(lista)}</div><div class='cifra-pie'>comprobaciones para hacer en "
-                    "persona antes de decidir: los datos abiertos no ven la calle.</div>",
+    st.markdown(cabecera_seccion("comprobar"), unsafe_allow_html=True)
+    # Datos clave: cuántas comprobaciones hay y la descarga de la lista.
+    with st.container(key="datos_comprobar", horizontal=True):
+        with st.container(key="dato_comprobar_n"):
+            st.markdown("<div class='rotulo'>Para llevar al local</div>"
+                        f"<div class='dk-cifra'>{len(lista)}</div><div class='dk-etq'>"
+                        "comprobaciones para hacer en persona antes de decidir: los datos "
+                        "abiertos no ven la calle.</div>", unsafe_allow_html=True)
+        with st.container(key="dato_comprobar_txt"):
+            st.markdown("<div class='rotulo'>Descarga</div><div class='dk-etq'>La lista, en "
+                        "texto, para imprimirla o llevarla en el móvil.</div>",
+                        unsafe_allow_html=True)
+            st.download_button("Descargar la lista (.txt)", texto_lista.encode("utf-8"),
+                               file_name="barometro_comprobaciones.txt", mime="text/plain")
+    st.markdown(texto_lista)
+    with st.expander("Copiar la lista"):
+        st.code(texto_lista, language=None, wrap_lines=True)
+    st.markdown(linea_fuente("las respuestas y los avisos de este informe", "Estimación"),
+                unsafe_allow_html=True)
+
+
+# ------------------------------------------------------------- fuentes y licencias
+def nombre_enlace(url: str) -> str:
+    """Un nombre corto para un enlace (nunca la dirección entera)."""
+    u = url.lower()
+    for clave, nombre in (("aviso_legal", "aviso legal"), ("aviso-legal", "aviso legal"),
+                          ("fixthemap", "informar de un error"), ("copyright", "copyright"),
+                          ("/faq", "preguntas frecuentes"), ("policies/tiles", "política de teselas"),
+                          ("licencia", "licencia"), ("{z}", "teselas"), (".zip", "descarga"),
+                          ("odbl", "licencia ODbL")):
+        if clave in u:
+            return nombre
+    if re.fullmatch(r"https?://(www\.)?[^/]+/?", url):
+        return "portal"
+    if "cartociudad" in u:
+        return "servicio"
+    return "ficha"
+
+
+def urls_cortas(md: str) -> str:
+    """En un texto Markdown, cada dirección web suelta pasa a ser un enlace con un nombre
+    corto (los enlaces [texto](dirección) se quedan como están)."""
+    return re.sub(r"(?<![(\[])\b(https?://[^\s)\]]+?)([.,;]?)(?=[\s)]|$)",
+                  lambda m: f"[{nombre_enlace(m[1])}]({m[1]}){m[2]}", md)
+
+
+def a(url: str, texto: str | None = None) -> str:
+    return (f"<a href='{html.escape(url, quote=True)}' target='_blank' rel='noopener'>"
+            f"{html.escape(texto or nombre_enlace(url))}</a>")
+
+
+def enlaces_cortos(texto: str) -> str:
+    """Texto de docs/fuentes.md a HTML: los enlaces de Markdown, con su texto; las
+    direcciones sueltas, con un nombre corto; las negritas, en negrita."""
+    piezas = []
+
+    def guardar(h: str) -> str:
+        piezas.append(h)
+        return f"\x00{len(piezas) - 1}\x00"
+    t = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", lambda m: guardar(a(m[2], m[1])), texto)
+    t = re.sub(r"`?(https?://[^\s`)]+?)`?([.,;]?)(?=[\s),]|$)",
+               lambda m: guardar(a(m[1])) + m[2], t)
+    t = html.escape(t, quote=False)
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t).replace("`", "")
+    return re.sub(r"\x00(\d+)\x00", lambda m: piezas[int(m[1])], t)
+
+
+def licencia_corta(texto: str) -> str:
+    """El nombre de la licencia (lo que va antes de la primera explicación), con su enlace
+    si lo trae, y el enlace al aviso legal si lo hay."""
+    m = re.match(r"\[([^\]]+)\]\((https?://[^)]+)\)", texto)
+    if m:
+        return a(m[2], m[1])
+    corta = re.split(r"[.;:](?:\s|$)", texto)[0]
+    corta = html.escape(corta[0].upper() + corta[1:])
+    legal = re.search(r"\[aviso legal\]\((https?://[^)]+)\)", texto)
+    return corta + (f" · {a(legal[1], 'aviso legal')}" if legal else "")
+
+
+def tabla_fuentes(fu: dict) -> str:
+    """Todas las fuentes en una tabla (fuente, licencia, fecha y enlace corto)."""
+    url = re.compile(r"https?://[^\s)`,]+")
+    filas = [f"<tr class='grupo'><th colspan='4'>Portal de Datos Abiertos de la Comunidad de "
+             f"Madrid · descargado el {html.escape(fu['portal_descarga'])}</th></tr>"]
+    for f in fu["portal"]:
+        ficha = (url.search(f["Ficha"]) or [None])[0]
+        filas.append(
+            f"<tr><td data-c='Fuente'>{html.escape(f['Conjunto'])}</td>"
+            f"<td data-c='Licencia'>{html.escape(f['Licencia'])}</td>"
+            f"<td data-c='Fecha'>{html.escape(f['Última modificación'])}"
+            "<small>última modificación</small></td>"
+            f"<td data-c='Enlace'>{a(ficha, 'ficha') if ficha else '—'}</td></tr>")
+    filas.append("<tr class='grupo'><th colspan='4'>Otras fuentes</th></tr>")
+    for e in fu["externas"] + fu["aplicacion"]:
+        enlace = (url.search(e.get("Enlace", "")) or [None])[0]
+        fecha = e.get("Fecha de descarga", "?")
+        filas.append(
+            f"<tr><td data-c='Fuente'>{html.escape(e['titulo'])}</td>"
+            f"<td data-c='Licencia'>{licencia_corta(e.get('Licencia', '?'))}</td>"
+            f"<td data-c='Fecha'>{html.escape(fecha)}"
+            + ("<small>descarga</small>" if re.fullmatch(r"\d{4}-\d\d-\d\d", fecha) else "")
+            + f"</td><td data-c='Enlace'>{a(enlace) if enlace else '—'}</td></tr>")
+    return ("<div class='tabla-fuentes'><table><thead><tr><th>Fuente</th><th>Licencia</th>"
+            "<th>Fecha</th><th>Enlace</th></tr></thead><tbody>" + "".join(filas)
+            + "</tbody></table></div>")
+
+
+def atribuciones() -> str:
+    """Las atribuciones obligatorias, en una caja a todo el ancho."""
+    return (
+        "<div class='atribuciones'><div class='rotulo'>Atribuciones</div>"
+        "<p><b>Powered by <a href='https://www.crtm.es' target='_blank' rel='noopener'>CRTM</a>"
+        "</b>. Los datos del Consorcio Regional de Transportes de Madrid (paradas, horarios GTFS "
+        "y demanda de viajeros) se usan <b>procesados</b>: se calculan a partir de ellos los "
+        "pasos de vehículos por hora y las personas por vehículo, no se muestran en bruto.</p>"
+        "<p>Locales, campus y mapa: © <a href='https://www.openstreetmap.org/copyright' "
+        "target='_blank' rel='noopener'>colaboradores de OpenStreetMap</a>, datos con licencia "
+        "<a href='https://opendatacommons.org/licenses/odbl/' target='_blank' rel='noopener'>"
+        "ODbL</a>. ¿Ves un error en el mapa? <a href='https://www.openstreetmap.org/fixthemap' "
+        "target='_blank' rel='noopener'>Infórmalo a OpenStreetMap</a>.</p>"
+        f"<p>{enlaces_cortos(ATRIBUCION_CARTOCIUDAD)}.</p>"
+        "<p>Este proyecto <b>no está respaldado ni patrocinado por ninguna de las entidades</b> "
+        "que publican los datos (Comunidad de Madrid, Ayuntamiento de Madrid, INE, IGN, CRTM, "
+        "Fundación OpenStreetMap ni ninguna otra).</p></div>")
+
+
+def pestana_fuentes(fu: dict, en_informe: bool = True) -> None:
+    st.markdown(tabla_fuentes(fu), unsafe_allow_html=True)
+    with st.expander("Versiones de los datos y condiciones de uso de las otras fuentes"):
+        with st.container(key="largo_condiciones" if en_informe else "largo_condiciones_p"):
+            for e in fu["externas"] + fu["aplicacion"]:
+                st.markdown(
+                    f"<p class='cond'><b>{html.escape(e['titulo'])}</b><br>"
+                    f"Licencia: {enlaces_cortos(e.get('Licencia', '?'))}<br>"
+                    f"Enlaces: {enlaces_cortos(e.get('Enlace', '?'))}<br>"
+                    f"Datos: {enlaces_cortos(e.get('Versión de los datos', '?'))} · descargado "
+                    f"el {html.escape(e.get('Fecha de descarga', '?'))}</p>",
                     unsafe_allow_html=True)
-        st.download_button("Descargar la lista (.txt)", texto_lista.encode("utf-8"),
-                           file_name="barometro_comprobaciones.txt", mime="text/plain")
-
-
-def pestana_fuentes(fu: dict) -> None:
-    st.markdown(f"**Portal de Datos Abiertos de la Comunidad de Madrid** (descargado el "
-                f"{fu['portal_descarga']}):")
-    tabla = pd.DataFrame([{
-        "Conjunto": f["Conjunto"],
-        "Ficha": (re.search(r"\((https?://[^)]+)\)", f["Ficha"]) or [None, None])[1],
-        "Licencia": f["Licencia"], "Última modificación": f["Última modificación"]}
-        for f in fu["portal"]])
-    st.dataframe(tabla, hide_index=True, width="stretch", column_config={
-        "Ficha": st.column_config.LinkColumn("Ficha", display_text=r".*/dataset/(.*)")})
-    with seccion("fuentes") as lado:
-        st.markdown("**Otras fuentes:**")
-        for e in fu["externas"] + fu["aplicacion"]:
-            st.markdown(f"- **{e['titulo']}**  \n"
-                        f"  Enlace: {e.get('Enlace', '?')}  \n"
-                        f"  Licencia: {e.get('Licencia', '?')}  \n"
-                        f"  Datos: {e.get('Versión de los datos', '?')} · descargado el "
-                        f"{e.get('Fecha de descarga', '?')}")
-    with lado:
-        st.markdown("<div class='lado-t'>Atribuciones</div>", unsafe_allow_html=True)
-        st.markdown(
-            "**Powered by [CRTM](https://www.crtm.es)**. Los datos del Consorcio Regional de "
-            "Transportes de Madrid (paradas, horarios GTFS y demanda de viajeros) se usan "
-            "**procesados**: se calculan a partir de ellos los pasos de vehículos por hora y "
-            "las personas por vehículo, no se muestran en bruto.\n\n"
-            "Locales, campus y mapa: © [colaboradores de OpenStreetMap]"
-            "(https://www.openstreetmap.org/copyright), datos con licencia "
-            "[ODbL](https://opendatacommons.org/licenses/odbl/). ¿Ves un error en el mapa? "
-            "[Infórmalo a OpenStreetMap](https://www.openstreetmap.org/fixthemap).\n\n"
-            + ATRIBUCION_CARTOCIUDAD + ".\n\n"
-            "Este proyecto **no está respaldado ni patrocinado por ninguna de las entidades** "
-            "que publican los datos (Comunidad de Madrid, Ayuntamiento de Madrid, INE, IGN, "
-            "CRTM, Fundación OpenStreetMap ni ninguna otra).")
+    st.markdown(atribuciones(), unsafe_allow_html=True)
+    if en_informe:
+        st.markdown(linea_fuente("docs/fuentes.md del repositorio", "Dato"),
+                    unsafe_allow_html=True)
 
 
 # =========================================================================== página
@@ -1656,66 +1822,64 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
     salta entre ellas). Cambiar de día en el perfil vuelve a ejecutar solo esta parte."""
     mov = res["mov"]
     resp = respuestas(rec, inf)
-    aq, hr, qv, pr = (rec["a_quien"], rec["a_que_hora"], rec["que_vender"],
-                      rec["a_que_precio"])
+    aq, hr, qv = rec["a_quien"], rec["a_que_hora"], rec["que_vender"]
+    precios = bloque_inf(inf, "precios")
     with st.container(key="informe"):
         st.markdown(
-            orientacion(AVISO) + f"<div class='donde' style='margin-top:1rem'>{ico('pin')}{html.escape(lugar_analizado())} · radio de "
-            f"{S.RADIO_M} m · calculado en {dec(st.session_state['segundos'])} s</div>",
-            unsafe_allow_html=True)
+            orientacion(AVISO) + "<div class='inf-cab'><div class='rotulo'>Informe completo"
+            f"</div><div class='inf-titulo'>{html.escape(lugar_analizado())}</div>"
+            f"<div class='inf-meta'>{ico('pin')}Radio de {S.RADIO_M} m · calculado en "
+            f"{dec(st.session_state['segundos'])} s</div></div>", unsafe_allow_html=True)
         acciones()
         selector_tipo()
-        st.markdown(cabecera_seccion("movimiento", primera=True), unsafe_allow_html=True)
-        with seccion("movimiento") as lado:
+        st.markdown(
+            cabecera_seccion("movimiento", primera=True) + fila_clave([
+                tarjeta(indicador_movimiento(mov)
+                        + f"<div class='dk-valor'>{html.escape(mov['nombre'])}</div>"
+                        f"<div class='dk-etq'>Nivel {mov['nivel']} de 5</div>",
+                        "<span class='etiqueta'>Estimación</span>", "aguja"),
+                tarjeta(f"<div class='rotulo'>Gente que pasa</div><div class='dk-cifra'>"
+                        f"≈{redondo(mov['pasos_laborable'])}</div><div class='dk-etq'>personas "
+                        "pasan cerca en un día laborable (estimación).</div>",
+                        "<span class='etiqueta'>Estimación</span>")])
+            + "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5). "
+            f"≈{redondo(mov['pasos_laborable'])} personas pasan cerca en un día laborable; "
+            f"{mov['frase']} (por encima del {100 * mov['posicion']:.0f} % de "
+            f"{miles(mov['sitios_referencia'])} sitios de referencia, cuya mediana es "
+            f"≈{redondo(mov['mediana_referencia'])}).")
+        if mov["muy_poco_paso"]:
+            st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
+        with st.expander(f"Detalle: cómo se calcula y por qué {S.RADIO_M} metros"):
             st.markdown(
-                f"<div class='resp-grande'>{html.escape(mov['nombre'])}</div>"
-                f"<div class='resp-apoyo'>Nivel {mov['nivel']} de 5</div>"
-                "<div><span class='etiqueta'>Estimación</span></div>"
-                "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
-            st.markdown(
-                f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5). "
-                f"≈{redondo(mov['pasos_laborable'])} personas pasan cerca en un día laborable; "
-                f"{mov['frase']} (por encima del {100 * mov['posicion']:.0f} % de "
-                f"{miles(mov['sitios_referencia'])} sitios de referencia, cuya mediana es "
-                f"≈{redondo(mov['mediana_referencia'])}).")
-            if mov["muy_poco_paso"]:
-                st.markdown(nota("aviso", html.escape(mov["aviso"])), unsafe_allow_html=True)
-            with st.expander(f"Detalle: cómo se calcula y por qué {S.RADIO_M} metros"):
-                st.markdown(
-                    f"{mov['nota']} Por qué {S.RADIO_M} metros: es lo que se anda en unos 4 "
-                    "minutos, la distancia a la que alguien se desvía para tomar algo de "
-                    "paso; por eso el perfil y las recomendaciones solo miran ese círculo. El "
-                    f"transporte se mira además a {S.ACCESOS_RADIO_LEJOS_M} m y el entorno a "
-                    f"{S.ENTORNO_RADIO_M // 1000} km, solo como contexto (sección Mercado).")
-        with lado:
-            st.markdown(
-                indicador_movimiento(mov)
-                + f"<div class='cifra'>≈{redondo(mov['pasos_laborable'])}</div>"
-                "<div class='cifra-pie'>personas pasan cerca en un día laborable "
-                "(estimación).</div>", unsafe_allow_html=True)
+                f"{mov['nota']} Por qué {S.RADIO_M} metros: es lo que se anda en unos 4 "
+                "minutos, la distancia a la que alguien se desvía para tomar algo de "
+                "paso; por eso el perfil y las recomendaciones solo miran ese círculo. El "
+                f"transporte se mira además a {S.ACCESOS_RADIO_LEJOS_M} m y el entorno a "
+                f"{S.ENTORNO_RADIO_M // 1000} km, solo como contexto (sección Mercado).")
+        st.markdown(linea_fuente(f"{FUENTE_PERFIL}, comparado con "
+                                 f"{miles(mov['sitios_referencia'])} sitios de referencia",
+                                 "Estimación"), unsafe_allow_html=True)
 
         seccion_pregunta("quien", resp["quien"], lambda: detalle_quien(rec),
-                         lambda: diez_clientes(rec), aq["nota"])
-        seccion_pregunta("hora", resp["cuando"], lambda: por_dias(hr["recomendaciones"]),
-                         lambda: cifra_cuando(rec, informe=True),
+                         diez_clientes(rec), aq["nota"])
+        seccion_pregunta("hora", resp["cuando"],
+                         lambda: por_dias("hora", hr["recomendaciones"]),
+                         cifra_cuando(rec, informe=True),
                          "" if con_tipo(rec) else S.AVISO_GENERAL)
         seccion_pregunta("vender", resp["que"], lambda: por_dias(
-            qv["recomendaciones"],
+            "vender", qv["recomendaciones"],
             ("Huecos y cocinas", [r for r in qv["recomendaciones"] if "dia" not in r]
-             + qv["huecos"] + [qv["cocinas"]])), lambda: barras_que_mini(rec))
-        seccion_pregunta("precio", resp["precio"],
-                         lambda: [rec_detalle(r) for r in pr["recomendaciones"]] and None,
-                         lambda: cifra_precio(inf))
+             + qv["huecos"] + [qv["cocinas"]])), barras_que_mini(rec))
+        seccion_pregunta("precio", resp["precio"], lambda: detalle_precio(rec),
+                         cifra_precio(inf),
+                         fuente=" y ".join(nombre_corto(f["nombre"])
+                                           for f in precios["fuentes"]))
 
         seccion_perfil(rec, perfil)
-
-        st.markdown(cabecera_seccion("mercado"), unsafe_allow_html=True)
-        with st.container(key="mercado"):   # dos columnas en portátil (app/estilo.css)
-            for b in inf["bloques"]:
-                bloque_mercado(b)
-        st.markdown(cabecera_seccion("riesgos"), unsafe_allow_html=True)
+        seccion_mercado(inf)
         seccion_riesgos(rec, inf)
-        st.markdown(cabecera_seccion("comprobar"), unsafe_allow_html=True)
         pestana_comprobar(rec)
         st.markdown(cabecera_seccion("fuentes"), unsafe_allow_html=True)
         pestana_fuentes(fu)
@@ -1770,7 +1934,7 @@ def parte_grafico_cmp(c: dict) -> None:
     base = alt.Chart(datos).encode(
         x=alt.X("hora:Q", title=None, scale=alt.Scale(domain=[0, 23], nice=False),
                 axis=alt.Axis(values=list(range(0, 24, 3)), labelExpr="datum.value + ' h'",
-                              labelFontSize=13, labelColor=SUAVE, labelPadding=8,
+                              labelFontSize=14, labelColor=SUAVE, labelPadding=8,
                               ticks=False, grid=False, domainColor=BORDE)),
         y=eje_personas(),
         color=alt.Color("local:N", legend=None,
@@ -1864,50 +2028,45 @@ def elegir_segunda() -> None:
 # recogida de correos ni contadores de uso, y ninguna función se bloquea, se limita ni se
 # esconde. Las etiquetas «Plan …» del resultado y de la comparación llevan aquí. No hay
 # cifras: los precios están por definir con hosteleros y gestorías. Lo que el prototipo
-# todavía no tiene se marca «Por hacer».
+# todavía no tiene se marca «Por hacer». Sin precios, campos, formularios, botones de compra,
+# registro ni recogida de datos: el único botón («Probar ahora») lleva al buscador.
 AVISO_ABIERTO = "Durante DATAMAD 2026, todas las funciones están abiertas y son gratuitas."
-AVISO_PLANES = AVISO_ABIERTO + " Esta página describe cómo se sostendría el proyecto."
-PRECIO_POR_DEFINIR = "Precio por definir con hosteleros y gestorías"
-PLANES = [
-    {"nombre": "Gratis", "para": "Para el hostelero",
-     "quien": "Quien tiene un bar o restaurante, o piensa abrirlo, y quiere hacerse una idea "
-              "de su zona.",
-     "incluye": [("El Resumen de cualquier dirección: quién pasa, a qué hora, qué ofrecer y a "
-                  "qué precios.", True),
-                 ("Sin límite de consultas y sin registrarse.", True)],
-     "sirve": "De un vistazo sabe si la zona encaja con su idea, sin pagar un estudio de "
-              "mercado.",
-     "pago": "Gratis", "precio": "Siempre gratis y sin límite"},
-    {"nombre": "Informe", "para": "Para el hostelero que va en serio",
-     "quien": "Quien está a punto de firmar un alquiler o un traspaso, o de cambiar la carta "
-              "o el horario.",
-     "incluye": [("El Informe completo: las cifras, la fiabilidad de cada respuesta, el "
-                  "mercado, los riesgos y las fuentes.", True),
-                 ("Comparar dos locales, lado a lado.", True),
-                 ("Descargar el informe o la comparación en PDF.", True)],
-     "sirve": "Decide con más datos antes de una inversión grande y puede llevar el informe "
-              "al socio, al banco o al propietario.",
-     "pago": "Pago único por informe", "precio": PRECIO_POR_DEFINIR},
-    {"nombre": "Profesional",
-     "para": "Para gestorías, inmobiliarias de locales y asesores de traspasos",
-     "quien": "Quien asesora a muchos hosteleros o enseña locales a quien quiere montar un "
-              "bar.",
-     "incluye": [("Informes completos ilimitados.", True),
-                 ("Los informes con su propio logotipo. Las fuentes y sus atribuciones se "
-                  "mantienen siempre.", False),
-                 ("Acceso mediante el servidor MCP: consultar BARómetro desde un asistente o "
-                  "desde sus propias herramientas.", True)],
-     "sirve": "Contesta a cada cliente con un informe completo que puede entregar con su "
-              "marca.",
-     "pago": "Suscripción", "precio": PRECIO_POR_DEFINIR},
-    {"nombre": "Institucional", "para": "Para ayuntamientos y asociaciones de hostelería",
-     "quien": "Quien piensa en todo un municipio y en todos sus bares, no en un solo local.",
-     "incluye": [("La visión de todo un municipio, zona a zona.", False),
-                 ("Dónde falta oferta para la gente que pasa y dónde sobra.", False)],
-     "sirve": "Ayuda a orientar a quien quiere abrir y a cuidar el comercio de cada barrio, "
-              "con los mismos datos abiertos.",
-     "pago": "Licencia anual", "precio": PRECIO_POR_DEFINIR},
-]
+PRECIO_POR_DEFINIR = "Precio por definir"
+# Cada plan: icono, nombre, una frase, forma de pago y de 3 a 4 líneas (7 palabras como
+# mucho; False = «Por hacer»).
+PLANES = {
+    "Para hosteleros": [
+        {"nombre": "Gratis", "icono": "taza",
+         "frase": "Para hacerse una idea de su zona antes de decidir.",
+         "pago": "Gratis", "precio": "Siempre, sin límite",
+         "incluye": [("El Resumen de cualquier dirección", True),
+                     ("Quién pasa, a qué hora y qué ofrecer", True),
+                     ("Sin límite de consultas", True),
+                     ("Sin registrarse", True)]},
+        {"nombre": "Informe", "icono": "libro", "destacado": "Para traspasos y alquileres",
+         "frase": "Para quien va a firmar un alquiler o un traspaso.",
+         "pago": "Pago único", "precio": PRECIO_POR_DEFINIR,
+         "incluye": [("Informe completo con cifras y fiabilidad", True),
+                     ("Mercado, riesgos y fuentes", True),
+                     ("Comparar dos locales lado a lado", True),
+                     ("Informe y comparación en PDF", True)]},
+    ],
+    "Para profesionales e instituciones": [
+        {"nombre": "Profesional", "icono": "tienda",
+         "frase": "Para gestorías, inmobiliarias de locales y asesores de traspasos.",
+         "pago": "Suscripción", "precio": PRECIO_POR_DEFINIR,
+         "incluye": [("Informes completos ilimitados", True),
+                     ("Informes con su propio logotipo", False),
+                     ("Consultas desde el servidor MCP", True)]},
+        {"nombre": "Institucional", "icono": "mapa",
+         "frase": "Para ayuntamientos y asociaciones de hostelería.",
+         "pago": "Licencia anual", "precio": PRECIO_POR_DEFINIR,
+         "incluye": [("Todo un municipio, zona a zona", False),
+                     ("Dónde falta oferta y dónde sobra", False),
+                     ("Con los mismos datos abiertos", True)]},
+    ],
+}
+ICONO_OK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
 
 
 def etiqueta_plan(nombre: str) -> str:
@@ -1924,74 +2083,126 @@ def nota_planes(partes: list[tuple[str, str]]) -> str:
             + f"<span class='abierto'>{html.escape(AVISO_ABIERTO)}</span></div>")
 
 
-def tarjeta_plan(p: dict) -> str:
+def tarjeta_plan(p: dict, i: int) -> str:
     items = "".join(
-        f"<li>{html.escape(t)}" + ("" if hecho else " <span class='por-hacer'>Por hacer</span>")
-        + "</li>" for t, hecho in p["incluye"])
-    gratis = p["nombre"] == "Gratis"
+        f"<li><span class='ico'><svg viewBox='0 0 24 24'>{ICONO_OK}</svg></span>"
+        f"<span>{html.escape(t)}"
+        + ("" if hecho else " <span class='por-hacer'>Por hacer</span>") + "</span></li>"
+        for t, hecho in p["incluye"])
+    if p["nombre"] == "Gratis":
+        accion = ("<a class='plan-probar' href='#buscar' data-ir='probar'>Probar ahora</a>")
+    else:
+        accion = (f"<a class='plan-me' href='{REPOSITORIO}' target='_blank' rel='noopener'>"
+                  "Me interesa</a>")
+    destacado = p.get("destacado")
     return (
-        f"<article class='plan{' gratis' if gratis else ''}'>"
-        f"<div class='plan-nombre'>Plan {html.escape(p['nombre'])}</div>"
-        f"<div class='plan-para'>{html.escape(p['para'])}</div>"
-        f"<div class='plan-t'>Para quién</div><p>{html.escape(p['quien'])}</p>"
-        f"<div class='plan-t'>Qué incluye</div><ul>{items}</ul>"
-        f"<div class='plan-t'>Por qué le sirve</div><p>{html.escape(p['sirve'])}</p>"
+        f"<article class='plan{' destacado' if destacado else ''}' style='--i:{i}'>"
+        + (f"<div class='plan-destacado'>{html.escape(destacado)}</div>" if destacado else "")
+        + f"<div class='plan-cab'>{ico(p['icono'])}<div class='plan-nombre'>"
+        f"{html.escape(p['nombre'])}</div></div>"
+        f"<p class='plan-frase'>{html.escape(p['frase'])}</p>"
         f"<div class='plan-pago'><b>{html.escape(p['pago'])}</b>"
-        f"<span>{html.escape(p['precio'])}</span></div></article>")
+        f"<span>{html.escape(p['precio'])}</span></div>"
+        f"<ul>{items}</ul><div class='plan-accion'>{accion}</div></article>")
 
 
 def salir_de_planes() -> None:
     st.session_state.pop("pagina", None)
 
 
-def vista_planes() -> None:
-    """Los cuatro planes en tarjetas, el aviso de que todo está abierto, por qué el modelo
-    es compatible con los datos abiertos y un enlace «Me interesa» al repositorio."""
+def boton_volver() -> None:
+    """Vuelve a lo que se estaba viendo (resultado, comparación, dirección sin confirmar o
+    portada)."""
     volver = ("Volver a la comparación" if res and cmp_fase else "Volver al resultado" if res
               else "Volver" if pendiente else "Volver al inicio")
     with st.container(key="acciones", horizontal=True):
         st.button(volver, key="btn_salir_planes", on_click=salir_de_planes,
                   icon=":material/arrow_back:")
-    st.markdown(
-        cabecera_seccion("planes", "Planes", primera=True)
-        + "<p class='planes-entrada'>Cómo podría sostenerse BARómetro después del datathon: "
-        "lo básico, gratis para siempre; el análisis a fondo y el servicio a profesionales, "
-        "de pago.</p>"
-        f"<div class='planes-abierto'>{ico('abierto')}<div><b>{html.escape(AVISO_ABIERTO)}"
-        "</b> Esta página describe cómo se sostendría el proyecto. Nada está bloqueado, "
-        "limitado ni oculto, y no hay pagos, cuentas ni registro.</div></div>",
-        unsafe_allow_html=True)
-    st.markdown("<div class='planes'>" + "".join(tarjeta_plan(p) for p in PLANES) + "</div>"
-                "<p class='planes-precio'>Sin cifras todavía: los precios se validarán con "
-                "entrevistas a hosteleros y gestorías antes de fijar ninguno. Lo marcado "
-                "«Por hacer» aún no existe en el prototipo.</p>", unsafe_allow_html=True)
-    st.markdown(
-        f"<div class='seccion'>{ico('libro')}Por qué es compatible con los datos abiertos"
-        "</div><div class='planes-datos'><p>El plan gratuito mantiene libre el acceso a lo "
-        "que los datos abiertos dicen de cualquier dirección. Lo que se cobraría es el "
-        "servicio y el análisis, no los datos: siguen en sus portales, y los procesados, en "
-        "el repositorio. Todas las fuentes permiten el uso comercial citando su origen; "
-        "OpenStreetMap y el Consorcio Regional de Transportes piden además compartir los "
-        "datos derivados con su misma licencia, y el Consorcio, mantenerlos al día, como ya "
-        "se hace cada semana.</p>"
-        "<p class='planes-me'><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a>"
-        f" · <a href='{REPOSITORIO}' target='_blank' rel='noopener'>Me interesa</a>"
-        "<span>: el enlace lleva al repositorio del proyecto.</span></p></div>",
-        unsafe_allow_html=True)
+
+
+def vista_planes() -> None:
+    """Los cuatro planes en dos pestañas (hosteleros; profesionales e instituciones), el
+    aviso de que todo está abierto y, en pequeño, por qué el modelo es compatible con las
+    licencias de los datos."""
+    boton_volver()
+    with st.container(key="planes_pagina"):
+        st.markdown(
+            "<div class='planes-cab' id='planes'><div class='planes-t' role='heading' aria-level='1'>Planes</div>"
+            "<p class='planes-entrada'>Lo básico, gratis para siempre. El análisis a fondo y "
+            "el servicio a profesionales, de pago.</p>"
+            f"<div class='planes-abierto'>{ico('abierto')}<span>{html.escape(AVISO_ABIERTO)}"
+            "</span></div></div>", unsafe_allow_html=True)
+        for pestana, planes in zip(st.tabs(list(PLANES)), PLANES.values()):
+            with pestana:
+                st.markdown("<div class='planes'>"
+                            + "".join(tarjeta_plan(p, i) for i, p in enumerate(planes))
+                            + "</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='planes-datos'><p>Sin cifras todavía: los precios se validarán con "
+            "entrevistas a hosteleros y gestorías antes de fijar ninguno. Lo marcado «Por "
+            "hacer» aún no existe en el prototipo. Nada está bloqueado, limitado ni oculto, y "
+            "no hay pagos, cuentas ni registro.</p>"
+            "<p>El plan gratuito mantiene libre el acceso a lo que los datos abiertos dicen de "
+            "cualquier dirección. Lo que se cobraría es el servicio y el análisis, no los datos: "
+            "siguen en sus portales, y los procesados, en el repositorio. Todas las fuentes "
+            "permiten el uso comercial citando su origen; OpenStreetMap y el Consorcio Regional "
+            "de Transportes piden además compartir los datos derivados con su misma licencia, y "
+            "el Consorcio, mantenerlos al día, como ya se hace cada semana. Con el logotipo de "
+            "un cliente, las fuentes y sus atribuciones se mantienen siempre.</p>"
+            "<p class='planes-me'><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a>"
+            f" · <a href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a></p>"
+            "</div>", unsafe_allow_html=True)
+
+
+# ------------------------------------------------------------------ cómo funciona
+def pasos_html() -> str:
+    return (
+        "<div class='pasos'>"
+        "<div class='paso'><i>1</i><b>Escribe la dirección</b><span>Pon la calle y el número "
+        "de tu local, o usa tu ubicación.</span></div>"
+        "<div class='paso'><i>2</i><b>Miramos la zona</b><span>Con datos abiertos vemos "
+        f"quién pasa a menos de {S.RADIO_M} metros, a qué horas y qué bares hay ya."
+        "</span></div>"
+        "<div class='paso'><i>3</i><b>Lee el resumen</b><span>Qué ofrecer, a quién, a qué "
+        "hora y a qué precios. Es una orientación: compruébalo siempre en persona."
+        "</span></div></div>")
+
+
+def vista_como() -> None:
+    """«Cómo funciona» desde una vista con resultado: los tres pasos, sin perder lo que se
+    estaba viendo."""
+    boton_volver()
+    st.markdown(cabecera_seccion("como-funciona", "Cómo funciona", primera=True)
+                + pasos_html(), unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------------ portada
+MENU = (("Cómo funciona", "#como-funciona", "como"),
+        ("Fuentes y licencias", "#fuentes", "fuentes"),
+        ("Planes", "#planes", "planes"),
+        ("Repositorio", REPOSITORIO, ""))
+
+
+def menu_html() -> str:
+    """El botón de menú (tres rayas) y su lista; lo abre y lo cierra app/buscador.js."""
+    return ("<div class='menu-bm'><button type='button' class='menu-boton' aria-expanded='false'"
+            " aria-label='Menú'><span class='ico'><svg viewBox='0 0 24 24'>"
+            "<path d='M4 7h16M4 12h16M4 17h16'/></svg></span></button>"
+            "<div class='menu-lista' hidden>" + "".join(
+                f"<a href='{h}' data-ir='{ir}'>{t}</a>" if ir else
+                f"<a href='{h}' target='_blank' rel='noopener'>{t}</a>" for t, h, ir in MENU)
+            + "</div></div>")
+
+
 def portada() -> None:
     """Pantalla inicial: el nombre, una frase y el buscador; debajo, tres cifras."""
     c = cifras_portada()
     logo = logo_svg()
     st.markdown(
         f"<div class='pt-nav'><span class='marca'>{logo}<b>BARómetro</b></span><nav>"
-        "<a href='#como-funciona'>Cómo funciona</a>"
-        "<a href='#fuentes'>Fuentes<span class='ancho'> y licencias</span></a>"
-        "<a href='#planes' data-ir='planes'>Planes</a>"
-        f"<a class='nav-repo' href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a>"
-        "</nav></div>", unsafe_allow_html=True)
+        + "".join(f"<a href='{h}' data-ir='{ir}'>{t}</a>" if ir else
+                  f"<a href='{h}' target='_blank' rel='noopener'>{t}</a>" for t, h, ir in MENU)
+        + "</nav>" + menu_html() + "</div>", unsafe_allow_html=True)
     with st.container(key="portada"):
         st.markdown(
             f"<div class='pt-marca'>{logo}<b><i>BAR</i>ómetro</b></div>"
@@ -2006,31 +2217,26 @@ def portada() -> None:
             "</span></div>"
             f"<div><b>{miles(c['municipios'])}</b><span>municipios cubiertos</span></div>"
             f"</div><div class='pt-aviso'>{AVISO_SENCILLO}</div>", unsafe_allow_html=True)
-    st.markdown(
-        cabecera_seccion("como-funciona", "Cómo funciona", primera=True)
-        + "<div class='pasos' style='margin-top:1rem'>"
-        "<div class='paso'><i>1</i><b>Escribe la dirección</b><span>Pon la calle y el número "
-        "de tu local, o usa tu ubicación.</span></div>"
-        "<div class='paso'><i>2</i><b>Miramos la zona</b><span>Con datos abiertos vemos "
-        f"quién pasa a menos de {S.RADIO_M} metros, a qué horas y qué bares hay ya."
-        "</span></div>"
-        "<div class='paso'><i>3</i><b>Lee el resumen</b><span>Qué ofrecer, a quién, a qué "
-        "hora y a qué precios. Es una orientación: compruébalo siempre en persona."
-        "</span></div></div>", unsafe_allow_html=True)
-    st.markdown(cabecera_seccion("fuentes"), unsafe_allow_html=True)
-    pestana_fuentes(fu)
+    st.markdown(cabecera_seccion("como-funciona", "Cómo funciona", primera=True)
+                + pasos_html(), unsafe_allow_html=True)
+    st.markdown(cabecera_seccion("fuentes", numero=False), unsafe_allow_html=True)
+    pestana_fuentes(fu, en_informe=False)
 
 
 # ------------------------------------------------------------------- qué se enseña
 pagina = st.session_state.get("pagina")
 if res or pendiente or pagina:   # resultado sobre fondo claro, con la barra fija arriba
-    alto_movil = "7.4rem" if res or pendiente else "5rem"   # sin vistas, una sola fila
-    st.markdown("<style>.block-container {padding-top:5rem;} @media (max-width:640px) "
+    alto_movil = "7.4rem" if res else "5rem"   # con el cambio de vista, dos filas
+    st.markdown("<style>.block-container {padding-top:5.5rem;} @media (max-width:640px) "
                 f"{{.block-container {{padding-top:{alto_movil};}}}}</style>",
                 unsafe_allow_html=True)
-if pagina == "planes":   # se vuelve con el botón o con la barra a lo que se estaba viendo
-    parte_buscador("barra", lugar_analizado() if res else "", "Planes" if res else "")
-    vista_planes()
+if pagina in ("planes", "como"):   # se vuelve con el botón o con la barra
+    parte_buscador("barra", lugar_analizado() if res else "",
+                   "Planes" if res else "")
+    if pagina == "planes":
+        vista_planes()
+    else:
+        vista_como()
 elif res and cmp_fase == "ver" and b_cmp:   # la comparación: ninguna vista marcada en la barra
     parte_buscador("barra", lugar_analizado(), "Comparación")
     vista_comparacion()
@@ -2061,6 +2267,7 @@ elif pendiente:
 else:
     portada()
 
+
 # --------------------------------------------------------------------- pie
 # El mismo pie en todas las vistas: una franja a todo el ancho, del color de la barra. El
 # enlace «Fuentes y licencias» lo atiende app/buscador.js (lleva a esa sección; desde el
@@ -2083,6 +2290,7 @@ st.markdown(
     "<li><a href='#fuentes' data-ir='fuentes'>Fuentes y licencias</a></li>"
     "</ul></div>"
     "<div class='pie-col'><b>Proyecto</b><ul>"
+    "<li><a href='#como-funciona' data-ir='como'>Cómo funciona</a></li>"
     "<li><a href='#planes' data-ir='planes'>Planes</a></li>"
     f"<li><a href='{REPOSITORIO}' target='_blank' rel='noopener'>Repositorio</a></li>"
     "</ul></div>"

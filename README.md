@@ -5,6 +5,11 @@ Madrid a decidir qué ofrecer, a quién, a qué hora y a qué precios, según la
 escribe la dirección del local y, con datos abiertos, se ve cuánto movimiento tiene la
 zona, quién pasa por allí, cuándo hay más gente, cómo se llega y qué bares hay ya cerca.
 
+**Qué lo diferencia:** todo sale de datos abiertos (sobre todo del Portal de Datos
+Abiertos de la Comunidad de Madrid, y además del Consorcio Regional de Transportes, el INE,
+el Ayuntamiento de Madrid y OpenStreetMap), cada respuesta dice su fiabilidad y de dónde sale, y el resumen se lee en diez
+segundos: una primera orientación sin pagar un estudio de mercado.
+
 Prototipo para el datathon **DATAMAD 2026** de la Comunidad de Madrid.
 
 **▶ Demo:** <https://barometro-madrid.streamlit.app/>
@@ -165,7 +170,8 @@ flowchart LR
    (alta, media o baja) y si es un dato o una estimación.
 7. **Aplicación.** Una portada con un buscador que sugiere direcciones mientras se
    escribe, una vista «Resumen» en lenguaje sencillo y un «Informe completo» con todo
-   lo técnico.
+   lo técnico, que se lee como un informe: diez secciones numeradas con el mismo
+   esquema (datos clave, porqué, detalle y fuente) y un índice lateral.
 
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
 cada uno con su comentario.
@@ -484,7 +490,7 @@ Profesional. Durante DATAMAD 2026 es libre, como todo lo demás.
 ## Modelo de negocio
 
 > **Durante DATAMAD 2026, todas las funciones están abiertas y son gratuitas.** La página
-> «Planes» de la aplicación (enlazada desde la barra de la portada y desde el pie) describe
+> «Planes» de la aplicación (enlazada desde el menú de la cabecera y desde el pie) describe
 > cómo se sostendría el proyecto. No hay pagos, cuentas, registro, recogida de correos ni
 > contadores de uso, y nada está bloqueado, limitado ni oculto.
 
@@ -502,7 +508,10 @@ existe en el prototipo.
 En la aplicación, una etiqueta pequeña bajo los botones dice a qué plan pertenecería cada
 función («Plan Gratis» el Resumen; «Plan Informe» el Informe completo, la comparación y la
 descarga), junto al aviso de que durante DATAMAD 2026 todo está abierto. La etiqueta lleva
-a la página de planes, que tiene un único enlace, «Me interesa», al repositorio.
+a la página de planes: dos pestañas («Para hosteleros» y «Para profesionales e
+instituciones»), una tarjeta por plan con su forma de pago y lo que incluye, sin precios.
+El plan Gratis tiene un botón «Probar ahora» que lleva al buscador; los demás, solo un
+enlace «Me interesa» al repositorio.
 
 **Por qué es compatible con los datos abiertos.** El plan gratuito mantiene libre el acceso
 a lo que los datos abiertos dicen de cualquier dirección. Lo que se cobraría es el servicio

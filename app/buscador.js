@@ -1,6 +1,11 @@
 // BARómetro: componente de la portada (buscador grande, ejemplos y «Usar mi ubicación») y de
-// la barra fija del resultado (logotipo, campo con la dirección analizada, vistas e índice de
-// secciones). Se monta con st.components.v2 desde app/app.py, sin iframe.
+// la cabecera fija del resto de vistas (logotipo, campo con la dirección analizada, vistas,
+// menú e índice de secciones). Se monta con st.components.v2 desde app/app.py, sin iframe.
+//
+// El menú (tres rayas: Cómo funciona, Fuentes y licencias, Planes y Repositorio) es el mismo
+// en la portada (en el móvil; en pantallas anchas los enlaces se ven en la barra) y en la
+// cabecera; en el Informe completo, en pantallas sin índice lateral, lleva también las
+// secciones. Lo abren y cierran los oyentes globales de abajo.
 //
 // En la barra, el campo enseña la dirección analizada y se edita directamente: al pulsarlo
 // se selecciona el texto, al escribir salen las sugerencias y se busca al elegir una, con
@@ -40,27 +45,47 @@ function desplazarCuandoEste(id) {
   setTimeout(ir, 250);
 }
 
-// Enlaces de la portada a secciones de la misma página (#como-funciona, #fuentes) y enlace
-// «Fuentes y licencias» del pie: si la sección está en la página, se va a ella; si no (en el
-// Resumen o con una dirección sin confirmar), se le pide al servidor la vista que la tiene.
-// «Planes» (portada, pie, etiquetas «Plan …» del resultado) es una página aparte: se le pide
-// al componente que haya, sea la barra o el buscador de la portada, sin recargar la página.
+function cerrarMenus(salvo) {
+  document.querySelectorAll(".menu-bm").forEach((m) => {
+    if (m === salvo) return;
+    m.querySelector(".menu-lista").hidden = true;
+    m.querySelector(".menu-boton").setAttribute("aria-expanded", "false");
+  });
+}
+
+// Enlaces internos (data-ir) del menú, de la barra de la portada, del pie, de las etiquetas
+// «Plan …» y de la página de planes: si la sección está en la página (#como-funciona,
+// #fuentes…), se va a ella; si no, se le pide al servidor la vista que la tiene. «Planes» y
+// «Cómo funciona» son páginas aparte; «Probar ahora» lleva al buscador. Se le pide al
+// componente que haya (la cabecera o el buscador de la portada), sin recargar la página.
 if (!window.__bmEnlaces) {
   window.__bmEnlaces = true;
   document.addEventListener("click", (ev) => {
-    const a = ev.target.closest && ev.target.closest(
-      '.pt-nav a[href^="#"], .pie-bm a[href^="#"], a.plan-etq, .planes-me a[href^="#"]');
+    if (!ev.target.closest) return;
+    const boton = ev.target.closest(".menu-boton");
+    if (boton) {                  // abrir o cerrar el menú
+      const m = boton.parentElement, lista = m.querySelector(".menu-lista");
+      cerrarMenus(m);
+      lista.hidden = !lista.hidden;
+      boton.setAttribute("aria-expanded", String(!lista.hidden));
+      return;
+    }
+    const a = ev.target.closest('a[data-ir][href^="#"], a.plan-etq');
+    if (!a || ev.target.closest(".menu-lista")) cerrarMenus(null);
+    if (!ev.target.closest(".menu-bm")) cerrarMenus(null);
     if (!a) return;
     ev.preventDefault();
+    cerrarMenus(null);
     const id = a.getAttribute("href").slice(1);
-    if (desplazar(id)) return;
-    const barra = document.querySelector(".bm.bm-barra") ||
-      (a.dataset.ir === "planes" ? document.querySelector(".bm") : null);
-    if (a.dataset.ir && barra && barra._api) {
-      if (a.dataset.ir !== "planes") window.__bmIrA = id;   // «Planes» se abre arriba del todo
-      barra._api.setTriggerValue(a.dataset.ir, true);
+    if (a.dataset.ir !== "probar" && desplazar(id)) return;
+    const comp = document.querySelector(".bm.bm-barra") || document.querySelector(".bm");
+    if (a.dataset.ir && comp && comp._api) {
+      if (a.dataset.ir === "fuentes") window.__bmIrA = id;   // las páginas se abren arriba
+      if (a.dataset.ir === "probar") window.__bmFoco = true;
+      comp._api.setTriggerValue(a.dataset.ir, true);
     }
   });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") cerrarMenus(null); });
 }
 
 function campoHTML(d, enBarra) {
@@ -105,23 +130,32 @@ function construir(d) {
       '<header class="bm-top">' +
       `<button type="button" class="bm-logo" title="Volver al inicio" aria-label="BARómetro: volver al inicio">${d.logo}<b>BARómetro</b></button>` +
       `<div class="bm-campo">${campoHTML(d, true)}</div>` +
-      '<div class="bm-fila2"><nav class="bm-vistas" aria-label="Vista"></nav>' +
-      `<div class="bm-menu"><button type="button" aria-expanded="false">${ico("lista")}Secciones</button>` +
-      '<div class="bm-menu-lista" hidden></div></div></div>' +
+      '<div class="bm-fila2"><nav class="bm-vistas" aria-label="Vista"></nav></div>' +
+      '<div class="menu-bm bm-menu"><button type="button" class="menu-boton" aria-expanded="false" aria-label="Menú">' +
+      ico("lista") + '</button><div class="menu-lista" hidden>' +
+      '<div class="menu-secciones"></div><div class="menu-enlaces"></div></div></div>' +
       "</header>" +
       '<nav class="bm-indice" aria-label="Secciones del informe"></nav>';
     raiz.querySelector(".bm-logo").addEventListener("click", () =>
       raiz._api.setTriggerValue("inicio", true));
-    const menu = raiz.querySelector(".bm-menu");
-    menu.firstElementChild.addEventListener("click", () => {
-      const lista = menu.querySelector(".bm-menu-lista");
-      lista.hidden = !lista.hidden;
-      menu.firstElementChild.setAttribute("aria-expanded", String(!lista.hidden));
+    const enlaces = raiz.querySelector(".menu-enlaces");
+    (d.menu || []).forEach((m) => {
+      const a = crear("a");
+      a.href = m.href;
+      a.textContent = m.t;
+      if (m.ir) a.dataset.ir = m.ir;
+      else { a.target = "_blank"; a.rel = "noopener"; }
+      enlaces.appendChild(a);
     });
-    // Sección activa del índice según el desplazamiento.
+    // Sección activa del índice según el desplazamiento (y el índice, siempre por encima
+    // del pie).
     const alDesplazar = () => marcarSeccion(raiz);
     document.addEventListener("scroll", alDesplazar, true);
-    raiz._quitar = () => document.removeEventListener("scroll", alDesplazar, true);
+    window.addEventListener("resize", alDesplazar);
+    raiz._quitar = () => {
+      document.removeEventListener("scroll", alDesplazar, true);
+      window.removeEventListener("resize", alDesplazar);
+    };
   }
 
   const input = raiz.querySelector("input");
@@ -180,8 +214,6 @@ function construir(d) {
       raiz._s.abierto = false;
       if (enBarra) restaurar(raiz); else pintar(raiz);
     }
-    const menu = raiz.querySelector(".bm-menu");
-    if (menu && !menu.contains(ev.target)) menu.querySelector(".bm-menu-lista").hidden = true;
   });
   return raiz;
 }
@@ -239,8 +271,21 @@ function ubicar(raiz, boton) {
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
+// El índice lateral va fijo, pero nunca se monta sobre el pie: al llegar al pie sube con él,
+// como si estuviera pegado al final de su columna.
+function apartarDelPie(raiz) {
+  const indice = raiz.querySelector(".bm-indice");
+  const pie = document.querySelector(".pie-bm");
+  if (!indice) return;
+  indice.style.transform = "";
+  if (!pie || !indice.offsetHeight) return;
+  const sobra = indice.getBoundingClientRect().bottom + 24 - pie.getBoundingClientRect().top;
+  if (sobra > 0) indice.style.transform = `translateY(${-sobra}px)`;
+}
+
 function marcarSeccion(raiz) {
   const d = raiz._d;
+  apartarDelPie(raiz);
   if (!d || !d.secciones || !d.secciones.length) return;
   let activa = d.secciones[0].id;
   for (const s of d.secciones) {
@@ -325,17 +370,19 @@ function pintar(raiz) {
     vistas.appendChild(b);
   });
   raiz.classList.toggle("con-indice", d.secciones.length > 0);
+  raiz.classList.toggle("sin-campo", !d.campo);
+  raiz.classList.toggle("con-vistas", d.vistas.length > 0);
   const indice = raiz.querySelector(".bm-indice");
-  const menu = raiz.querySelector(".bm-menu-lista");
+  const menu = raiz.querySelector(".menu-secciones");
   indice.innerHTML = d.secciones.length ? "<b>En este informe</b>" : "";
-  menu.innerHTML = "";
-  d.secciones.forEach((sec) => {
+  menu.innerHTML = d.secciones.length ? "<b>En este informe</b>" : "";
+  d.secciones.forEach((sec, i) => {
     [indice, menu].forEach((donde) => {
-      const b = crear("button");
+      const b = crear("button", "", `<span class="num">${String(i + 1).padStart(2, "0")}</span>`);
       b.type = "button";
       b.dataset.sec = sec.id;
-      b.textContent = sec.t;
-      b.addEventListener("click", () => { menu.hidden = true; desplazar(sec.id); });
+      b.appendChild(document.createTextNode(sec.t));
+      b.addEventListener("click", () => { cerrarMenus(null); desplazar(sec.id); });
       donde.appendChild(b);
     });
   });
@@ -355,6 +402,12 @@ export default function (componente) {
   if (window.__bmIrA) {            // sección pedida desde el pie, en otra vista
     desplazarCuandoEste(window.__bmIrA);
     window.__bmIrA = null;
+  }
+  // «Probar ahora» (página de planes): el cursor, en el buscador.
+  if (window.__bmFoco && (data.modo === "portada" || data.campo)) {
+    window.__bmFoco = false;
+    const campoBuscar = raiz.querySelector("input");
+    setTimeout(() => { campoBuscar.focus(); campoBuscar.scrollIntoView({ block: "center" }); }, 400);
   }
   // Si el servidor contesta con un aviso (no se pudo situar la dirección), se puede volver a
   // buscar: el campo deja de estar «enviando».
