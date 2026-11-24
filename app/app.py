@@ -95,12 +95,13 @@ from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
 from documento import comparacion_pdf, informe_pdf  # noqa: E402
 from fecha import hoy as fecha_hoy  # noqa: E402
 from movimiento import nivel_movimiento, referencia  # noqa: E402
-from calle import (CLIENTE_CALLE, COLOR_TIPO, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
+from calle import (CLIENTE_CALLE, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
                    MODO_CALLE, MOMENTO_CALLE, bloque_inf, comparacion_franjas, con_tipo,
                    comprobaciones_calle, dec,
                    frases_cuando, frases_precio, frases_que, frases_quien, grupos_horas,
-                   hora_de_grupo, horas_punta, lista_y, mayus, metrica_bloque, miles,
-                   rec_dia, redondo, respuestas, titular_calle, unas)
+                   hora_de_grupo, horas_punta, lista_y, marca_tipo, mayus, metrica_bloque,
+                   miles, rec_dia, redondo, respuestas, titular_calle, unas)
+import metodologia  # noqa: E402
 from procesar import PROC  # noqa: E402
 from recomendaciones import recomendar  # noqa: E402
 
@@ -122,56 +123,12 @@ PRINCIPAL = "#9c3d1b"
 COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": "#1baf7a",
                  "padres_ninos": "#eda100", "pacientes": "#e87ba4", "trabajadores": "#008300",
                  "deporte_eventos": "#6250d6"}
-# Tipos de local: cuatro colores bien separados también con daltonismo (comprobados por pares
-# con el validador de paletas: diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia) y,
-# además, un dibujo distinto por tipo, en blanco sobre un círculo de su color: una taza de
-# café (cafetería), cuchillo y tenedor (restaurante), una jarra de cerveza (bar) y una
-# hamburguesa (comida rápida). Los mismos en el mapa, la leyenda y el informe. Dibujos
-# propios en una rejilla de 24; «{c}» es el color del tipo (para las vetas de la jarra).
-DIBUJO_TIPO = {
-    "cafeteria": (
-        "<path d='M7 10h8v3.2a3.6 3.6 0 0 1-3.6 3.6h-.8A3.6 3.6 0 0 1 7 13.2z' fill='#fff'/>"
-        "<path d='M15 11h1a1.6 1.6 0 0 1 0 3.2h-1' fill='none' stroke='#fff' stroke-width='1.4'/>"
-        "<path d='M6.3 18.4h10.4' stroke='#fff' stroke-width='1.4' stroke-linecap='round'/>"
-        "<path d='M9.6 5.6c-.7.8.7 1.5 0 2.5M12.6 5.6c-.7.8.7 1.5 0 2.5' fill='none' "
-        "stroke='#fff' stroke-width='1.2' stroke-linecap='round'/>"),
-    "restaurante": (
-        "<path d='M7.4 5.6v3.6a1.9 1.9 0 0 0 3.8 0V5.6M9.3 5.6v12.8' fill='none' stroke='#fff' "
-        "stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/>"
-        "<path d='M15.8 18.4V5.6c-1.7.9-2.4 3.1-2.4 5.4 0 1.2.6 1.9 1.5 1.9h.9' fill='#fff' "
-        "stroke='#fff' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/>"),
-    "bar": (
-        "<path d='M14.6 10.6h1.3a1.5 1.5 0 0 1 1.5 1.5v2.3a1.5 1.5 0 0 1-1.5 1.5h-1.3' "
-        "fill='none' stroke='#fff' stroke-width='1.5'/>"
-        "<rect x='7' y='8.6' width='7.6' height='9.6' rx='1.1' fill='#fff'/>"
-        "<path d='M6.6 9.4a2.1 2.1 0 0 1 2.2-2.9 2.4 2.4 0 0 1 4.3-.2 1.9 1.9 0 0 1 2 3.1z' "
-        "fill='#fff'/>"
-        "<path d='M9.5 11.4v4.8M12.1 11.4v4.8' stroke='{c}' stroke-width='1.1' "
-        "stroke-linecap='round'/>"),
-    "comida_rapida": (
-        "<path d='M6.4 11.3a5.6 4.3 0 0 1 11.2 0z' fill='#fff'/>"
-        "<rect x='5.8' y='12.4' width='12.4' height='1.7' rx='.85' fill='#fff'/>"
-        "<path d='M6.4 15.1h11.2v.6a2.1 2.1 0 0 1-2.1 2.1H8.5a2.1 2.1 0 0 1-2.1-2.1z' fill='#fff'/>"
-        "<path d='M9.4 8.9h.1M12 8.3h.1M14.6 8.9h.1' stroke='{c}' stroke-width='1.1' "
-        "stroke-linecap='round'/>"),
-}
 # Transporte: un icono discreto por modo, en gris oscuro (no compite con los locales). Son
 # dibujos propios (una letra o un autobús en una ficha), no los logotipos de las redes.
 TINTA_MODO = "#3b342c"
 MODO_ICONO = {"metro": "Metro", "cercanias": "Cercanías", "metro_ligero": "Metro Ligero",
               "emt": "Autobús", "urbanos": "Autobús", "interurbanos": "Autobús"}
 LETRA_MODO = {"Metro": "M", "Cercanías": "C", "Metro Ligero": "ML"}
-
-
-def marca_tipo(tipo: str, px: int = 22) -> str:
-    """La marca de un tipo de local (su dibujo en blanco sobre un círculo de su color), como
-    SVG suelto: vale para el mapa (que va en un marco aparte, sin la hoja de estilos) y para
-    las leyendas."""
-    color = COLOR_TIPO.get(tipo, "#999999")
-    dibujo = DIBUJO_TIPO.get(tipo, DIBUJO_TIPO["bar"]).replace("{c}", color)
-    return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
-            "viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='" + color
-            + "' stroke='#ffffff' stroke-width='1.5'/>" + dibujo + "</svg>")
 
 
 def icono_modo(modo: str, px: int = 18) -> str:
@@ -1307,9 +1264,8 @@ SECCIONES = (("movimiento", "Nivel de movimiento"), ("quien", "A quién"),
              ("riesgos", "Riesgos y avisos"), ("comprobar", "Qué comprobar en persona"),
              ("metodologia", "Metodología y supuestos clave"), ("fuentes", "Fuentes y licencias"))
 NUMERO_SECCION = {c: f"{i:02d}" for i, (c, _) in enumerate(SECCIONES, 1)}
-# De dónde sale el perfil por horas (src/perfil_horario.py; detalle en docs/fuentes.md).
-FUENTE_PERFIL = ("perfil por horas con datos del CRTM, del Portal de Datos Abiertos de la "
-                 "Comunidad de Madrid, del INE y de OpenStreetMap")
+# De dónde sale el perfil por horas (src/metodologia.py; detalle en docs/fuentes.md).
+FUENTE_PERFIL = metodologia.FUENTE_PERFIL
 FUENTE_SUPUESTOS = FUENTE_PERFIL + ", y supuestos explícitos (src/supuestos.py)"
 
 
@@ -1352,41 +1308,17 @@ def nombre_corto(nombre: str) -> str:
 
 @st.cache_resource
 def version_codigo() -> str | None:
-    """Commit corto del código, leído de .git sin ejecutar git (None si no hay .git, como en
-    la imagen de Docker)."""
-    git = RAIZ / ".git"
-    try:
-        cabeza = (git / "HEAD").read_text(encoding="utf-8").strip()
-        if not cabeza.startswith("ref:"):
-            return cabeza[:7]
-        ref = cabeza[4:].strip()
-        if (git / ref).exists():
-            return (git / ref).read_text(encoding="utf-8").strip()[:7]
-        for linea in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
-            if linea.endswith(" " + ref):
-                return linea.split()[0][:7]
-    except OSError:
-        pass
-    return None
+    """Commit corto del código (src/metodologia.py), una vez por proceso."""
+    return metodologia.version_codigo()
 
 
 def ficha_tecnica(rec: dict) -> str:
     """La ficha técnica del principio del Informe completo: qué se ha analizado, con qué
-    datos y con qué versión. Solo enseña lo que ya se sabe; no calcula nada."""
-    lat, lon = punto
-    tipo = rec["tipo_local"]["clave"] if con_tipo(rec) else None
-    version = version_codigo()
-    filas = [
-        ("Punto analizado", f"{lugar_analizado()} · {dec(abs(lat), 4)}° N, {dec(abs(lon), 4)}° "
-                            f"{'O' if lon < 0 else 'E'}"),
-        ("Municipio", muni["nombre"]),
-        ("Radio de análisis", f"{S.RADIO_M} m (unos 4 minutos andando)"),
-        ("Tipo de local", S.TIPOS_LOCAL[tipo] if tipo else "Sin elegir (resultado general)"),
-        ("Fecha de los datos", f"{fu['portal_descarga']} (descarga del portal)"),
-        ("Fecha del informe", fecha_hoy().isoformat()),
-        ("Método", "Modelo por horas con supuestos explícitos"),
-        ("Versión", f"commit {version}" if version else f"datos del {fu['portal_descarga']}"),
-    ]
+    datos y con qué versión (las filas, en src/metodologia.py, las comparte el PDF). Solo
+    enseña lo que ya se sabe; no calcula nada."""
+    filas = metodologia.filas_ficha(lugar_analizado(), punto, muni["nombre"], rec,
+                                    fu["portal_descarga"], fecha_hoy().isoformat(),
+                                    version_codigo())
     return ("<div class='ficha'><div class='rotulo'>Ficha técnica</div><table>"
             + "".join(f"<tr><th scope='row'>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
                       for k, v in filas) + "</table></div>")
@@ -1399,56 +1331,10 @@ def pie_grafico(clientes: bool = False) -> str:
             + ". Elaboración propia.</div>")
 
 
-def num(x: float) -> str:
-    """Un número tal como está en src/supuestos.py, con coma decimal y sin ceros de sobra
-    (0.025 → «0,025»; 2.0 → «2»; 0.5 % → «0,5»)."""
-    return dec(x, 3).rstrip("0").rstrip(",")
-
-
 def seccion_metodologia(rec: dict, mov: dict) -> None:
     """Metodología y supuestos clave: los valores se leen de src/supuestos.py tal cual (no
-    se cambia ninguno) y se dice de dónde sale cada uno."""
-    tipo = rec["tipo_local"]["clave"] if con_tipo(rec) else None
-    nombre_tipo = S.TIPOS_LOCAL_CORTO[tipo] if tipo else ""
-    cortes = [c for c, _ in S.MOVIMIENTO_NIVELES[:-1]]
-    if tipo:
-        tasas = [v for cli in S.TASA_PARADA[tipo].values() for v in cli.values() if v > 0]
-        tasa = (f"Entre el {num(100 * min(tasas))} % y el {num(100 * max(tasas))} % de "
-                f"los pasos de cada hora, según el cliente y la hora ({nombre_tipo})")
-        v = S.VISITAS_VECINO[tipo]
-        visitas = (f"{num(v['laborable'])} en laborable, {num(v['fin_de_semana'])} en sábado "
-                   f"y {num(v['domingo'])} en domingo, por vecino y día ({nombre_tipo})")
-    else:
-        tasa = visitas = "Solo con un tipo de local elegido"
-    filas = [
-        ("Radio de análisis", f"{S.RADIO_M} m", "Supuesto: unos 4 minutos andando (RADIO_M)"),
-        ("Peso por distancia", f"1 en el punto, baja en línea recta hasta "
-                               f"{dec(S.PESO_BORDE, 2)} en el borde del radio",
-         "Supuesto (PESO_BORDE)"),
-        ("Propensión a pararse a consumir", "; ".join(
-            f"{S.TIPOS_CLIENTE[c].lower()} {dec(p, 1)}" for c, p in S.PROPENSION_CONSUMO.items()),
-         "Supuesto: a quién orientar la oferta; no cambia la gente que pasa "
-         "(PROPENSION_CONSUMO)"),
-        ("Tasa de parada de la gente que pasa", tasa, "Supuesto (TASA_PARADA)"),
-        ("Visitas de los vecinos que van a propósito", visitas,
-         "Supuesto contrastado con el gasto en restauración de la EPF (VISITAS_VECINO)"),
-        ("Límite de esas visitas", f"Las de los cinco tipos de local, como mucho el "
-                                   f"{dec(100 * S.PARTE_GASTO_CERCA_DE_CASA, 0)} % del gasto "
-                                   "medio por persona en restauración",
-         "Supuesto (PARTE_GASTO_CERCA_DE_CASA); lo comprueba src/comprobar_datos.py con la EPF"),
-        ("Sensibilidad del horario de clientes",
-         "Se repite con las tasas de parada y las visitas × " + " y × ".join(
-             num(f) for f in S.SENSIBILIDAD_FACTORES) + ". «Cambia con poco» si la hora "
-         "con más clientes pasa a otra franja, a más de una hora, y cambian dos de las tres "
-         "horas con más clientes", "Criterio (SENSIBILIDAD_FACTORES)"),
-        ("Cortes del nivel de movimiento",
-         "Percentiles " + ", ".join(f"{dec(100 * c, 0)}" for c in cortes[:-1])
-         + f" y {dec(100 * cortes[-1], 0)} de {miles(mov['sitios_referencia'])} sitios de "
-         f"referencia; «Muy poco paso» siempre por debajo de "
-         f"{miles(S.MOVIMIENTO_MINIMO_PASOS)} personas al día",
-         "Elección (MOVIMIENTO_NIVELES, MOVIMIENTO_MINIMO_PASOS)"),
-    ]
-    e0, e1 = S.ELASTICIDAD_RESTAURACION
+    se cambia ninguno) y se dice de dónde sale cada uno (filas en src/metodologia.py)."""
+    filas = metodologia.filas_metodologia(rec, mov)
     st.markdown(
         cabecera_seccion("metodologia")
         + "<div class='tabla-tecnica'><table><thead><tr><th>Parámetro</th><th>Valor</th>"
@@ -1456,12 +1342,8 @@ def seccion_metodologia(rec: dict, mov: dict) -> None:
         + "".join(f"<tr><td>{html.escape(a)}</td><td>{html.escape(b)}</td>"
                   f"<td>{html.escape(c)}</td></tr>" for a, b, c in filas)
         + "</tbody></table></div>"
-        "<div class='rotulo formula-t'>Mercado potencial</div><div class='formula'>Gasto "
-        "anual de los vecinos en restauración = población del radio × gasto medio por persona "
-        "en restauración (EPF, Comunidad de Madrid) × (renta de la zona ÷ renta media de la "
-        f"Comunidad)<sup>e</sup>, con e entre {dec(e0, 1)} y {dec(e1, 1)}, y ±"
-        f"{dec(100 * S.MARGEN_POBLACION, 0)} % por la población. Se da como rango "
-        "(estimación).</div>"
+        "<div class='rotulo formula-t'>Mercado potencial</div><div class='formula'>"
+        + metodologia.formula_mercado() + "</div>"
         "<p class='metodo-mas'>El resto de los supuestos, cada uno con su porqué, está en "
         f"<a href='{REPOSITORIO}/blob/main/src/supuestos.py' target='_blank' rel='noopener'>"
         "src/supuestos.py</a> y en el <a href='" + REPOSITORIO + "#cómo-funciona' "
@@ -1491,11 +1373,8 @@ def rec_detalle(r: dict) -> None:
             st.caption("\n".join(f"- {p}" for p in r["porque"]))
 
 
-# Nota del contraste con conteos reales de peatones (docs/validacion.md): no cambia ningún
-# cálculo ni ninguna confianza, solo avisa en «A qué hora».
-AVISO_AFOROS = ("Contraste con conteos reales (Madrid capital, 2023): en día laborable, las "
-                "aceras tienen más gente por la tarde de lo que dice este modelo; la hora punta "
-                "de la mañana puede estar sobrevalorada. Compruébalo contando en persona.")
+# Nota del contraste con conteos reales de peatones (src/metodologia.py).
+AVISO_AFOROS = metodologia.AVISO_AFOROS
 
 
 def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = "",
@@ -1702,7 +1581,14 @@ def tabla_fuentes(fu: dict) -> str:
     url = re.compile(r"https?://[^\s)`,]+")
     filas = [f"<tr class='grupo'><th colspan='4'>Portal de Datos Abiertos de la Comunidad de "
              f"Madrid · descargado el {html.escape(fu['portal_descarga'])}</th></tr>"]
-    for f in fu["portal"]:
+    # Primero los conjuntos que usan los cálculos; después, aparte, los que solo se
+    # descargan («Oficinas de farmacia»), para que cuadre con los conjuntos en uso.
+    usados = [f for f in fu["portal"] if f.get("En uso", True)]
+    sin_uso = [f for f in fu["portal"] if not f.get("En uso", True)]
+    for f in usados + sin_uso:
+        if f is (sin_uso or [None])[0]:
+            filas.append("<tr class='grupo'><th colspan='4'>Descargada, no se usa en los "
+                         "cálculos</th></tr>")
         ficha = (url.search(f["Ficha"]) or [None])[0]
         filas.append(
             f"<tr><td data-c='Fuente'>{html.escape(f['Conjunto'])}</td>"

@@ -217,23 +217,37 @@ y **«Descargar comparación (PDF)»**, el de la comparación
 ([`src/documento.py`](src/documento.py)). Hay dos de muestra en
 [`docs/ejemplos/`](docs/ejemplos/).
 
-- **Qué lleva:** el logotipo, la dirección, la fecha, el resumen, el nivel de
-  movimiento, las cuatro respuestas con su porqué y su fiabilidad, el gráfico por
-  horas, un esquema de la zona, el mercado, los avisos y la lista de comprobaciones en
-  persona.
-- **Siempre, al final:** el aviso de orientación, las fuentes con su licencia y su
-  fecha, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y la nota de
-  que ninguna entidad respalda el proyecto.
+- **Qué lleva:** en la primera página, el logotipo, la dirección y una **ficha técnica**
+  (punto analizado, municipio, radio, tipo de local, fecha de los datos, fecha del
+  informe, método y versión), igual que el Informe completo; después, en secciones
+  numeradas, el resumen con las cuatro respuestas en cuadrícula, el nivel de movimiento,
+  cada respuesta con su porqué y su fiabilidad (en «A qué hora», la nota del contraste con
+  conteos reales), los gráficos por horas con sus ejes y su fuente, un esquema de la
+  zona, el mercado en tabla, los avisos, la lista de comprobaciones en persona y
+  **«Metodología y supuestos clave»**, con la misma tabla y la misma fórmula que la web.
+- **Aspecto de informe técnico,** como la web: rótulos pequeños en mayúsculas, bordes
+  finos y radios pequeños, números tabulares y tablas con los números a la derecha. La
+  ficha técnica, la metodología y la nota del contraste salen de
+  [`src/metodologia.py`](src/metodologia.py), que comparten la web y el PDF.
+- **Siempre, al final:** el aviso de orientación, las fuentes en una tabla compacta
+  (fuente, licencia, fecha de los datos y fecha de descarga), las condiciones de uso en
+  una línea cada una, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y
+  la nota de que ninguna entidad respalda el proyecto. «Oficinas de farmacia» se descarga
+  pero no entra en ningún cálculo: sale aparte, como «Descargada, no se usa en los
+  cálculos», aquí y en la tabla de fuentes de la aplicación, para que cuadre con los 15
+  conjuntos en uso.
 - **La zona es un esquema, no un mapa:** el círculo de 300 metros, los locales por tipo
-  y las paradas, sin fondo y sin nombres. Así no se descargan teselas de OpenStreetMap
+  (con los mismos dibujos que el mapa de la web: taza, cuchillo y tenedor, jarra y
+  hamburguesa, en blanco sobre el color de cada tipo, dibujados como vectores) y las
+  paradas, sin fondo y sin nombres. Así no se descargan teselas de OpenStreetMap
   desde el servidor ni puede colarse el rótulo de un local.
 - **Se genera en memoria al pulsar el botón** y no se guarda en el servidor.
 
 **Por qué PDF y no una página HTML para imprimir.** Se genera con
 [fpdf2](https://py-pdf.github.io/fpdf2/), que es Python puro: no necesita un navegador ni
 programas del sistema, que es lo que suele fallar en Streamlit Community Cloud. Medido en
-el entorno de trabajo, cada documento ocupa unos 50 KB, tarda medio segundo y usa unos
-12 MB de memoria mientras se genera. Lleva la letra DejaVu Sans (en `app/letra/`, con su
+el entorno de trabajo, cada informe ocupa unos 60 KB, tarda menos de un segundo y usa
+unos 12 MB de memoria mientras se genera. Lleva la letra DejaVu Sans (en `app/letra/`, con su
 licencia), porque las letras que trae el formato PDF no tienen signos como «≈» o «×».
 
 ## Rigor: qué se ha comprobado
@@ -478,7 +492,9 @@ fecha y «Powered by CRTM». No da nombres de locales ni guarda lo que se consul
 claude mcp add barometro -- /ruta/a/barometro/.venv/bin/python /ruta/a/barometro/mcp/servidor.py
 ```
 
-**Claude Desktop**, en `claude_desktop_config.json` (Ajustes → Desarrollador):
+**Claude Desktop**, en `claude_desktop_config.json`. En el Mac se abre desde el menú
+«Claude» de la barra de menús → **Ajustes** → **Desarrollador** → **Editar
+configuración**; se añade el bloque siguiente y se reinicia Claude Desktop:
 
 ```json
 {
@@ -494,7 +510,8 @@ claude mcp add barometro -- /ruta/a/barometro/.venv/bin/python /ruta/a/barometro
 Ejemplo de pregunta: *«Quiero abrir un bar en la Plaza de la Constitución 1 de
 Fuenlabrada. ¿Qué me conviene ofrecer y a qué horas?»*
 
-Para probarlo sin asistente: `python mcp/probar_cliente.py`.
+Probado en Claude Desktop el 24 de noviembre de 2026, además de en Claude Code. Para
+probarlo sin asistente: `python mcp/probar_cliente.py`.
 
 En el [modelo de negocio](#modelo-de-negocio), el acceso por MCP sería del plan
 Profesional. Durante DATAMAD 2026 es libre, como todo lo demás.

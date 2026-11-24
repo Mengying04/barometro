@@ -9,6 +9,10 @@ anotadas, sin escribirlas a mano en otro sitio.
     f["externas"]    # INE, Ayuntamiento de Madrid, OpenStreetMap y CRTM
     f["aplicacion"]  # servicios que se consultan en el momento (CartoCiudad, teselas)
 
+Cada conjunto del portal lleva «En uso»: si los cálculos lo usan (tiene un uso declarado
+en src/tablas_readme.py, lo mismo que cuenta la portada). Los que no («Oficinas de
+farmacia») se descargan y procesan, pero no entran en ningún cálculo.
+
 Solo usa la biblioteca estándar de Python.
 """
 
@@ -16,6 +20,8 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+
+from tablas_readme import USO
 
 RAIZ = Path(__file__).resolve().parent.parent
 
@@ -34,8 +40,9 @@ def leer_fuentes() -> dict:
     for linea in portal.splitlines():
         celdas = [c.strip() for c in linea.strip().strip("|").split("|")]
         if len(celdas) == 6 and celdas[1].startswith("["):
+            ident = re.match(r"\[([^\]]+)\]", celdas[1]).group(1)
             filas.append({"Conjunto": celdas[0], "Ficha": celdas[1], "Licencia": celdas[2],
-                          "Última modificación": celdas[3]})
+                          "Última modificación": celdas[3], "En uso": ident in USO})
 
     def secciones(txt):
         out = []
