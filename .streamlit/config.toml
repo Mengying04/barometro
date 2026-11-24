@@ -26,7 +26,7 @@ secondaryBackgroundColor = "#f3efe8"
 textColor = "#1f1b16"
 linkColor = "#9c3d1b"
 borderColor = "#e3dcd1"
-baseRadius = "0.6rem"
+baseRadius = "6px"
 # Inter desde Google Fonts (solo los tres pesos de la escala: 400 texto, 600 títulos de
 # bloque y botones, 700 títulos y cifras); sin conexión, la fuente sin serifa del sistema.
 font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap, sans-serif"

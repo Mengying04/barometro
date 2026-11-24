@@ -389,6 +389,29 @@ function pintar(raiz) {
   marcarSeccion(raiz);
 }
 
+// Portada: las cifras suben contando al entrar (0,8 s). El HTML ya trae la cifra final, así
+// que sin JavaScript, o si el sistema pide reducir el movimiento, se ven quietas.
+function contarCifras(intentos = 0) {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cifras = document.querySelectorAll(".pt-cifras b[data-n]:not([data-contado])");
+  if (!cifras.length) {
+    if (intentos < 20) setTimeout(() => contarCifras(intentos + 1), 100);
+    return;
+  }
+  const miles = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  cifras.forEach((b) => {
+    b.dataset.contado = "1";
+    const fin = Number(b.dataset.n), t0 = performance.now(), dura = 800;
+    const paso = (t) => {
+      const x = Math.min(1, (t - t0) / dura);
+      b.textContent = miles(fin * (1 - Math.pow(1 - x, 3)));
+      if (x < 1) requestAnimationFrame(paso);
+    };
+    b.textContent = "0";
+    requestAnimationFrame(paso);
+  });
+}
+
 export default function (componente) {
   const { data, parentElement, setStateValue, setTriggerValue } = componente;
   let raiz = parentElement.querySelector(".bm");
@@ -416,6 +439,7 @@ export default function (componente) {
     raiz._s.editado = false;
   }
   pintar(raiz);
+  if (data.modo === "portada" && raiz._subir) contarCifras();
 
   if (data.modo === "barra") {
     // Al cambiar de vista o de dirección se vuelve arriba; «ir_a» lleva a una sección.

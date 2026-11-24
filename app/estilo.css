@@ -831,3 +831,130 @@ a.plan-me {color:var(--teja) !important; font-weight:600; font-size:var(--f-text
 .st-key-informe [data-testid="stExpander"] [data-testid="stMarkdownContainer"] > ul,
 .resp-apoyo, .sec-fuente, .explica p, .cmp-resumen, .cmp-resumen p, .cmp-lado ul, .cmp-det, .pie-cmp,
 .st-key-explicacion .explica {max-width:none;}
+
+/* =================================================================== segunda ronda */
+/* Aspecto más técnico: radios de 6 a 8 px (solo el cambio Resumen / Informe sigue en
+   píldora), bordes de 1 px en lugar de sombras, etiquetas rectangulares, cabecera de unos
+   68 px y una portada con más impacto. La escala tipográfica es la misma, con un tamaño más
+   solo para el nombre de la portada (--f-portada). */
+:root {--radio:8px; --radio-s:6px; --sombra:none; --sombra-suave:none; --barra:4.25rem;
+       --f-portada:8rem;}
+/* Bordes finos en vez de sombras */
+.veredicto, [class*="st-key-tarjeta_"], [class*="st-key-caja_"], .llegar > div, .pasos-lista,
+.paso, .cmp-cab, .cmp-fila, .cmp-resumen, .plan, .dk, [class*="st-key-dato_"] {
+  border:1px solid var(--borde) !important; border-radius:var(--radio) !important;
+  box-shadow:none !important;}
+.cmp-resumen {border-left:3px solid var(--teja) !important;}
+.plan.destacado {border:2px solid var(--teja) !important;}
+.dk.atencion {border-color:#ead7a4 !important;}
+.dk.bien {border-color:#c7e3d0 !important;}
+.st-key-explicacion {border-radius:var(--radio) !important; box-shadow:none;}
+[class*="st-key-tarjeta_"]:hover {transform:none; box-shadow:none; border-color:var(--teja) !important;}
+.st-key-caja_comparar {border-color:transparent !important;}
+/* Radios */
+.bm-campo, .bm-lista, .menu-lista {border-radius:var(--radio);}
+.bm .bm-ir, .bm .bm-chip, .menu-bm .menu-boton, .st-key-acciones button,
+.st-key-btn_cancelar_cmp button, a.plan-probar, .planes-abierto {border-radius:var(--radio-s) !important;}
+.bm-portada .bm-campo {box-shadow:none; border:1px solid rgba(255,255,255,.2);}
+.bm-portada .bm-campo:focus-within {border:2px solid var(--teja-clara);}
+.etiqueta, a.plan-etq, .por-hacer, .cmp-marca, .plan-destacado, .modos .linea {border-radius:3px;}
+.pregunta .ico, .seccion .ico, .llegar > div > .ico, .plan-cab .ico {border-radius:var(--radio-s);}
+.paso i, .pasos-lista i {border-radius:4px;}
+[data-testid="stExpander"] details {border-radius:var(--radio);}
+[data-testid="stButtonGroup"] button {border-radius:var(--radio-s) !important;}
+.st-key-planes_pagina [data-testid="stTabs"] [role="tablist"] {border-radius:var(--radio);}
+.st-key-planes_pagina [data-testid="stTab"] {border-radius:var(--radio-s);}
+/* Cabecera de unos 68 px, con el logotipo y el buscador más grandes */
+.bm .bm-logo {font-size:var(--f-bloque); gap:0.65rem;}
+.bm-logo svg, .pt-nav .marca svg {width:2.3rem; height:2.3rem;}
+.bm-top .bm-campo {height:2.75rem; max-width:40rem;}
+.bm-top .bm-campo input {font-size:var(--f-texto);}
+.bm-top .bm-ir {padding:0.45rem 1rem;}
+.bm-indice {top:calc(var(--barra) + 2.2rem);}
+[id] {scroll-margin-top:calc(var(--barra) + 2.5rem);}
+/* Portada */
+.st-key-portada {padding-top:calc(var(--barra) + 2.5rem); gap:1.2rem;}
+.pt-rotulo {text-align:center; font-size:var(--f-rotulo); text-transform:uppercase;
+            letter-spacing:0.14em; font-weight:600; color:var(--teja-clara);}
+.pt-marca {font-size:min(var(--f-portada), 14vw); gap:0.16em;}
+.pt-marca svg {width:0.82em; height:0.82em; border-radius:0.16em;}
+.pt-marca b {font-size:1em; letter-spacing:-0.05em; line-height:1;}
+.pt-titular {text-align:center; color:#fff; font-size:var(--f-pagina); font-weight:700;
+             letter-spacing:-0.03em; line-height:var(--lh-titulo); max-width:44rem;
+             margin:0.6rem auto 0 auto; text-wrap:balance;}
+.pt-frase {font-size:var(--f-bloque); max-width:42rem; margin:0.4rem auto 0.6rem auto; text-wrap:balance;}
+.pt-ventajas {display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0.75rem;
+              max-width:56rem; margin:0.6rem auto 0 auto; width:100%;}
+.pt-ventajas div {display:flex; gap:0.65rem; align-items:center; padding:0.8rem 1rem;
+                  border:1px solid rgba(255,255,255,.16); border-radius:var(--radio-s);
+                  color:#efe5dc; font-size:var(--f-nota); line-height:1.4; font-weight:600;}
+.pt-ventajas .ico {flex:none; font-size:var(--f-bloque); color:var(--teja-clara);}
+.pt-cifras {grid-template-columns:repeat(4, minmax(0, 1fr)); max-width:60rem; width:100%;}
+.pt-cifras b {line-height:calc(var(--f-cifra) * 1.2); white-space:nowrap;}
+.pt-cifras b:not([data-n]) {font-size:var(--f-seccion); letter-spacing:-0.02em;}
+/* Informe: ficha técnica, datos clave sobrios, gráficos y metodología */
+.st-key-informe .tipo-t .ico {display:none;}
+.ficha, .tabla-tecnica {background:#fff; border:1px solid var(--borde); border-radius:var(--radio);
+                        overflow:hidden;}
+.ficha {padding:1rem 1.2rem 0.4rem 1.2rem;}
+.ficha table, .tabla-tecnica table {width:100%; border-collapse:collapse;}
+.ficha th, .ficha td {text-align:left; vertical-align:top; padding:0.55rem 0;
+                      border-top:1px solid var(--borde); font-size:var(--f-nota); line-height:1.5;}
+.ficha .rotulo {margin-bottom:0.6rem;}
+.ficha th {width:13rem; font-weight:600; color:var(--suave); padding-right:1.5rem;}
+.ficha td {color:var(--tinta);}
+.tabla-tecnica {margin-top:1.2rem; overflow-x:auto;}
+.tabla-tecnica th, .tabla-tecnica td {text-align:left; vertical-align:top; padding:0.65rem 0.9rem;
+                      border-bottom:1px solid var(--borde); font-size:var(--f-nota); line-height:1.5;}
+.tabla-tecnica thead th {font-size:var(--f-rotulo); text-transform:uppercase; letter-spacing:0.08em;
+                         font-weight:600; color:var(--tenue); background:var(--arena);}
+.tabla-tecnica td:first-child {font-weight:600; width:22%;}
+.tabla-tecnica td:last-child {color:var(--suave); width:30%;}
+.tabla-tecnica tr:last-child td {border-bottom:0;}
+.formula-t {margin-top:1.4rem;}
+.formula {margin-top:0.5rem; background:#fff; border:1px solid var(--borde); border-left:3px solid var(--teja);
+          border-radius:var(--radio-s); padding:0.8rem 1rem; font-size:var(--f-texto); line-height:var(--lh-texto);}
+.formula sup {font-size:var(--f-rotulo);}
+p.metodo-mas {font-size:var(--f-nota) !important; color:var(--suave); margin:0.8rem 0 0 0;}
+p.metodo-mas a {color:var(--teja) !important; font-weight:600;}
+.dk {border-radius:var(--radio-s) !important; padding:1rem 1.1rem;}
+.dk-cifra, .dk-valor, .dk-fila.mercado .dk-valor {color:var(--tinta);}
+.dk-unidad {font-size:var(--f-nota); font-weight:600; letter-spacing:0; color:var(--suave);
+            margin-left:0.4rem;}
+.dk-marcas {border-top:1px solid var(--borde); padding-top:0.6rem;}
+.dk-pie {display:block; font-size:var(--f-rotulo); text-transform:uppercase; letter-spacing:0.08em;
+         font-weight:600; color:var(--tenue); background:none !important;}
+.dk-pie.conf-alta {color:#1b5427;} .dk-pie.conf-media {color:#5e4700;} .dk-pie.conf-baja {color:#7a1f1f;}
+.pie-grafico {font-size:var(--f-nota); line-height:1.5; color:var(--tenue); margin-top:0.5rem;
+              padding-top:0.5rem; border-top:1px solid var(--borde);}
+@media (max-width:1100px) {.pt-cifras {grid-template-columns:repeat(2, minmax(0, 1fr)); row-gap:1.4rem;}}
+@media (max-width:640px) {
+  :root {--barra:3.5rem;}
+  .bm-logo svg, .pt-nav .marca svg {width:2rem; height:2rem;}
+  .bm-top .bm-campo {height:2.5rem;}
+  [id] {scroll-margin-top:7.5rem;}
+  .pt-titular {font-size:var(--f-seccion); letter-spacing:-0.02em;}
+  .pt-frase {font-size:var(--f-texto);}
+  .pt-ventajas {grid-template-columns:minmax(0, 1fr);}
+  .pt-cifras b {line-height:calc(var(--f-seccion) * 1.2);}
+  .pt-cifras b:not([data-n]) {font-size:var(--f-bloque);}
+  .ficha th {width:auto; display:block; padding:0.55rem 0 0 0;}
+  .ficha td {display:block; border-top:0; padding:0.1rem 0 0.55rem 0;}
+  .tabla-tecnica table, .tabla-tecnica tbody, .tabla-tecnica tr, .tabla-tecnica td {display:block; width:auto !important;}
+  .tabla-tecnica thead {display:none;}
+  .tabla-tecnica tr {padding:0.5rem 0; border-bottom:1px solid var(--borde);}
+  .tabla-tecnica td {border:0; padding:0.15rem 1rem;}
+}
+.ficha table, .tabla-tecnica table, .ficha th, .ficha td, .tabla-tecnica th, .tabla-tecnica td {
+  border-left:none !important; border-right:none !important;}
+.ficha table {border-top:none !important; border-bottom:none !important; margin:0;}
+.ficha th {background:transparent !important;}
+.tabla-tecnica table {border:none !important; margin:0;}
+/* Ficha técnica: una sola línea fina por dato (sin los bordes de fila de las tablas de
+   Streamlit, que en el móvil se veían dobles). */
+.ficha tr, .tabla-tecnica tr {border:none !important; background:transparent !important;}
+@media (max-width:640px) {
+  .ficha th {border-top:1px solid var(--borde) !important;}
+  .ficha td {border-top:none !important; border-bottom:none !important;}
+  .tabla-tecnica tr {border-bottom:1px solid var(--borde) !important;}
+}
