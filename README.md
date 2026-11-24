@@ -297,11 +297,23 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   se recalcula con los supuestos a la mitad y al doble: si cambia con poco, su fiabilidad
   sale baja y la aplicación lo dice.
 
+- **Conteos reales de peatones.** La gente que pasa se ha contrastado con las 30
+  estaciones permanentes de peatones del Ayuntamiento de Madrid (2023), sin ajustar nada.
+  El fin de semana, la forma del día coincide. En laborable, no: el modelo pone la punta
+  a las 8 y las aceras la tienen por la tarde. Además, el modelo da menos gente el fin de
+  semana que en laborable, y las aceras, más. Ver
+  [`docs/validacion.md`](docs/validacion.md) y
+  [`src/contraste_aforos.py`](src/contraste_aforos.py).
+
 Cada paso está explicado, con sus pruebas y sus cifras, en
 [`docs/registro/`](docs/registro/).
 
 ## Limitaciones conocidas
 
+- **La hora punta de paso en laborable es poco fiable.** Frente a los conteos reales de
+  peatones de Madrid capital (2023), el modelo pone la punta a las 8 y las aceras la tienen
+  por la tarde. El fin de semana, el modelo da la mitad de gente que en laborable, y las
+  aceras, algo más.
 - **Todo lo que es «gente» es una estimación.** Sirve para comparar horas y tipos de
   cliente entre sí, no como recuento real.
 - **Gente que pasa no es gente que entra.** Pasar de una a otra es un supuesto.
@@ -551,6 +563,9 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 
 ## Siguientes pasos
 
+- Añadir a la gente que va de paseo y de compras, y repartir a los viajeros según la
+  distancia a la parada. Se ajustaría con la mitad de las estaciones de aforo de peatones
+  y se comprobaría con la otra mitad.
 - Usar entradas por estación de Metro y viajeros por parada de autobús, si se
   publican.
 - Usar un calendario escolar oficial y medir el domingo y los festivos con datos de

@@ -53,3 +53,34 @@ Todo el detalle, con las tablas de antes y después:
   (diagnóstico y propuesta);
 - [`registro/2026-11-15-tipo-de-local.md`](registro/2026-11-15-tipo-de-local.md) (lo que se
   implementó).
+
+## Contraste con aforos de peatones (Madrid capital, 2023)
+
+Además de los hosteleros, la gente que pasa del modelo se ha contrastado con los conteos
+por hora de las 30 estaciones permanentes de peatones del Ayuntamiento de Madrid
+([`src/contraste_aforos.py`](../src/contraste_aforos.py); detalle en
+[`registro/2026-11-24-contraste-aforos-peatones.md`](registro/2026-11-24-contraste-aforos-peatones.md)).
+Sin cambiar ningún supuesto:
+
+- **Laborable: no coincide la forma del día.** El modelo pone la punta a las 8 en todas
+  las estaciones; las aceras la tienen por la tarde o a mediodía. Durante el día (7 a 22 h)
+  la correlación es nula. Es lo mismo que se vio con el bar de validación 1.
+- **Fin de semana: la forma coincide** (correlación de 0,8 de mediana), **pero el modelo da
+  la mitad de gente que en laborable, y las aceras, más.**
+- **Orden entre zonas: regular** (Spearman 0,39). El modelo acierta los extremos, pero pone
+  arriba varios puntos que en la acera cuentan poco.
+
+Las cifras absolutas no se comparan: la estación cuenta una acera y el modelo, un círculo
+de 300 m. Solo hay estaciones en Madrid capital, la mitad en el distrito Centro.
+
+**Qué significa para la aplicación.**
+
+- **La hora punta de paso en laborable es poco fiable,** sobre todo en calles comerciales y
+  de paseo, donde las aceras se llenan por la tarde.
+- **El contraste no cubre zonas como los tres ejemplos.** La mitad de las estaciones están
+  en el distrito Centro, y ninguna en una zona como el campus de Vicálvaro, el centro de
+  Fuenlabrada o la plaza mayor de Griñón.
+- **«¿Cuándo tendrías más clientes?» no depende solo del paso:** suma a los vecinos que van
+  a propósito. En Vicálvaro y Fuenlabrada, con «bar de barrio», sale por la tarde. Aun así,
+  hereda este sesgo de la mañana.
+

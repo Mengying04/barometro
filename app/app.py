@@ -1357,8 +1357,15 @@ def rec_detalle(r: dict) -> None:
             st.caption("\n".join(f"- {p}" for p in r["porque"]))
 
 
+# Nota del contraste con conteos reales de peatones (docs/validacion.md): no cambia ningún
+# cálculo ni ninguna confianza, solo avisa en «A qué hora».
+AVISO_AFOROS = ("Contraste con conteos reales (Madrid capital, 2023): en día laborable, las "
+                "aceras tienen más gente por la tarde de lo que dice este modelo; la hora punta "
+                "de la mañana puede estar sobrevalorada. Compruébalo contando en persona.")
+
+
 def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = "",
-                     fuente: str = FUENTE_SUPUESTOS) -> None:
+                     fuente: str = FUENTE_SUPUESTOS, aviso: str = "") -> None:
     """Las cuatro preguntas tienen la misma estructura: una fila de datos clave (respuesta,
     cifra o gráfico pequeño y fiabilidad), el porqué (la recomendación principal con sus
     motivos), un detalle desplegable con todas las recomendaciones y la fuente."""
@@ -1375,6 +1382,8 @@ def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = 
             tarjeta_fiabilidad(r)])
         + "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
     st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
+    if aviso:
+        st.markdown(nota("aviso", html.escape(aviso)), unsafe_allow_html=True)
     with st.expander("Detalle: todas las recomendaciones"):
         detalle()
     if pie:
@@ -1894,7 +1903,7 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         seccion_pregunta("hora", resp["cuando"],
                          lambda: por_dias("hora", hr["recomendaciones"]),
                          cifra_cuando(rec, informe=True),
-                         "" if con_tipo(rec) else S.AVISO_GENERAL)
+                         "" if con_tipo(rec) else S.AVISO_GENERAL, aviso=AVISO_AFOROS)
         seccion_pregunta("vender", resp["que"], lambda: por_dias(
             "vender", qv["recomendaciones"],
             ("Huecos y cocinas", [r for r in qv["recomendaciones"] if "dia" not in r]

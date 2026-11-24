@@ -320,3 +320,24 @@ No se descargan: la aplicación los consulta en el momento.
 - **Versión de los datos:** la vigente en el servidor de teselas
 
 <!-- fin:aplicacion -->
+
+<!-- inicio:contraste -->
+## Fuentes del contraste con aforos de peatones (no las usa la aplicación)
+
+Solo las usa [`src/contraste_aforos.py`](../src/contraste_aforos.py) para contrastar la gente que pasa del modelo con conteos reales. Se descargan con la API del portal (CKAN, `package_show`) en `datos/originales/madrid_aforos_peatones/` y no se suben a GitHub.
+
+### Aforos de peatones y bicicletas (Ayuntamiento de Madrid)
+
+- Ficha: https://datos.madrid.es/dataset/300321-0-aforos-peatones-bicicletas
+- Licencia: Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid».
+- Datos: estaciones permanentes de peatones, un conteo por estación y hora; cobertura publicada 2019-09-01 a 2024-06-30 (el último trimestre publicado es provisional). Se usa el año 2023 (`peatones_2023.csv`) y la estructura del fichero (`estructura.pdf`).
+- Aviso de la ficha: entre agosto de 2021 y septiembre de 2022 se cambiaron los detectores y no se recomienda comparar datos de antes y después.
+- Ficha modificada el 2026-07-24; descargado el 2026-11-24.
+
+### Calendario laboral (Ayuntamiento de Madrid)
+
+- Ficha: https://datos.madrid.es/dataset/300082-0-calendario_laboral
+- Licencia: Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid».
+- Datos: festivos de la ciudad de Madrid de 2013 a 2027 (`calendario_laboral.csv`); se usan los de 2023.
+- Ficha modificada el 2026-11-12; descargado el 2026-11-24.
+<!-- fin:contraste -->
