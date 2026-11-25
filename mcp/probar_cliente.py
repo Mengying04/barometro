@@ -40,7 +40,11 @@ def comprobar(cond: bool, texto: str) -> None:
 
 
 def datos(resultado) -> dict:
-    """El contenido estructurado de la respuesta, o el JSON del texto."""
+    """El contenido estructurado de la respuesta, o el JSON del texto. Si la herramienta
+    devuelve un error (por ejemplo, CartoCiudad no responde), se para con su mensaje."""
+    if es_error(resultado):
+        texto = resultado.content[0].text if resultado.content else ""
+        raise SystemExit(f"\nLa herramienta devolvió un error: {texto}\nRESULTADO: con fallos")
     d = getattr(resultado, "structured_content", None)
     if d is None:
         d = getattr(resultado, "structuredContent", None)

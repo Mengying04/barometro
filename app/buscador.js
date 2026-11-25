@@ -325,7 +325,9 @@ function pintar(raiz) {
       'Buscando direcciones<span class="bm-puntos"><i></i><i></i><i></i></span>'));
   } else if (visible && d.estado === "error") {
     lista.appendChild(crear("div", "bm-nota",
-      "Ahora no podemos buscar direcciones. Prueba más tarde."));
+      "Ahora no podemos buscar direcciones: el buscador de CartoCiudad no responde. " +
+      (enBarra ? "Prueba de nuevo en un rato."
+               : "Prueba de nuevo en un rato o, mientras, con un ejemplo o «Usar mi ubicación».")));
   } else if (visible && !d.sugerencias.length) {
     lista.appendChild(crear("div", "bm-nota",
       "No encontramos esa dirección en Madrid. Prueba a escribirla de otra forma."));

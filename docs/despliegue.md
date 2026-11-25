@@ -67,7 +67,8 @@ es borrarla y crearla de nuevo.
 
 ## Comprobar que funciona
 
-- [ ] La portada carga y se ve el mapa.
+- [ ] La portada carga con «¿Habrá negocio aquí?», el buscador, los tres ejemplos y
+      las cifras.
 - [ ] Los tres ejemplos dan su titular: «Buena zona para desayunos y menú del día»,
       «Zona de desayunos, con mucha competencia cerca» y «Aquí encajan sobre todo
       desayunos y meriendas».
@@ -154,9 +155,9 @@ Nunca escribe en `main`. No usa secretos: solo el permiso temporal que GitHub da
 ejecución. El trabajo que descarga y procesa solo puede leer el repositorio; el que
 abre la propuesta solo puede escribir una rama y una propuesta.
 
-> **No se ha podido ejecutar en GitHub desde el entorno de trabajo.** Lo comprobado y
-> lo que falta está en `docs/registro/2026-11-12-reproducibilidad.md`. La primera
-> ejecución hay que lanzarla a mano y mirarla.
+> **Ya ha funcionado en GitHub dos veces:** las propuestas #1 (datos del 2026-11-12) y #2
+> (datos del 2026-11-16) se abrieron solas y se aceptaron. Lo que se comprobó antes de la
+> primera ejecución está en `docs/registro/2026-11-12-reproducibilidad.md`.
 
 ### Una sola vez: dar permiso para abrir propuestas
 

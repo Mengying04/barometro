@@ -78,7 +78,7 @@ respuestas.
 
 El centro del análisis son **15 conjuntos del Portal de Datos Abiertos de la Comunidad
 de Madrid** ([datos.comunidad.madrid](https://datos.comunidad.madrid)), todos con
-licencia Creative Commons Attribution y descargados el 2026-11-12.
+licencia Creative Commons Attribution y descargados el 2026-11-16.
 
 <!-- inicio:tabla-portal -->
 | Conjunto del portal | Para qué sirve en BARómetro | Última modificación |
@@ -172,7 +172,7 @@ flowchart LR
    (alta, media o baja) y si es un dato o una estimación.
 7. **Aplicación.** Una portada con un buscador que sugiere direcciones mientras se
    escribe, una vista «Resumen» en lenguaje sencillo y un «Informe completo» con todo
-   lo técnico, que se lee como un informe: diez secciones numeradas con el mismo
+   lo técnico, que se lee como un informe: once secciones numeradas con el mismo
    esquema (datos clave, porqué, detalle y fuente) y un índice lateral.
 
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
