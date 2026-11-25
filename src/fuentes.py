@@ -10,8 +10,8 @@ anotadas, sin escribirlas a mano en otro sitio.
     f["aplicacion"]  # servicios que se consultan en el momento (CartoCiudad, teselas)
 
 Cada conjunto del portal lleva «En uso»: si los cálculos lo usan (tiene un uso declarado
-en src/tablas_readme.py, lo mismo que cuenta la portada). Los que no («Oficinas de
-farmacia») se descargan y procesan, pero no entran en ningún cálculo.
+en src/tablas_readme.py, lo mismo que cuenta la portada). Hoy lo están todos; si alguno
+no lo estuviera, la web y el PDF lo enseñarían aparte.
 
 Solo usa la biblioteca estándar de Python.
 """

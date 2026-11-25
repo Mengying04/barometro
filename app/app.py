@@ -1582,7 +1582,7 @@ def tabla_fuentes(fu: dict) -> str:
     filas = [f"<tr class='grupo'><th colspan='4'>Portal de Datos Abiertos de la Comunidad de "
              f"Madrid · descargado el {html.escape(fu['portal_descarga'])}</th></tr>"]
     # Primero los conjuntos que usan los cálculos; después, aparte, los que solo se
-    # descargan («Oficinas de farmacia»), para que cuadre con los conjuntos en uso.
+    # descargaran sin usarse (hoy ninguno: entonces no sale ese rótulo).
     usados = [f for f in fu["portal"] if f.get("En uso", True)]
     sin_uso = [f for f in fu["portal"] if not f.get("En uso", True)]
     for f in usados + sin_uso:

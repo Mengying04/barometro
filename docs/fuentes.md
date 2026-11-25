@@ -14,7 +14,6 @@ Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se r
 | Centros educativos de la comunidad de Madrid | [centros_educativos](https://datos.comunidad.madrid/dataset/centros_educativos) | Creative Commons Attribution | 2026-05-05 | CSV, JSON | 7.757 |
 | Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 46.185 |
 | Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 13.680 |
-| Oficinas de farmacia | [oficinas_farmacia](https://datos.comunidad.madrid/dataset/oficinas_farmacia) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 2.958 |
 | Alojamientos turísticos de la Comunidad de Madrid | [alojamientos_turisticos](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Creative Commons Attribution | 2026-11-16 | CSV, JSON | 8.300 |
 | Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas | [declaraciones_actividad_viviendas_uso_turistico](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Creative Commons Attribution | 2026-11-16 | CSV, JSON, ZIP | 1.141 |
 | Secciones censales | [secciones_censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Creative Commons Attribution | 2025-02-07 | CSV, JSON, SHP | 4.417 |
@@ -29,8 +28,6 @@ Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se r
 | Viajeros subidos y bajados en trenes de cercanias por estaciones | [1923861](https://datos.comunidad.madrid/dataset/1923861) | Creative Commons Attribution | 2026-11-05 | CSV, JSON | 540 |
 
 Cuando un conjunto tiene varios CSV, la columna de filas los muestra en el orden de la ficha separados por «+».
-
-«Oficinas de farmacia» (oficinas_farmacia) se descarga y se procesa, pero no entra en ningún cálculo: los conjuntos en uso son los otros 15, los que tienen un uso en `src/tablas_readme.py`.
 
 Los recuentos corresponden a la fecha de descarga. Varios conjuntos se reemplazan completos de forma periódica (según el campo «Frecuencia de actualización de datos» de la ficha: alojamientos_turisticos cada semana, los lunes hacia las 06:11; centros_servicios_establecimientos_sanitarios cada día hacia las 06:06), y el CSV y el datastore se actualizan a la vez. Por eso un recuento consultado otro día puede no coincidir: es una versión distinta de los datos, no un corte de la descarga.
 
@@ -142,7 +139,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 
 Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet, geometría en EPSG:25830 y columnas `lat`/`lon` en EPSG:4326).
 
-- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, farmacias, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, farmacias del censo).
+- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, censo de locales).
 - Dos cartografías de secciones censales, cada una con un uso:
   - **Secciones del portal de la Comunidad** (`secciones_censales/558.zip`, seccionado 2019): límite de la Comunidad para recortar todas las capas y límites municipales (`cod_municipio` de cada punto).
   - **Cartografía del INE** (`ine_seccionado/`, seccionado a 1 de enero de 2025): polígonos de la capa `secciones_censales` con la renta y la población del Atlas de renta de 2024, y `cdgseccion` de cada punto (sección del INE en la que cae, para cruzarlo con la renta).
@@ -154,7 +151,6 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 | centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
 | centros_sanitarios | 15.915 centros | 15.745 | sin coordenadas: 170 |
 | desfibriladores | 13.680 filas | 13.679 | fila duplicada exacta: 1 |
-| farmacias | 2.958 filas | 2.954 | sin coordenadas: 4 |
 | hosteleria_osm | 15.678 elementos | 15.678 | — |
 | hosteleria_madrid_capital | 21.598 locales | 17.144 | local cerrado: 1793; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2034; sin coordenadas: 67 |
 

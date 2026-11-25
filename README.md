@@ -234,10 +234,9 @@ y **«Descargar comparación (PDF)»**, el de la comparación
 - **Siempre, al final:** el aviso de orientación, las fuentes en una tabla compacta
   (fuente, licencia, fecha de los datos y fecha de descarga), las condiciones de uso en
   una línea cada una, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y
-  la nota de que ninguna entidad respalda el proyecto. «Oficinas de farmacia» se descarga
-  pero no entra en ningún cálculo: sale aparte, como «Descargada, no se usa en los
-  cálculos», aquí y en la tabla de fuentes de la aplicación, para que cuadre con los 15
-  conjuntos en uso.
+  la nota de que ninguna entidad respalda el proyecto. Los 15 conjuntos del portal que se
+  descargan son los 15 que usan los cálculos, aquí y en la tabla de fuentes de la
+  aplicación.
 - **La zona es un esquema, no un mapa:** el círculo de 300 metros, los locales por tipo
   (con los mismos dibujos que el mapa de la web: taza, cuchillo y tenedor, jarra y
   hamburguesa, en blanco sobre el color de cada tipo, dibujados como vectores) y las

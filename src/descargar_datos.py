@@ -32,7 +32,6 @@ CONJUNTOS = [
     "centros_educativos",
     "centros_servicios_establecimientos_sanitarios",
     "desfibriladores_externos_fuera_ambito_sanitario",
-    "oficinas_farmacia",
     "alojamientos_turisticos",
     "declaraciones_actividad_viviendas_uso_turistico",
     "secciones_censales",
@@ -274,10 +273,6 @@ def escribir_fuentes(filas: list[dict], informe: dict) -> None:
         "",
         "Cuando un conjunto tiene varios CSV, la columna de filas los muestra en el orden "
         "de la ficha separados por «+».",
-        "",
-        "«Oficinas de farmacia» (oficinas_farmacia) se descarga y se procesa, pero no entra "
-        "en ningún cálculo: los conjuntos en uso son los otros 15, los que tienen un uso en "
-        "`src/tablas_readme.py`.",
         "",
         "Los recuentos corresponden a la fecha de descarga. Varios conjuntos se reemplazan "
         "completos de forma periódica (según el campo «Frecuencia de actualización de datos» "
