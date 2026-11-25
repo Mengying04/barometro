@@ -292,7 +292,8 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   limpio del repositorio con Python 3.12, sin datos originales.
 - **Contenedor.** La imagen de Docker, construida desde un clon limpio, da en los tres
   puntos la misma huella que el entorno de trabajo, y la aplicación enseña lo mismo.
-  Comprobado de nuevo el 2026-11-14 con Python 3.12, el PDF (fpdf2) y la fecha.
+  Comprobado de nuevo el 2026-11-14 con Python 3.12, el PDF (fpdf2) y la fecha, y el
+  2026-11-25, antes de la final, desde un clon limpio y con la imagen de Docker.
 - **La fecha es la de Madrid.** Los festivos, sus avisos y la fecha del informe usan la
   hora de Madrid aunque el servidor funcione en UTC (como Streamlit Community Cloud o el
   servidor MCP). Antes, entre las 00:00 y la 01:00 salían con un día de retraso.

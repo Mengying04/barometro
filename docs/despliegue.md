@@ -14,14 +14,20 @@ cómo mantenerla.
 | Requisito del servicio | Medida | ¿Cabe? |
 |---|---|---|
 | Ningún fichero de más de 100 MB | El mayor es `secciones_censales.parquet`, de 4,9 MB | Sí |
-| Tamaño de los datos | 13,6 MB en 20 ficheros de `datos/procesados/`; la carpeta `.git` del clon ocupa unos 22 MB | Sí |
+| Tamaño de los datos | 14 MB en 20 ficheros de `datos/procesados/`; la carpeta `.git` del clon ocupa unos 324 MB (2026-11-25), sobre todo por las capturas rehechas en cada ronda | Sí |
 | Alrededor de 1 GB de memoria | El servidor usa unos **400 MB** después de cargar los datos, calcular los tres ejemplos y abrir el Informe completo (pico de 411 MB) | Sí, con margen |
 | Arranque sin descargas | Un clon limpio, sin `datos/originales`, instala y arranca | Sí |
 
-- **Prueba del clon limpio:** `git clone` del repositorio en una carpeta vacía,
+- **Repetido el 2026-11-25, antes de la final:** clon limpio en `python:3.12-slim`
+  (Python 3.12.16), sin `datos/originales`: instala, arranca, la portada y los tres
+  ejemplos (con «Bar de barrio» e Informe completo) se ven sin errores de JavaScript y las
+  huellas de `src/resumen_ejemplos.py` son las mismas que en el entorno de trabajo. La
+  imagen de Docker, construida desde ese clon, da las mismas huellas y pasa su
+  comprobación de salud. Detalle en `docs/registro/2026-11-24-revision-final.md`.
+- **Prueba del clon limpio (2026-11-11):** `git clone` del repositorio en una carpeta vacía,
   contenedor `python:3.12-slim` (Python 3.12.16), `pip install -r requirements.txt` y
   `streamlit run app/app.py`. Con un navegador se pulsaron los tres ejemplos y las
-  cinco pestañas del Informe completo: sin errores en pantalla ni de JavaScript.
+  cinco pestañas que tenía entonces el Informe completo: sin errores en pantalla ni de JavaScript.
 - **Mismos resultados:** el perfil, el informe y las recomendaciones de los tres
   ejemplos son idénticos, byte a byte, a los de antes de preparar el despliegue,
   tanto en el entorno de trabajo (Python 3.14) como en el clon (Python 3.12).
@@ -134,7 +140,8 @@ docker run --rm -p 8501:8501 barometro
 ```
 
 - Imagen oficial `python:3.12.16-slim-bookworm`, usuario sin privilegios (`barometro`),
-  sin secretos. Ocupa 1,1 GB y el servidor usa unos 320 MB de memoria.
+  sin secretos. Ocupa 1,16 GB y el servidor usa unos 340 MB de memoria tras abrir los tres
+  ejemplos (medido el 2026-11-25).
 - `.dockerignore` deja fuera `datos/originales`, los entornos virtuales, `.git` y lo que
   la aplicación no usa (capturas, registro, servidor MCP).
 - Streamlit Community Cloud no usa este fichero: sirve para probar en local o para

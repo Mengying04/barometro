@@ -66,7 +66,7 @@ comerciales. Pide lo siguiente, y así se cumple:
   vehículo, calculada con la demanda diaria de cada red. `lineas_paradas.parquet`
   tampoco: solo cuántos vehículos de cada línea paran en cada parada en un día.
 - **«Powered by CRTM» con enlace** en webs y aplicaciones: está en el pie de la
-  aplicación y en la pestaña de fuentes.
+  aplicación y en la sección «Fuentes y licencias» (portada e Informe completo).
 - **Conservar las fechas de actualización:** están en `informe/fuentes.json` (entrada
   `crtm_paradas`), en `salidas_paradas_dias.json` y en `docs/fuentes.md`.
 - **Mantener la información actualizada:** un flujo semanal de GitHub Actions
