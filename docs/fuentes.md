@@ -14,7 +14,6 @@ Los ficheros se guardan en `datos/originales/<id>/` y no se suben a GitHub; se r
 | Centros educativos de la comunidad de Madrid | [centros_educativos](https://datos.comunidad.madrid/dataset/centros_educativos) | Creative Commons Attribution | 2026-05-05 | CSV, JSON | 7.757 |
 | Centros, servicios y establecimientos sanitarios | [centros_servicios_establecimientos_sanitarios](https://datos.comunidad.madrid/dataset/centros_servicios_establecimientos_sanitarios) | Creative Commons Attribution | 2026-11-25 | CSV, JSON | 46.222 |
 | Desfibriladores externos fuera del ámbito sanitario | [desfibriladores_externos_fuera_ambito_sanitario](https://datos.comunidad.madrid/dataset/desfibriladores_externos_fuera_ambito_sanitario) | Creative Commons Attribution | 2026-11-25 | CSV, JSON | 13.664 |
-| Oficinas de farmacia | [oficinas_farmacia](https://datos.comunidad.madrid/dataset/oficinas_farmacia) | Creative Commons Attribution | 2026-11-23 | CSV, JSON | 2.958 |
 | Alojamientos turísticos de la Comunidad de Madrid | [alojamientos_turisticos](https://datos.comunidad.madrid/dataset/alojamientos_turisticos) | Creative Commons Attribution | 2026-11-23 | CSV, JSON | 8.240 |
 | Declaraciones responsables de actividad de viviendas de uso turístico de la Comunidad de Madrid presentadas | [declaraciones_actividad_viviendas_uso_turistico](https://datos.comunidad.madrid/dataset/declaraciones_actividad_viviendas_uso_turistico) | Creative Commons Attribution | 2026-11-16 | CSV, JSON, ZIP | 1.141 |
 | Secciones censales | [secciones_censales](https://datos.comunidad.madrid/dataset/secciones_censales) | Creative Commons Attribution | 2025-02-07 | CSV, JSON, SHP | 4.417 |
@@ -152,7 +151,6 @@ Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet
 | centros_educativos | 7.757 filas | 3.851 | situación BAJA: 3552; situación INACTIVO: 193; situación ANULACIÓN: 76; situación EN TRÁMITE: 28; situación AUTORIZADO PENDIENTE FUNCIONAMIENTO: 2; sin coordenadas: 55 |
 | centros_sanitarios | 15.908 centros | 15.739 | sin coordenadas: 169 |
 | desfibriladores | 13.664 filas | 13.663 | fila duplicada exacta: 1 |
-| farmacias | 2.958 filas | 2.954 | sin coordenadas: 4 |
 | hosteleria_osm | 15.690 elementos | 15.690 | — |
 | hosteleria_madrid_capital | 21.611 locales | 17.150 | local cerrado: 1795; local baja reunificación: 350; local baja: 162; local uso vivienda: 48; solo catering o comedor colectivo (CNAE 562): 2039; sin coordenadas: 67 |
 

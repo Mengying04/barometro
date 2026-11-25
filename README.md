@@ -78,7 +78,7 @@ respuestas.
 
 El centro del análisis son **15 conjuntos del Portal de Datos Abiertos de la Comunidad
 de Madrid** ([datos.comunidad.madrid](https://datos.comunidad.madrid)), todos con
-licencia Creative Commons Attribution y descargados el 2026-11-16.
+licencia Creative Commons Attribution y descargados el 2026-11-25.
 
 <!-- inicio:tabla-portal -->
 | Conjunto del portal | Para qué sirve en BARómetro | Última modificación |
@@ -596,6 +596,11 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 - Sustituir el reparto de estudiantes entre campus por datos de cada universidad.
 - Añadir precios reales de cartas, si aparece una fuente abierta.
 - Probar la aplicación con hosteleros y ajustar el lenguaje.
+- Más idiomas (inglés y chino, entre otros), para hosteleros que no tienen el español
+  como primera lengua.
+- Una versión para otros negocios de barrio (peluquería, panadería, tienda de
+  alimentación…). La gente que pasa se calcula igual; lo que cambia es qué parte se para
+  en cada tipo de negocio y a qué hora.
 
 ## Autora y licencias
 
