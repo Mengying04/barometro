@@ -205,7 +205,7 @@ REPOSITORIO = "https://github.com/Mengying04/barometro"
 MIN_LETRAS = 4      # letras mínimas para pedir sugerencias a CartoCiudad
 MAX_SUGERENCIAS = 6
 
-st.set_page_config(page_title="BARómetro", page_icon=str(AQUI / "logo.svg"), layout="wide",
+st.set_page_config(page_title="BARómetro · ¿Habrá negocio aquí?", page_icon=str(AQUI / "logo.svg"), layout="wide",
                    initial_sidebar_state="collapsed")
 
 # ------------------------------------------------------------------- sistema visual
@@ -2267,11 +2267,11 @@ def portada() -> None:
         st.markdown(
             "<div class='pt-rotulo'>Datos abiertos de la Comunidad de Madrid</div>"
             f"<div class='pt-marca'>{logo}<b><i>BAR</i>ómetro</b></div>"
-            "<div class='pt-titular' role='heading' aria-level='1'>Que pase mucha gente no "
-            "significa que tengas clientes.</div>"
-            "<div class='pt-frase'>Antes de firmar un traspaso, escribe la dirección y descubre "
-            "en segundos cuándo tendrías más clientes, a quién vender, qué ofrecer y a qué "
-            "precios. Gratis.</div>", unsafe_allow_html=True)
+            "<div class='pt-titular' role='heading' aria-level='1'>¿Habrá negocio aquí?</div>"
+            "<div class='pt-lema'>Mira los datos antes de firmar.</div>"
+            "<div class='pt-frase'>Escribe la dirección del local y descubre en segundos cuánta "
+            "gente pasa, cuándo tendrías más clientes, a quién vender, qué ofrecer y a qué "
+            "precios. Gratis y con datos abiertos.</div>", unsafe_allow_html=True)
         parte_buscador("portada")
         # Las cifras suben contando al entrar (app/buscador.js; sin animación si el sistema
         # pide reducir el movimiento). El HTML ya trae la cifra final.

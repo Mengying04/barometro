@@ -882,6 +882,8 @@ a.plan-me {color:var(--teja) !important; font-weight:600; font-size:var(--f-text
 .pt-titular {text-align:center; color:#fff; font-size:var(--f-pagina); font-weight:700;
              letter-spacing:-0.03em; line-height:var(--lh-titulo); max-width:44rem;
              margin:0.6rem auto 0 auto; text-wrap:balance;}
+.pt-lema {text-align:center; color:var(--teja-clara); font-size:var(--f-bloque); font-weight:600;
+          letter-spacing:-0.01em; line-height:var(--lh-titulo); margin:0.45rem auto 0 auto;}
 .pt-frase {font-size:var(--f-bloque); max-width:42rem; margin:0.4rem auto 0.6rem auto; text-wrap:balance;}
 .pt-ventajas {display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0.75rem;
               max-width:56rem; margin:0.6rem auto 0 auto; width:100%;}
@@ -934,6 +936,7 @@ p.metodo-mas a {color:var(--teja) !important; font-weight:600;}
   .bm-top .bm-campo {height:2.5rem;}
   [id] {scroll-margin-top:7.5rem;}
   .pt-titular {font-size:var(--f-seccion); letter-spacing:-0.02em;}
+  .pt-lema {font-size:var(--f-texto); margin-top:0.35rem;}
   .pt-frase {font-size:var(--f-texto);}
   .pt-ventajas {grid-template-columns:minmax(0, 1fr);}
   .pt-cifras b {line-height:calc(var(--f-seccion) * 1.2);}

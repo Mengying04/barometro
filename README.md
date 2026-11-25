@@ -1,5 +1,7 @@
 # BARómetro
 
+**¿Habrá negocio aquí?** Mira los datos antes de firmar.
+
 **BARómetro ayuda a quien tiene o quiere abrir un bar o restaurante en la Comunidad de
 Madrid a decidir qué ofrecer, a quién, a qué hora y a qué precios, según la zona.** Se
 escribe la dirección del local y, con datos abiertos, se ve cuánto movimiento tiene la

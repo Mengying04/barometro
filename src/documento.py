@@ -652,7 +652,7 @@ def informe_pdf(res: dict, lugar: str, fu: dict, punto: tuple[float, float] | No
     resp = respuestas(rec, inf)
     tipo = rec.get("tipo_local")
     d = _Doc("BARómetro: informe del local", f"Informe del local · {lugar}")
-    d.marca("Qué ofrecer, a quién, a qué hora y a qué precio", lugar,
+    d.marca("¿Habrá negocio aquí? Mira los datos antes de firmar.", lugar,
             _ficha(lugar, punto, inf["municipio"]["nombre"], rec, fu))
 
     d.seccion("Resumen", 60)
@@ -855,7 +855,7 @@ def comparacion_pdf(cmp: dict, a: dict, b: dict, fu: dict) -> bytes:
     ficha = ([("Local A", na), ("Local B", nb)]
              + [f for f in ficha if f[0] not in ("Punto analizado", "Municipio")])
     ficha.insert(2, ("Radio de análisis", ficha.pop(2)[1] + " en cada uno"))
-    d.marca("Comparación de dos locales", f"{na}  ·  {nb}", ficha)
+    d.marca("¿Habrá negocio aquí? · Comparación de dos locales", f"{na}  ·  {nb}", ficha)
 
     d.seccion("Resumen", 40)
     d.texto("Esta comparación no dice qué local es mejor: dice en qué se diferencian.", 8.3,
