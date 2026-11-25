@@ -20,6 +20,51 @@ import supuestos as S
 COLOR_TIPO = {"bar": "#0072B2", "restaurante": "#D55E00", "cafeteria": "#009E73",
               "comida_rapida": "#B5338A"}
 
+# Dibujo de cada tipo de local, en blanco sobre un círculo de su color: una taza de café
+# (cafetería), cuchillo y tenedor (restaurante), una jarra de cerveza (bar) y una hamburguesa
+# (comida rápida). Los colores están comprobados por pares con el validador de paletas
+# (diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia). Los mismos en el mapa, las
+# leyendas, el informe y el documento descargable. Dibujos propios en una rejilla de 24;
+# «{c}» es el color del tipo (para las vetas de la jarra).
+DIBUJO_TIPO = {
+    "cafeteria": (
+        "<path d='M7 10h8v3.2a3.6 3.6 0 0 1-3.6 3.6h-.8A3.6 3.6 0 0 1 7 13.2z' fill='#fff'/>"
+        "<path d='M15 11h1a1.6 1.6 0 0 1 0 3.2h-1' fill='none' stroke='#fff' stroke-width='1.4'/>"
+        "<path d='M6.3 18.4h10.4' stroke='#fff' stroke-width='1.4' stroke-linecap='round'/>"
+        "<path d='M9.6 5.6c-.7.8.7 1.5 0 2.5M12.6 5.6c-.7.8.7 1.5 0 2.5' fill='none' "
+        "stroke='#fff' stroke-width='1.2' stroke-linecap='round'/>"),
+    "restaurante": (
+        "<path d='M7.4 5.6v3.6a1.9 1.9 0 0 0 3.8 0V5.6M9.3 5.6v12.8' fill='none' stroke='#fff' "
+        "stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/>"
+        "<path d='M15.8 18.4V5.6c-1.7.9-2.4 3.1-2.4 5.4 0 1.2.6 1.9 1.5 1.9h.9' fill='#fff' "
+        "stroke='#fff' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/>"),
+    "bar": (
+        "<path d='M14.6 10.6h1.3a1.5 1.5 0 0 1 1.5 1.5v2.3a1.5 1.5 0 0 1-1.5 1.5h-1.3' "
+        "fill='none' stroke='#fff' stroke-width='1.5'/>"
+        "<rect x='7' y='8.6' width='7.6' height='9.6' rx='1.1' fill='#fff'/>"
+        "<path d='M6.6 9.4a2.1 2.1 0 0 1 2.2-2.9 2.4 2.4 0 0 1 4.3-.2 1.9 1.9 0 0 1 2 3.1z' "
+        "fill='#fff'/>"
+        "<path d='M9.5 11.4v4.8M12.1 11.4v4.8' stroke='{c}' stroke-width='1.1' "
+        "stroke-linecap='round'/>"),
+    "comida_rapida": (
+        "<path d='M6.4 11.3a5.6 4.3 0 0 1 11.2 0z' fill='#fff'/>"
+        "<rect x='5.8' y='12.4' width='12.4' height='1.7' rx='.85' fill='#fff'/>"
+        "<path d='M6.4 15.1h11.2v.6a2.1 2.1 0 0 1-2.1 2.1H8.5a2.1 2.1 0 0 1-2.1-2.1z' fill='#fff'/>"
+        "<path d='M9.4 8.9h.1M12 8.3h.1M14.6 8.9h.1' stroke='{c}' stroke-width='1.1' "
+        "stroke-linecap='round'/>"),
+}
+
+
+def marca_tipo(tipo: str, px: int = 22) -> str:
+    """La marca de un tipo de local (su dibujo en blanco sobre un círculo de su color), como
+    SVG suelto: vale para el mapa (que va en un marco aparte, sin la hoja de estilos) y para
+    las leyendas."""
+    color = COLOR_TIPO.get(tipo, "#999999")
+    dibujo = DIBUJO_TIPO.get(tipo, DIBUJO_TIPO["bar"]).replace("{c}", color)
+    return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
+            "viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='" + color
+            + "' stroke='#ffffff' stroke-width='1.5'/>" + dibujo + "</svg>")
+
 
 def miles(n: float) -> str:
     """Entero con punto de miles: 12345 → «12.345»."""

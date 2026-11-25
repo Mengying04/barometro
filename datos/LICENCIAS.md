@@ -66,13 +66,13 @@ comerciales. Pide lo siguiente, y así se cumple:
   vehículo, calculada con la demanda diaria de cada red. `lineas_paradas.parquet`
   tampoco: solo cuántos vehículos de cada línea paran en cada parada en un día.
 - **«Powered by CRTM» con enlace** en webs y aplicaciones: está en el pie de la
-  aplicación y en la pestaña de fuentes.
+  aplicación y en la sección «Fuentes y licencias» (portada e Informe completo).
 - **Conservar las fechas de actualización:** están en `informe/fuentes.json` (entrada
   `crtm_paradas`), en `salidas_paradas_dias.json` y en `docs/fuentes.md`.
 - **Mantener la información actualizada:** un flujo semanal de GitHub Actions
   (`.github/workflows/actualizar-datos.yml`) vuelve a descargar y procesar los datos y
   propone los cambios, que la autora revisa y acepta. Los de este repositorio se
-  descargaron el 2026-11-12.
+  descargaron el 2026-11-16.
 - **No sugerir que el CRTM patrocina o apoya el proyecto:** no lo hace.
 - **Compartir los datos con el mismo tipo de licencia:** quien reutilice
   `salidas_paradas.parquet`, `lineas_paradas.parquet` o `referencia_movimiento.parquet`
@@ -82,13 +82,13 @@ comerciales. Pide lo siguiente, y así se cumple:
 
 | Fuente | Versión de los datos | Descargado el |
 |---|---|---|
-| Portal de la Comunidad de Madrid | Última modificación de cada conjunto en `informe/fuentes.json` y en `docs/fuentes.md` | 2026-11-12 |
-| Ayuntamiento de Madrid, censo de locales | Ficheros del 2026-11-12 | 2026-11-12 |
-| INE, Atlas de renta | Año 2024; tablas actualizadas el 2026-10-15 | 2026-11-12 |
-| INE, cartografía de secciones | Seccionado a 1 de enero de 2025 | 2026-11-12 |
-| OpenStreetMap, hostelería | Datos a 2026-11-12 | 2026-11-12 |
-| OpenStreetMap, universidades | Datos a 2026-11-12 | 2026-11-12 |
-| CRTM | GTFS publicados entre el 2025-05-30 (Metro) y el 2026-11-05; demanda publicada el 2026-10-28 | 2026-11-12 |
+| Portal de la Comunidad de Madrid | Última modificación de cada conjunto en `informe/fuentes.json` y en `docs/fuentes.md` | 2026-11-16 |
+| Ayuntamiento de Madrid, censo de locales | Ficheros del 2026-11-16 | 2026-11-16 |
+| INE, Atlas de renta | Año 2024; tablas actualizadas el 2026-10-15 | 2026-11-16 |
+| INE, cartografía de secciones | Seccionado a 1 de enero de 2025 | 2026-11-16 |
+| OpenStreetMap, hostelería | Datos a 2026-11-16 | 2026-11-16 |
+| OpenStreetMap, universidades | Datos a 2026-11-16 | 2026-11-16 |
+| CRTM | GTFS publicados entre el 2025-05-30 (Metro) y el 2026-11-16 (EMT); demanda publicada el 2026-11-16 | 2026-11-16 |
 
 Este proyecto no está respaldado ni patrocinado por ninguna de las entidades que
 publican los datos.

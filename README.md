@@ -1,5 +1,7 @@
 # BARómetro
 
+**¿Habrá negocio aquí?** Mira los datos antes de firmar.
+
 **BARómetro ayuda a quien tiene o quiere abrir un bar o restaurante en la Comunidad de
 Madrid a decidir qué ofrecer, a quién, a qué hora y a qué precios, según la zona.** Se
 escribe la dirección del local y, con datos abiertos, se ve cuánto movimiento tiene la
@@ -76,7 +78,7 @@ respuestas.
 
 El centro del análisis son **15 conjuntos del Portal de Datos Abiertos de la Comunidad
 de Madrid** ([datos.comunidad.madrid](https://datos.comunidad.madrid)), todos con
-licencia Creative Commons Attribution y descargados el 2026-11-12.
+licencia Creative Commons Attribution y descargados el 2026-11-16.
 
 <!-- inicio:tabla-portal -->
 | Conjunto del portal | Para qué sirve en BARómetro | Última modificación |
@@ -170,7 +172,7 @@ flowchart LR
    (alta, media o baja) y si es un dato o una estimación.
 7. **Aplicación.** Una portada con un buscador que sugiere direcciones mientras se
    escribe, una vista «Resumen» en lenguaje sencillo y un «Informe completo» con todo
-   lo técnico, que se lee como un informe: diez secciones numeradas con el mismo
+   lo técnico, que se lee como un informe: once secciones numeradas con el mismo
    esquema (datos clave, porqué, detalle y fuente) y un índice lateral.
 
 Todos los supuestos están en un solo fichero, [`src/supuestos.py`](src/supuestos.py),
@@ -217,23 +219,36 @@ y **«Descargar comparación (PDF)»**, el de la comparación
 ([`src/documento.py`](src/documento.py)). Hay dos de muestra en
 [`docs/ejemplos/`](docs/ejemplos/).
 
-- **Qué lleva:** el logotipo, la dirección, la fecha, el resumen, el nivel de
-  movimiento, las cuatro respuestas con su porqué y su fiabilidad, el gráfico por
-  horas, un esquema de la zona, el mercado, los avisos y la lista de comprobaciones en
-  persona.
-- **Siempre, al final:** el aviso de orientación, las fuentes con su licencia y su
-  fecha, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y la nota de
-  que ninguna entidad respalda el proyecto.
+- **Qué lleva:** en la primera página, el logotipo, la dirección y una **ficha técnica**
+  (punto analizado, municipio, radio, tipo de local, fecha de los datos, fecha del
+  informe, método y versión), igual que el Informe completo; después, en secciones
+  numeradas, el resumen con las cuatro respuestas en cuadrícula, el nivel de movimiento,
+  cada respuesta con su porqué y su fiabilidad (en «A qué hora», la nota del contraste con
+  conteos reales), los gráficos por horas con sus ejes y su fuente, un esquema de la
+  zona, el mercado en tabla, los avisos, la lista de comprobaciones en persona y
+  **«Metodología y supuestos clave»**, con la misma tabla y la misma fórmula que la web.
+- **Aspecto de informe técnico,** como la web: rótulos pequeños en mayúsculas, bordes
+  finos y radios pequeños, números tabulares y tablas con los números a la derecha. La
+  ficha técnica, la metodología y la nota del contraste salen de
+  [`src/metodologia.py`](src/metodologia.py), que comparten la web y el PDF.
+- **Siempre, al final:** el aviso de orientación, las fuentes en una tabla compacta
+  (fuente, licencia, fecha de los datos y fecha de descarga), las condiciones de uso en
+  una línea cada una, «Powered by CRTM», la atribución de OpenStreetMap y de CartoCiudad y
+  la nota de que ninguna entidad respalda el proyecto. Los 15 conjuntos del portal que se
+  descargan son los 15 que usan los cálculos, aquí y en la tabla de fuentes de la
+  aplicación.
 - **La zona es un esquema, no un mapa:** el círculo de 300 metros, los locales por tipo
-  y las paradas, sin fondo y sin nombres. Así no se descargan teselas de OpenStreetMap
+  (con los mismos dibujos que el mapa de la web: taza, cuchillo y tenedor, jarra y
+  hamburguesa, en blanco sobre el color de cada tipo, dibujados como vectores) y las
+  paradas, sin fondo y sin nombres. Así no se descargan teselas de OpenStreetMap
   desde el servidor ni puede colarse el rótulo de un local.
 - **Se genera en memoria al pulsar el botón** y no se guarda en el servidor.
 
 **Por qué PDF y no una página HTML para imprimir.** Se genera con
 [fpdf2](https://py-pdf.github.io/fpdf2/), que es Python puro: no necesita un navegador ni
 programas del sistema, que es lo que suele fallar en Streamlit Community Cloud. Medido en
-el entorno de trabajo, cada documento ocupa unos 50 KB, tarda medio segundo y usa unos
-12 MB de memoria mientras se genera. Lleva la letra DejaVu Sans (en `app/letra/`, con su
+el entorno de trabajo, cada informe ocupa unos 60 KB, tarda menos de un segundo y usa
+unos 12 MB de memoria mientras se genera. Lleva la letra DejaVu Sans (en `app/letra/`, con su
 licencia), porque las letras que trae el formato PDF no tienen signos como «≈» o «×».
 
 ## Rigor: qué se ha comprobado
@@ -276,7 +291,8 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   limpio del repositorio con Python 3.12, sin datos originales.
 - **Contenedor.** La imagen de Docker, construida desde un clon limpio, da en los tres
   puntos la misma huella que el entorno de trabajo, y la aplicación enseña lo mismo.
-  Comprobado de nuevo el 2026-11-14 con Python 3.12, el PDF (fpdf2) y la fecha.
+  Comprobado de nuevo el 2026-11-14 con Python 3.12, el PDF (fpdf2) y la fecha, y el
+  2026-11-25, antes de la final, desde un clon limpio y con la imagen de Docker.
 - **La fecha es la de Madrid.** Los festivos, sus avisos y la fecha del informe usan la
   hora de Madrid aunque el servidor funcione en UTC (como Streamlit Community Cloud o el
   servidor MCP). Antes, entre las 00:00 y la 01:00 salían con un día de retraso.
@@ -297,11 +313,23 @@ licencia), porque las letras que trae el formato PDF no tienen signos como «≈
   se recalcula con los supuestos a la mitad y al doble: si cambia con poco, su fiabilidad
   sale baja y la aplicación lo dice.
 
+- **Conteos reales de peatones.** La gente que pasa se ha contrastado con las 30
+  estaciones permanentes de peatones del Ayuntamiento de Madrid (2023), sin ajustar nada.
+  El fin de semana, la forma del día coincide. En laborable, no: el modelo pone la punta
+  a las 8 y las aceras la tienen por la tarde. Además, el modelo da menos gente el fin de
+  semana que en laborable, y las aceras, más. Ver
+  [`docs/validacion.md`](docs/validacion.md) y
+  [`src/contraste_aforos.py`](src/contraste_aforos.py).
+
 Cada paso está explicado, con sus pruebas y sus cifras, en
 [`docs/registro/`](docs/registro/).
 
 ## Limitaciones conocidas
 
+- **La hora punta de paso en laborable es poco fiable.** Frente a los conteos reales de
+  peatones de Madrid capital (2023), el modelo pone la punta a las 8 y las aceras la tienen
+  por la tarde. El fin de semana, el modelo da la mitad de gente que en laborable, y las
+  aceras, algo más.
 - **Todo lo que es «gente» es una estimación.** Sirve para comparar horas y tipos de
   cliente entre sí, no como recuento real.
 - **Gente que pasa no es gente que entra.** Pasar de una a otra es un supuesto.
@@ -466,7 +494,9 @@ fecha y «Powered by CRTM». No da nombres de locales ni guarda lo que se consul
 claude mcp add barometro -- /ruta/a/barometro/.venv/bin/python /ruta/a/barometro/mcp/servidor.py
 ```
 
-**Claude Desktop**, en `claude_desktop_config.json` (Ajustes → Desarrollador):
+**Claude Desktop**, en `claude_desktop_config.json`. En el Mac se abre desde el menú
+«Claude» de la barra de menús → **Ajustes** → **Desarrollador** → **Editar
+configuración**; se añade el bloque siguiente y se reinicia Claude Desktop:
 
 ```json
 {
@@ -482,7 +512,8 @@ claude mcp add barometro -- /ruta/a/barometro/.venv/bin/python /ruta/a/barometro
 Ejemplo de pregunta: *«Quiero abrir un bar en la Plaza de la Constitución 1 de
 Fuenlabrada. ¿Qué me conviene ofrecer y a qué horas?»*
 
-Para probarlo sin asistente: `python mcp/probar_cliente.py`.
+Probado en Claude Desktop el 24 de noviembre de 2026, además de en Claude Code. Para
+probarlo sin asistente: `python mcp/probar_cliente.py`.
 
 En el [modelo de negocio](#modelo-de-negocio), el acceso por MCP sería del plan
 Profesional. Durante DATAMAD 2026 es libre, como todo lo demás.
@@ -551,6 +582,9 @@ qué orden y con qué datos, y pidió cada cambio y cada comprobación.
 
 ## Siguientes pasos
 
+- Añadir a la gente que va de paseo y de compras, y repartir a los viajeros según la
+  distancia a la parada. Se ajustaría con la mitad de las estaciones de aforo de peatones
+  y se comprobaría con la otra mitad.
 - Usar entradas por estación de Metro y viajeros por parada de autobús, si se
   publican.
 - Usar un calendario escolar oficial y medir el domingo y los festivos con datos de

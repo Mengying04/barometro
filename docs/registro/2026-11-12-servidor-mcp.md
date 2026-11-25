@@ -71,6 +71,11 @@ conflictos.
 
 - **No se ha probado en Claude Desktop,** solo en Claude Code y con el cliente de
   prueba del SDK. La configuración es la misma (un comando y un argumento).
+
+  > **Nota del 2026-11-24:** ya se ha probado en Claude Desktop, el 24 de noviembre de
+  > 2026. La configuración se abre en el Mac desde el menú «Claude» de la barra de menús
+  > → Ajustes → Desarrollador → Editar configuración (README, «Servidor MCP»). Ver
+  > [`2026-11-24-documento-tecnico.md`](2026-11-24-documento-tecnico.md).
 - Las respuestas son largas (13 a 35 kB de texto por llamada).
 - `mcp` queda en `requirements.txt`, así que Streamlit Community Cloud también lo
   instalará, aunque la aplicación no lo use. No se ha vuelto a desplegar con él.

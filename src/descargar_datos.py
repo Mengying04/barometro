@@ -32,7 +32,6 @@ CONJUNTOS = [
     "centros_educativos",
     "centros_servicios_establecimientos_sanitarios",
     "desfibriladores_externos_fuera_ambito_sanitario",
-    "oficinas_farmacia",
     "alojamientos_turisticos",
     "declaraciones_actividad_viviendas_uso_turistico",
     "secciones_censales",

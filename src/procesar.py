@@ -332,18 +332,6 @@ def desfibriladores(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
                       "horario_acceso", "municipio_nombre", "cod_municipio", "cdgseccion"], n)
 
 
-# ---------------------------------------------------------------------- 4. farmacias
-def farmacias(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
-    capa = "farmacias"
-    d = leer_csv(ORIG / "oficinas_farmacia" / "oficinas_farmacia.csv")
-    n = len(d)
-    d = d.rename(columns={"MUNICIPIO_NOMBRE": "municipio_nombre"})
-    g = a_puntos(d, num(d["LOCALIZACION_COORDENADA_X"]), num(d["LOCALIZACION_COORDENADA_Y"]),
-                 capa=capa)
-    g = recortar(g, lim, secc, capa)
-    guardar(g, capa, ["municipio_nombre", "cod_municipio", "cdgseccion"], n)
-
-
 # -------------------------------------------------------------------- 6. hostelería OSM
 def hosteleria_osm(lim: gpd.GeoDataFrame, secc: gpd.GeoDataFrame) -> None:
     capa = "hosteleria_osm"
@@ -482,11 +470,11 @@ def escribir_fuentes() -> None:
               "(GeoParquet, geometría en EPSG:25830 y columnas `lat`/`lon` en EPSG:4326).",
               "",
               "- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, "
-              "sanitarios, farmacias, desfibriladores) y del censo de locales están en "
+              "sanitarios, desfibriladores) y del censo de locales están en "
               "ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores "
               "traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m "
               "de desfase. Los demás se contrastaron por distancia al vecino más cercano "
-              "(desfibriladores, OSM, farmacias del censo).",
+              "(desfibriladores, OSM, censo de locales).",
               "- Dos cartografías de secciones censales, cada una con un uso:",
               "  - **Secciones del portal de la Comunidad** (`secciones_censales/558.zip`, "
               "seccionado 2019): límite de la Comunidad para recortar todas las capas y "
@@ -523,7 +511,7 @@ def main() -> int:
     print("Procesando…")
     lim = limites_portal()
     secc = secciones_censales(lim)
-    for f in (centros_educativos, centros_sanitarios, desfibriladores, farmacias,
+    for f in (centros_educativos, centros_sanitarios, desfibriladores,
               hosteleria_osm, hosteleria_madrid):
         f(lim, secc)
     escribir_fuentes()

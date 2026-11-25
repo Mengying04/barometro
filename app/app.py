@@ -93,13 +93,15 @@ from comparar import comparar  # noqa: E402
 from direcciones import (ATRIBUCION_CARTOCIUDAD, coordenadas,  # noqa: E402
                          geocodificar)
 from documento import comparacion_pdf, informe_pdf  # noqa: E402
+from fecha import hoy as fecha_hoy  # noqa: E402
 from movimiento import nivel_movimiento, referencia  # noqa: E402
-from calle import (CLIENTE_CALLE, COLOR_TIPO, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
+from calle import (CLIENTE_CALLE, ENTORNO_CALLE, FIABILIDAD,  # noqa: E402
                    MODO_CALLE, MOMENTO_CALLE, bloque_inf, comparacion_franjas, con_tipo,
                    comprobaciones_calle, dec,
                    frases_cuando, frases_precio, frases_que, frases_quien, grupos_horas,
-                   hora_de_grupo, horas_punta, lista_y, mayus, metrica_bloque, miles,
-                   rec_dia, redondo, respuestas, titular_calle, unas)
+                   hora_de_grupo, horas_punta, lista_y, marca_tipo, mayus, metrica_bloque,
+                   miles, rec_dia, redondo, respuestas, titular_calle, unas)
+import metodologia  # noqa: E402
 from procesar import PROC  # noqa: E402
 from recomendaciones import recomendar  # noqa: E402
 
@@ -121,29 +123,12 @@ PRINCIPAL = "#9c3d1b"
 COLOR_CLIENTE = {"vecinos": "#2a78d6", "viajeros": "#eb6834", "universitarios": "#1baf7a",
                  "padres_ninos": "#eda100", "pacientes": "#e87ba4", "trabajadores": "#008300",
                  "deporte_eventos": "#6250d6"}
-# Tipos de local: cuatro colores bien separados también con daltonismo (comprobados por pares
-# con el validador de paletas: diferencia mínima 9,3 en deuteranopia y 8,6 en tritanopia) y,
-# además, una forma distinta por tipo. Los mismos en el mapa, la leyenda y el informe.
-FORMA_TIPO = {  # en una rejilla de 16: círculo, cuadrado, triángulo y rombo
-    "bar": "<circle cx='8' cy='8' r='6'/>",
-    "restaurante": "<rect x='2.4' y='2.4' width='11.2' height='11.2' rx='1.6'/>",
-    "cafeteria": "<path d='M8 1.6L14.8 13.8H1.2z'/>",
-    "comida_rapida": "<path d='M8 0.9L15.1 8L8 15.1L0.9 8z'/>"}
 # Transporte: un icono discreto por modo, en gris oscuro (no compite con los locales). Son
 # dibujos propios (una letra o un autobús en una ficha), no los logotipos de las redes.
 TINTA_MODO = "#3b342c"
 MODO_ICONO = {"metro": "Metro", "cercanias": "Cercanías", "metro_ligero": "Metro Ligero",
               "emt": "Autobús", "urbanos": "Autobús", "interurbanos": "Autobús"}
 LETRA_MODO = {"Metro": "M", "Cercanías": "C", "Metro Ligero": "ML"}
-
-
-def marca_tipo(tipo: str, px: int = 16) -> str:
-    """La marca de un tipo de local (forma y color), como SVG suelto: vale para el mapa
-    (que va en un marco aparte, sin la hoja de estilos) y para las leyendas."""
-    return (f"<svg xmlns='http://www.w3.org/2000/svg' width='{px}' height='{px}' "
-            f"viewBox='0 0 16 16' fill='{COLOR_TIPO.get(tipo, '#999999')}' stroke='#ffffff' "
-            f"stroke-width='1.4' stroke-linejoin='round'>"
-            f"{FORMA_TIPO.get(tipo, FORMA_TIPO['bar'])}</svg>")
 
 
 def icono_modo(modo: str, px: int = 18) -> str:
@@ -220,7 +205,7 @@ REPOSITORIO = "https://github.com/Mengying04/barometro"
 MIN_LETRAS = 4      # letras mínimas para pedir sugerencias a CartoCiudad
 MAX_SUGERENCIAS = 6
 
-st.set_page_config(page_title="BARómetro", page_icon=str(AQUI / "logo.svg"), layout="wide",
+st.set_page_config(page_title="BARómetro · ¿Habrá negocio aquí?", page_icon=str(AQUI / "logo.svg"), layout="wide",
                    initial_sidebar_state="collapsed")
 
 # ------------------------------------------------------------------- sistema visual
@@ -252,6 +237,8 @@ ICONOS = {
     "cesta": '<path d="M4 9h16l-1.5 10h-13z"/><path d="M8.5 9l3.5-5 3.5 5"/>',
     "etiqueta": '<path d="M3.5 4.5h8l9 9-7 7-9-9z"/><circle cx="8" cy="9" r="1.5"/>',
     "abierto": '<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2"/>',
+    "comparar": '<rect x="3.5" y="5" width="7" height="14" rx="1.5"/><rect x="13.5" y="5" width="7" height="14" rx="1.5"/><path d="M6 9h2M6 12h2M16 9h2M16 12h2"/>',
+    "dato": '<path d="M4 19.5h16M7 16V10M12 16V5M17 16v-4"/><path d="M15.5 6.5l3 3M18.5 6.5l-3 3"/>',
 }
 
 
@@ -615,20 +602,23 @@ def avisos_calle(rec: dict) -> list[tuple[str, str]]:
     return [(ICONO_RIESGO.get(r["clave"], "aviso"), r["texto"]) for r in rec["riesgos"]]
 
 
-def eje_horas(cada: int, con_h: bool) -> alt.X:
-    """Eje de horas legible en un móvil: una etiqueta cada «cada» horas, en horizontal."""
-    return alt.X("hora:O", title=None, scale=alt.Scale(paddingInner=0.22),
+def eje_horas(cada: int, con_h: bool, titulo: str | None = None) -> alt.X:
+    """Eje de horas legible en un móvil: una etiqueta cada «cada» horas, en horizontal. Con
+    «titulo», el título del eje (gráficos del Informe completo)."""
+    return alt.X("hora:O", title=titulo, scale=alt.Scale(paddingInner=0.22),
                  axis=alt.Axis(values=list(range(0, 24, cada)), labelAngle=0, labelFontSize=14,
                                labelExpr="datum.value + ' h'" if con_h else "datum.value",
-                               labelColor=SUAVE, labelPadding=8, ticks=False,
-                               domainColor=BORDE))
+                               labelColor=SUAVE, labelPadding=8, ticks=titulo is not None,
+                               tickColor=BORDE, domainColor=BORDE, titleFontSize=12,
+                               titleFontWeight=600, titleColor=SUAVE, titlePadding=10))
 
 
-def eje_personas() -> alt.Y:
-    return alt.Y("personas:Q", title=None,
+def eje_personas(titulo: str | None = None) -> alt.Y:
+    return alt.Y("personas:Q", title=titulo,
                  axis=alt.Axis(labelExpr="replace(format(datum.value, ',.0f'), ',', '.')",
-                               labelFontSize=12, labelColor=TENUE, gridColor="#f0e9df",
-                               tickCount=4, domain=False, ticks=False))
+                               labelFontSize=12, labelColor=TENUE, gridColor="#ece6dc",
+                               tickCount=5, domain=False, ticks=False, titleFontSize=12,
+                               titleFontWeight=600, titleColor=SUAVE, titlePadding=10))
 
 
 def grafico_resumen(perfil: dict, rec: dict, dia: str) -> list[tuple[str, str]]:
@@ -809,7 +799,7 @@ def construir_mapa(lat, lon, locs: pd.DataFrame | None, zoom: int = 16,
                 marcador(f.lat, f.lon, icono_modo(f.modo, px), px).add_to(m)
         if locs is not None:
             for f in locs.itertuples():   # sin ventanas ni nombres: el tipo, por color y forma
-                marcador(f.lat, f.lon, marca_tipo(f.tipo, 16), 16).add_to(m)
+                marcador(f.lat, f.lon, marca_tipo(f.tipo, 24), 24).add_to(m)
         folium.CircleMarker((lat, lon), radius=9, weight=3, color="#ffffff",
                             fill=True, fill_color=PRINCIPAL, fill_opacity=1,
                             interactive=False).add_to(m)
@@ -838,7 +828,7 @@ def leyenda(titulo: str, items: list[tuple[str, str]], extra: str = "") -> None:
 
 
 def leyenda_mapa(paradas: pd.DataFrame | None = None, cuenta: dict | None = None) -> str:
-    """Leyenda de los locales (los cuatro tipos, con su forma y su color) y, si se dan, de las
+    """Leyenda de los locales (los cuatro tipos, con su dibujo y su color) y, si se dan, de las
     paradas del mapa. Con «cuenta», cada tipo lleva su número (informe)."""
     out = f"<div class='leyenda rejilla{' cuenta' if cuenta else ''}'>" + "".join(
         f"<span>{marca_tipo(t)}{n}" + (f"<b>{miles(cuenta[t])}</b>" if cuenta else "")
@@ -866,7 +856,8 @@ def grafico_perfil(perfil: dict, rec: dict, dia: str, clientes: bool = False) ->
     largo["cliente"] = largo["tipo"].map(S.TIPOS_CLIENTE)
     largo["orden"] = largo["tipo"].map({t: i for i, t in enumerate(orden)})
     barras = alt.Chart(largo).mark_bar(stroke="#ffffff", strokeWidth=1).encode(
-        x=eje_horas(2, False), y=eje_personas(),
+        x=eje_horas(2, False, "Hora del día"),
+        y=eje_personas("Visitas posibles por hora (≈)" if clientes else "Personas por hora (≈)"),
         color=alt.Color("cliente:N", legend=None,
                         scale=alt.Scale(domain=[S.TIPOS_CLIENTE[t] for t in orden],
                                         range=[COLOR_CLIENTE[t] for t in orden])),
@@ -883,7 +874,7 @@ def grafico_perfil(perfil: dict, rec: dict, dia: str, clientes: bool = False) ->
         x="hora:O", y="personas:Q", text="txt:N")
     st.altair_chart((barras + marcas).properties(
         height=330, padding={"top": 14, "left": 2, "right": 6, "bottom": 2})
-        .configure_view(strokeWidth=0), width="stretch")
+        .configure_view(strokeWidth=0).configure(background="transparent"), width="stretch")
 
 
 def elegir_punto(lat: float, lon: float, ejemplo: str | None = None,
@@ -1187,8 +1178,7 @@ def tarjeta_mercado(b: dict) -> str:
         etiqueta, valor, frase = b["titulo"], "—", ""
     cuenta = cuenta_competencia(b)
     avisos = any(es_aviso(n) for n in b["notas"])
-    marcas = (f"<span class='etiqueta'>{html.escape(b['caracter'].capitalize())}</span>"
-              + ("<span class='etiqueta aviso'>Con avisos</span>" if avisos else ""))
+    marcas = pie_dato(b["caracter"], extra=" · con avisos" if avisos else "")
     return tarjeta(
         f"<div class='rotulo'>{html.escape(b['titulo'])}</div>"
         f"<div class='dk-etq'>{html.escape(etiqueta)}</div>"
@@ -1243,7 +1233,8 @@ def seccion_riesgos(rec: dict, inf: dict) -> None:
     porqué en un desplegable y, debajo, los avisos sobre los datos."""
     st.markdown(cabecera_seccion("riesgos") + fila_clave([
         tarjeta(f"<div class='dk-aviso'>{ico(ICONO_RIESGO.get(r['clave'], 'aviso'))}"
-                f"<span>{html.escape(r['texto'])}</span></div>", etiquetas(r),
+                f"<span>{html.escape(r['texto'])}</span></div>",
+                pie_dato(r.get("base", ""), r.get("confianza")),
                 "bien" if ICONO_RIESGO.get(r["clave"]) == "ok" else "atencion")
         for r in rec["riesgos"]]), unsafe_allow_html=True)
     con_porque = [r for r in rec["riesgos"] if r.get("porque")]
@@ -1271,11 +1262,10 @@ SECCIONES = (("movimiento", "Nivel de movimiento"), ("quien", "A quién"),
              ("hora", "A qué hora"), ("vender", "Qué vender"), ("precio", "A qué precio"),
              ("perfil", "Perfil por horas"), ("mercado", "Mercado"),
              ("riesgos", "Riesgos y avisos"), ("comprobar", "Qué comprobar en persona"),
-             ("fuentes", "Fuentes y licencias"))
+             ("metodologia", "Metodología y supuestos clave"), ("fuentes", "Fuentes y licencias"))
 NUMERO_SECCION = {c: f"{i:02d}" for i, (c, _) in enumerate(SECCIONES, 1)}
-# De dónde sale el perfil por horas (src/perfil_horario.py; detalle en docs/fuentes.md).
-FUENTE_PERFIL = ("perfil por horas con datos del CRTM, del Portal de Datos Abiertos de la "
-                 "Comunidad de Madrid, del INE y de OpenStreetMap")
+# De dónde sale el perfil por horas (src/metodologia.py; detalle en docs/fuentes.md).
+FUENTE_PERFIL = metodologia.FUENTE_PERFIL
 FUENTE_SUPUESTOS = FUENTE_PERFIL + ", y supuestos explícitos (src/supuestos.py)"
 
 
@@ -1316,9 +1306,62 @@ def nombre_corto(nombre: str) -> str:
     return re.split(r" \(|, por |\. Unidades|: ", nombre)[0]
 
 
+@st.cache_resource
+def version_codigo() -> str | None:
+    """Commit corto del código (src/metodologia.py), una vez por proceso."""
+    return metodologia.version_codigo()
+
+
+def ficha_tecnica(rec: dict) -> str:
+    """La ficha técnica del principio del Informe completo: qué se ha analizado, con qué
+    datos y con qué versión (las filas, en src/metodologia.py, las comparte el PDF). Solo
+    enseña lo que ya se sabe; no calcula nada."""
+    filas = metodologia.filas_ficha(lugar_analizado(), punto, muni["nombre"], rec,
+                                    fu["portal_descarga"], fecha_hoy().isoformat(),
+                                    version_codigo())
+    return ("<div class='ficha'><div class='rotulo'>Ficha técnica</div><table>"
+            + "".join(f"<tr><th scope='row'>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>"
+                      for k, v in filas) + "</table></div>")
+
+
+def pie_grafico(clientes: bool = False) -> str:
+    """La línea de la fuente bajo los gráficos del Informe completo."""
+    return ("<div class='pie-grafico'>Fuente: " + html.escape(FUENTE_PERFIL)
+            + (" y supuestos del tipo de local (src/supuestos.py)" if clientes else "")
+            + ". Elaboración propia.</div>")
+
+
+def seccion_metodologia(rec: dict, mov: dict) -> None:
+    """Metodología y supuestos clave: los valores se leen de src/supuestos.py tal cual (no
+    se cambia ninguno) y se dice de dónde sale cada uno (filas en src/metodologia.py)."""
+    filas = metodologia.filas_metodologia(rec, mov)
+    st.markdown(
+        cabecera_seccion("metodologia")
+        + "<div class='tabla-tecnica'><table><thead><tr><th>Parámetro</th><th>Valor</th>"
+          "<th>De dónde sale</th></tr></thead><tbody>"
+        + "".join(f"<tr><td>{html.escape(a)}</td><td>{html.escape(b)}</td>"
+                  f"<td>{html.escape(c)}</td></tr>" for a, b, c in filas)
+        + "</tbody></table></div>"
+        "<div class='rotulo formula-t'>Mercado potencial</div><div class='formula'>"
+        + metodologia.formula_mercado() + "</div>"
+        "<p class='metodo-mas'>El resto de los supuestos, cada uno con su porqué, está en "
+        f"<a href='{REPOSITORIO}/blob/main/src/supuestos.py' target='_blank' rel='noopener'>"
+        "src/supuestos.py</a> y en el <a href='" + REPOSITORIO + "#cómo-funciona' "
+        "target='_blank' rel='noopener'>README</a>.</p>", unsafe_allow_html=True)
+    st.markdown(linea_fuente("src/supuestos.py del repositorio, sin cambios", "Estimación"),
+                unsafe_allow_html=True)
+
+
+def pie_dato(base: str, confianza: str | None = None, extra: str = "") -> str:
+    """Pie de una tarjeta de datos clave, en texto: «Dato», «Estimación» o «Estimación ·
+    confianza media» (y, si hace falta, «· con avisos»)."""
+    texto = base.capitalize() + (f" · confianza {confianza}" if confianza else "") + extra
+    return (f"<span class='dk-pie{f' conf-{confianza}' if confianza else ''}'>"
+            f"{html.escape(texto)}</span>")
+
+
 def tarjeta_fiabilidad(r: dict) -> str:
-    return tarjeta("<div class='rotulo'>Fiabilidad</div>" + fiabilidad(r),
-                   etiqueta_confianza(r))
+    return tarjeta("<div class='rotulo'>Fiabilidad</div>" + fiabilidad(r))
 
 
 def rec_detalle(r: dict) -> None:
@@ -1330,8 +1373,12 @@ def rec_detalle(r: dict) -> None:
             st.caption("\n".join(f"- {p}" for p in r["porque"]))
 
 
+# Nota del contraste con conteos reales de peatones (src/metodologia.py).
+AVISO_AFOROS = metodologia.AVISO_AFOROS
+
+
 def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = "",
-                     fuente: str = FUENTE_SUPUESTOS) -> None:
+                     fuente: str = FUENTE_SUPUESTOS, aviso: str = "") -> None:
     """Las cuatro preguntas tienen la misma estructura: una fila de datos clave (respuesta,
     cifra o gráfico pequeño y fiabilidad), el porqué (la recomendación principal con sus
     motivos), un detalle desplegable con todas las recomendaciones y la fuente."""
@@ -1341,13 +1388,15 @@ def seccion_pregunta(clave: str, t: dict, detalle, figura: str = "", pie: str = 
             tarjeta("<div class='rotulo'>Respuesta</div>"
                     f"<div class='dk-valor'>{html.escape(t['respuesta'])}</div>"
                     + (f"<div class='dk-etq'>{html.escape(t['apoyo'])}</div>"
-                       if t["apoyo"] else ""), etiqueta_base(r), "dk-resp"),
-            tarjeta(figura, "<span class='etiqueta'>"
-                    + ("Dato" if clave == "precio" else "Estimación") + "</span>")
+                       if t["apoyo"] else ""), pie_dato(r.get("base", ""), r.get("confianza")),
+                    "dk-resp"),
+            tarjeta(figura, pie_dato("Dato" if clave == "precio" else "Estimación"))
             if figura else "",
             tarjeta_fiabilidad(r)])
         + "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
     st.markdown(f"**{r['texto']}**" + "".join(f"\n- {p}" for p in r.get("porque", [])))
+    if aviso:
+        st.markdown(nota("aviso", html.escape(aviso)), unsafe_allow_html=True)
     with st.expander("Detalle: todas las recomendaciones"):
         detalle()
     if pie:
@@ -1406,6 +1455,7 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
         presentes = perfil["horas"].loc[dia][list(COLOR_CLIENTE)].sum()
         leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
                              if presentes[t] > 0], "<span>«punta»: horas punta</span>")
+        st.markdown(pie_grafico(), unsafe_allow_html=True)
     if con_tipo(rec):
         st.markdown("<div class='resp-apoyo'>Clientes posibles por "
                     f"hora para {html.escape(S.TIPOS_LOCAL_CORTO[rec['tipo_local']['clave']])}"
@@ -1418,6 +1468,7 @@ def seccion_perfil(rec: dict, perfil: dict) -> None:
             leyenda("Clientes", [(S.TIPOS_CLIENTE[t], c) for t, c in COLOR_CLIENTE.items()
                                  if sum(cph[t]) > 0],
                     "<span>«punta»: horas con más clientes</span>")
+            st.markdown(pie_grafico(True), unsafe_allow_html=True)
         sens = rec["a_que_hora"]["detalle"][dia]["sensibilidad"]
         with st.expander(f"Sensibilidad: ¿cambia la hora con más clientes? · {dia_txt.lower()}"):
             st.markdown(
@@ -1530,7 +1581,14 @@ def tabla_fuentes(fu: dict) -> str:
     url = re.compile(r"https?://[^\s)`,]+")
     filas = [f"<tr class='grupo'><th colspan='4'>Portal de Datos Abiertos de la Comunidad de "
              f"Madrid · descargado el {html.escape(fu['portal_descarga'])}</th></tr>"]
-    for f in fu["portal"]:
+    # Primero los conjuntos que usan los cálculos; después, aparte, los que solo se
+    # descargaran sin usarse (hoy ninguno: entonces no sale ese rótulo).
+    usados = [f for f in fu["portal"] if f.get("En uso", True)]
+    sin_uso = [f for f in fu["portal"] if not f.get("En uso", True)]
+    for f in usados + sin_uso:
+        if f is (sin_uso or [None])[0]:
+            filas.append("<tr class='grupo'><th colspan='4'>Descargada, no se usa en los "
+                         "cálculos</th></tr>")
         ficha = (url.search(f["Ficha"]) or [None])[0]
         filas.append(
             f"<tr><td data-c='Fuente'>{html.escape(f['Conjunto'])}</td>"
@@ -1828,20 +1886,21 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         st.markdown(
             orientacion(AVISO) + "<div class='inf-cab'><div class='rotulo'>Informe completo"
             f"</div><div class='inf-titulo'>{html.escape(lugar_analizado())}</div>"
-            f"<div class='inf-meta'>{ico('pin')}Radio de {S.RADIO_M} m · calculado en "
+            f"<div class='inf-meta'>Radio de {S.RADIO_M} m · calculado en "
             f"{dec(st.session_state['segundos'])} s</div></div>", unsafe_allow_html=True)
         acciones()
         selector_tipo()
+        st.markdown(ficha_tecnica(rec), unsafe_allow_html=True)
         st.markdown(
             cabecera_seccion("movimiento", primera=True) + fila_clave([
                 tarjeta(indicador_movimiento(mov)
                         + f"<div class='dk-valor'>{html.escape(mov['nombre'])}</div>"
                         f"<div class='dk-etq'>Nivel {mov['nivel']} de 5</div>",
-                        "<span class='etiqueta'>Estimación</span>", "aguja"),
+                        pie_dato("Estimación"), "aguja"),
                 tarjeta(f"<div class='rotulo'>Gente que pasa</div><div class='dk-cifra'>"
-                        f"≈{redondo(mov['pasos_laborable'])}</div><div class='dk-etq'>personas "
-                        "pasan cerca en un día laborable (estimación).</div>",
-                        "<span class='etiqueta'>Estimación</span>")])
+                        f"≈{redondo(mov['pasos_laborable'])}<span class='dk-unidad'>personas/día"
+                        "</span></div><div class='dk-etq'>personas pasan cerca en un día "
+                        "laborable (estimación).</div>", pie_dato("Estimación"))])
             + "<div class='porque-t'>Por qué</div>", unsafe_allow_html=True)
         st.markdown(
             f"**Nivel de movimiento: {mov['nombre']}** (nivel {mov['nivel']} de 5). "
@@ -1867,7 +1926,7 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         seccion_pregunta("hora", resp["cuando"],
                          lambda: por_dias("hora", hr["recomendaciones"]),
                          cifra_cuando(rec, informe=True),
-                         "" if con_tipo(rec) else S.AVISO_GENERAL)
+                         "" if con_tipo(rec) else S.AVISO_GENERAL, aviso=AVISO_AFOROS)
         seccion_pregunta("vender", resp["que"], lambda: por_dias(
             "vender", qv["recomendaciones"],
             ("Huecos y cocinas", [r for r in qv["recomendaciones"] if "dia" not in r]
@@ -1881,6 +1940,7 @@ def parte_informe(rec: dict, perfil: dict, inf: dict) -> None:
         seccion_mercado(inf)
         seccion_riesgos(rec, inf)
         pestana_comprobar(rec)
+        seccion_metodologia(rec, mov)
         st.markdown(cabecera_seccion("fuentes"), unsafe_allow_html=True)
         pestana_fuentes(fu)
 
@@ -2205,17 +2265,30 @@ def portada() -> None:
         + "</nav>" + menu_html() + "</div>", unsafe_allow_html=True)
     with st.container(key="portada"):
         st.markdown(
+            "<div class='pt-rotulo'>Datos abiertos de la Comunidad de Madrid</div>"
             f"<div class='pt-marca'>{logo}<b><i>BAR</i>ómetro</b></div>"
-            "<div class='pt-frase'>Te ayuda a decidir qué ofrecer en tu bar o restaurante, "
-            "según la zona.</div>", unsafe_allow_html=True)
+            "<div class='pt-titular' role='heading' aria-level='1'>¿Habrá negocio aquí?</div>"
+            "<div class='pt-lema'>Mira los datos antes de firmar.</div>"
+            "<div class='pt-frase'>Escribe la dirección del local y descubre en segundos cuánta "
+            "gente pasa, cuándo tendrías más clientes, a quién vender, qué ofrecer y a qué "
+            "precios. Gratis y con datos abiertos.</div>", unsafe_allow_html=True)
         parte_buscador("portada")
+        # Las cifras suben contando al entrar (app/buscador.js; sin animación si el sistema
+        # pide reducir el movimiento). El HTML ya trae la cifra final.
         st.markdown(
-            "<div class='pt-cifras'>"
-            f"<div><b>{miles(c['conjuntos'])}</b><span>conjuntos de datos abiertos de la "
-            "Comunidad de Madrid en uso</span></div>"
-            f"<div><b>{miles(c['zonas'])}</b><span>zonas analizadas (secciones censales)"
-            "</span></div>"
-            f"<div><b>{miles(c['municipios'])}</b><span>municipios cubiertos</span></div>"
+            "<div class='pt-ventajas'>"
+            + "".join(f"<div>{ico(i)}<span>{t}</span></div>" for i, t in (
+                ("reloj", "Cuándo tendrías clientes, según tu tipo de local"),
+                ("comparar", "Compara dos locales lado a lado"),
+                ("dato", "Dato y estimación, siempre separados")))
+            + "</div><div class='pt-cifras'>"
+            f"<div><b data-n='{c['conjuntos']}'>{miles(c['conjuntos'])}</b><span>conjuntos de "
+            "datos abiertos de la Comunidad de Madrid en uso</span></div>"
+            f"<div><b data-n='{c['zonas']}'>{miles(c['zonas'])}</b><span>zonas analizadas "
+            "(secciones censales)</span></div>"
+            f"<div><b data-n='{c['municipios']}'>{miles(c['municipios'])}</b><span>municipios "
+            "cubiertos</span></div>"
+            "<div><b>Cada semana</b><span>datos actualizados</span></div>"
             f"</div><div class='pt-aviso'>{AVISO_SENCILLO}</div>", unsafe_allow_html=True)
     st.markdown(cabecera_seccion("como-funciona", "Cómo funciona", primera=True)
                 + pasos_html(), unsafe_allow_html=True)
@@ -2226,8 +2299,8 @@ def portada() -> None:
 # ------------------------------------------------------------------- qué se enseña
 pagina = st.session_state.get("pagina")
 if res or pendiente or pagina:   # resultado sobre fondo claro, con la barra fija arriba
-    alto_movil = "7.4rem" if res else "5rem"   # con el cambio de vista, dos filas
-    st.markdown("<style>.block-container {padding-top:5.5rem;} @media (max-width:640px) "
+    alto_movil = "7.6rem" if res else "5rem"   # con el cambio de vista, dos filas
+    st.markdown("<style>.block-container {padding-top:6.5rem;} @media (max-width:640px) "
                 f"{{.block-container {{padding-top:{alto_movil};}}}}</style>",
                 unsafe_allow_html=True)
 if pagina in ("planes", "como"):   # se vuelve con el botón o con la barra

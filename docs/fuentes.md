@@ -140,7 +140,7 @@ Descargadas con `src/descargar_externas.py` en `datos/originales/<carpeta>/`.
 
 Generados con `src/procesar.py` en `datos/procesados/<capa>.parquet` (GeoParquet, geometría en EPSG:25830 y columnas `lat`/`lon` en EPSG:4326).
 
-- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, farmacias, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, farmacias del censo).
+- Sistema de coordenadas de origen: las X/Y del portal (centros educativos, sanitarios, desfibriladores) y del censo de locales están en ETRS89 / UTM 30N (EPSG:25830). Comprobado el 2026-11-09: los desfibriladores traen también lon/lat y coinciden a 0 m; con ED50 (EPSG:23030) habría ~234 m de desfase. Los demás se contrastaron por distancia al vecino más cercano (desfibriladores, OSM, censo de locales).
 - Dos cartografías de secciones censales, cada una con un uso:
   - **Secciones del portal de la Comunidad** (`secciones_censales/558.zip`, seccionado 2019): límite de la Comunidad para recortar todas las capas y límites municipales (`cod_municipio` de cada punto).
   - **Cartografía del INE** (`ine_seccionado/`, seccionado a 1 de enero de 2025): polígonos de la capa `secciones_censales` con la renta y la población del Atlas de renta de 2024, y `cdgseccion` de cada punto (sección del INE en la que cae, para cruzarlo con la renta).
@@ -320,3 +320,24 @@ No se descargan: la aplicación los consulta en el momento.
 - **Versión de los datos:** la vigente en el servidor de teselas
 
 <!-- fin:aplicacion -->
+
+<!-- inicio:contraste -->
+## Fuentes del contraste con aforos de peatones (no las usa la aplicación)
+
+Solo las usa [`src/contraste_aforos.py`](../src/contraste_aforos.py) para contrastar la gente que pasa del modelo con conteos reales. Se descargan con la API del portal (CKAN, `package_show`) en `datos/originales/madrid_aforos_peatones/` y no se suben a GitHub.
+
+### Aforos de peatones y bicicletas (Ayuntamiento de Madrid)
+
+- Ficha: https://datos.madrid.es/dataset/300321-0-aforos-peatones-bicicletas
+- Licencia: Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid».
+- Datos: estaciones permanentes de peatones, un conteo por estación y hora; cobertura publicada 2019-09-01 a 2024-06-30 (el último trimestre publicado es provisional). Se usa el año 2023 (`peatones_2023.csv`) y la estructura del fichero (`estructura.pdf`).
+- Aviso de la ficha: entre agosto de 2021 y septiembre de 2022 se cambiaron los detectores y no se recomienda comparar datos de antes y después.
+- Ficha modificada el 2026-07-24; descargado el 2026-11-24.
+
+### Calendario laboral (Ayuntamiento de Madrid)
+
+- Ficha: https://datos.madrid.es/dataset/300082-0-calendario_laboral
+- Licencia: Creative Commons Attribution 4.0 International (CC BY 4.0). Citar: «Fuente: Ayuntamiento de Madrid».
+- Datos: festivos de la ciudad de Madrid de 2013 a 2027 (`calendario_laboral.csv`); se usan los de 2023.
+- Ficha modificada el 2026-11-12; descargado el 2026-11-24.
+<!-- fin:contraste -->
