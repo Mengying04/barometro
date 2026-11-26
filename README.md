@@ -1,5 +1,17 @@
 # BARómetro
 
+## Estado del proyecto
+
+Presentado a **DATAMAD 2026**, el datatón de datos abiertos de la Comunidad de Madrid
+(26 de noviembre de 2026). **Desarrollo cerrado.**
+
+- **Funciona:** 15 conjuntos de la Comunidad y otras fuentes integrados, actualización
+  semanal con 38 comprobaciones, reproducible con Docker y servidor MCP.
+- **No funciona bien** ([`docs/validacion.md`](docs/validacion.md)): en día laborable no
+  coincide con los aforos de peatones; fuera de Madrid capital OpenStreetMap recoge menos
+  de la mitad de los locales; en polígonos industriales no ve a los trabajadores de
+  empresas pequeñas; los tipos de local no están calibrados.
+
 **¿Habrá negocio aquí?** Mira los datos antes de firmar.
 
 **BARómetro ayuda a quien tiene o quiere abrir un bar o restaurante en la Comunidad de
